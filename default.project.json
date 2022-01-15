@@ -1,0 +1,72 @@
+{
+  "name": "Rostar Project",
+  "tree": {
+    "$className": "DataModel",
+    "Lighting": {
+      "$path": "DataModel/Lighting.rbxm"
+    },
+    "Players": {
+      "$path": "DataModel/Players.rbxm"
+    },
+    "ReplicatedStorage": {
+      "$path": "DataModel/ReplicatedStorage.rbxm",
+      "Packages": {
+        "$className": "Folder",
+        "Chickynoid": {
+          "$className": "Folder",
+          "Assets": {
+            "$className": "Folder",
+            "R15Rig": {
+              "$path": "DataModel/ReplicatedStorage/Packages/Chickynoid/Assets/R15Rig.rbxm"
+            }
+          },
+          "Client": {
+            "$path": "DataModel/ReplicatedStorage/Packages/Chickynoid/Client"
+          },
+          "DefaultConfigs": {
+            "$path": "DataModel/ReplicatedStorage/Packages/Chickynoid/DefaultConfigs"
+          },
+          "Enums": {
+            "$path": "DataModel/ReplicatedStorage/Packages/Chickynoid/Enums"
+          },
+          "Server": {
+            "$path": "DataModel/ReplicatedStorage/Packages/Chickynoid/Server"
+          },
+          "Simulation": {
+            "$path": "DataModel/ReplicatedStorage/Packages/Chickynoid/Simulation"
+          },
+          "Types": {
+            "$path": "DataModel/ReplicatedStorage/Packages/Chickynoid/Types"
+          },
+          "Vendor": {
+            "$path": "DataModel/ReplicatedStorage/Packages/Chickynoid/Vendor"
+          }
+        }
+      }
+    },
+    "ServerScriptService": {
+      "$path": "DataModel/ServerScriptService.rbxm",
+      "Server": {
+        "$path": "DataModel/ServerScriptService/Server"
+      }
+    },
+    "SoundService": {
+      "$path": "DataModel/SoundService.rbxm"
+    },
+    "StarterPlayer": {
+      "$path": "DataModel/StarterPlayer.rbxm",
+      "StarterPlayerScripts": {
+        "$path": "DataModel/StarterPlayer/StarterPlayerScripts.rbxm",
+        "Client": {
+          "$path": "DataModel/StarterPlayer/StarterPlayerScripts/Client"
+        }
+      }
+    },
+    "Workspace": {
+      "$path": "DataModel/Workspace.rbxm",
+      "GameArea": {
+        "$path": "DataModel/Workspace/GameArea.rbxm"
+      }
+    }
+  }
+}

@@ -8,16 +8,20 @@ local Types = require(script.Parent.Types)
 local Simulation = {}
 Simulation.__index = Simulation
 
-Simulation.sweepModule = require(script.SweepModule)
+local playerSize = Vector3.new(3,5,3)
+
+Simulation.collisionModule = require(script.CollisionModule)
+
+
 
 function Simulation.new(config: Types.ISimulationConfig)
     local self = setmetatable({}, Simulation)
 
     self.pos = Vector3.new(0, 5, 0)
     self.vel = Vector3.new(0, 0, 0)
-
-    --power of jumping left
     self.jump = 0
+    
+    
 
     self.whiteList = config.raycastWhitelist
 
@@ -40,8 +44,8 @@ function Simulation.new(config: Types.ISimulationConfig)
 
         local part = Instance.new("Part")
         self.debugMarker = part
-        part.Size = Vector3.new(5, 5, 5)
-        part.Shape = Enum.PartType.Ball
+        part.Size = playerSize
+        part.Shape = Enum.PartType.Block
         part.CanCollide = false
         part.CanQuery = false
         part.CanTouch = false
@@ -57,18 +61,12 @@ function Simulation.new(config: Types.ISimulationConfig)
         model.Parent = game.Workspace
         self.debugModel = model
 
-        local debugPart = Instance.new("Part")
-        debugPart.Shape = Enum.PartType.Cylinder
-        debugPart.Anchored = true
-        debugPart.Parent = model
-        debugPart.CanQuery = false
-        debugPart.CanCollide = false
-        debugPart.CanTouch = false
-        debugPart.Size = Vector3.new(0.01, 3.5, 3.5)
-
-        debugPart.CFrame = CFrame.new(Vector3.new(0, self.feetHeight)) * CFrame.fromEulerAnglesXYZ(0, 0, math.rad(90))
+    
     end
+    
+    Simulation.collisionModule:MakeWorld(game.Workspace.GameArea, playerSize )
 
+    
     return self
 end
 
@@ -87,10 +85,9 @@ function Simulation:ProcessCommand(cmd)
 
     local result = nil
     local onGround = nil
-    local onLedge = nil
-
+  
     --Check ground
-    onGround, onLedge = self:DoGroundCheck(self.pos, self.feetHeight)
+    onGround  = self:DoGroundCheck(self.pos, self.feetHeight)
 
     --Figure out our acceleration (airmove vs on ground)
     if onGround == nil then
@@ -129,6 +126,9 @@ function Simulation:ProcessCommand(cmd)
     if onGround ~= nil then
         if self.jump > 0 then
             self.jump -= cmd.deltaTime
+            if (self.jump < 0) then
+                self.jump = 0
+            end
         end
 
         --jump!
@@ -150,29 +150,30 @@ function Simulation:ProcessCommand(cmd)
     --STEPUP - the magic that lets us traverse uneven world geometry
     --the idea is that you redo the player movement but "if I was x units higher in the air"
     --it adds a lot of extra casts...
-
+  
     local flatVel = Vector3.new(self.vel.x, 0, self.vel.z)
-    -- Do we even need to?
-    if (onGround ~= nil or onLedge ~= nil) and hitSomething == true then
+    
+    -- Do we even need to?                               (not jumping!)
+    if (onGround ~= nil  and hitSomething == true and self.jump == 0 ) then
+        
         --first move upwards as high as we can go
-        local headHit = self.sweepModule:Sweep(self.pos, self.pos + Vector3.new(0, self.stepSize, 0), self.whiteList)
-
+        local headHit = self.collisionModule:Sweep(self.pos, self.pos + Vector3.new(0, self.stepSize, 0))
+        
         --Project forwards
         local stepUpNewPos, stepUpNewVel, stepHitSomething = self:ProjectVelocity(headHit.endPos, flatVel)
 
         --Trace back down
         local traceDownPos = stepUpNewPos
 
-        local hitResult = self.sweepModule:Sweep(
+        local hitResult = self.collisionModule:Sweep(
             traceDownPos,
-            traceDownPos - Vector3.new(0, self.stepSize, 0),
-            self.whiteList
+            traceDownPos - Vector3.new(0, self.stepSize, 0)
         )
 
         stepUpNewPos = hitResult.endPos
 
         --See if we're mostly on the ground after this? otherwise rewind it
-        local ground, ledge = self:DoGroundCheck(stepUpNewPos, (-2.5 + self.stepSize))
+        local ground = self:DoGroundCheck(stepUpNewPos, (-2.5 + self.stepSize))
 
         if ground ~= nil then
             self.pos = stepUpNewPos
@@ -189,20 +190,9 @@ function Simulation:ProcessCommand(cmd)
         self.vel = walkNewVel
     end
 
-    --See if our feet are dangling but we're on a ledge
-    --If so, slide/push away from the ledge pos
-    if onGround == nil and onLedge ~= nil then
-        local pos = onLedge.Position
-
-        local dir = Vector3.new(self.pos.x - pos.x, 0, self.pos.z - pos.z)
-        local flatVel = Vector3.new(self.vel.x, 0, self.vel.z)
-
-        local velChange = self:Accelerate(dir.unit, maxSpeed, 2, flatVel, cmd.deltaTime)
-        if velChange.x == velChange.x then --nan check
-            self.vel = Vector3.new(velChange.x, self.vel.y, velChange.z)
-        end
-    end
-
+ 
+    
+    
     --position the debug visualizer
     if self.debugModel then
         self.debugModel:PivotTo(CFrame.new(self.pos))
@@ -233,27 +223,12 @@ function Simulation:Destroy()
 end
 
 function Simulation:DoGroundCheck(pos, feetHeight)
-    local contacts = self.sweepModule:SweepForContacts(pos, pos + Vector3.new(0, -0.1, 0), self.whiteList)
-    local onGround = nil
-    local onLedge = nil
-
-    --check if we're on the ground
-    for key, raycastResult in pairs(contacts) do
-        --How far down the sphere was the contact
-        local dif = raycastResult.Position.y - self.pos.y
-        if dif < feetHeight then
-            onGround = raycastResult
-            --print("og")
-        elseif dif < 0 then --Something is touching our sphere between the middle and the feet
-            onLedge = raycastResult
-            --print("ledge")
-        end
-        --early out
-        if onGround and onLedge then
-            return onGround, onLedge
-        end
+    local results = self.collisionModule:Sweep(pos, pos + Vector3.new(0, -0.1, 0))
+    
+    if (results.fraction < 1) then
+        return results 
     end
-    return onGround, onLedge
+    return nil 
 end
 
 function Simulation:ClipVelocity(input, normal, overbounce)
@@ -276,47 +251,64 @@ function Simulation:ProjectVelocity(startPos, startVel)
     local movePos = startPos
     local moveVel = startVel
     local hitSomething = false
-
+    
+  
     --Project our movement through the world
+    local planes = {}
+    
     for bumps = 0, 3 do
-        if moveVel.Magnitude < 0.001 then
+   
+        if moveVel.magnitude < 0.001 then
             --done
             break
         end
-
+        
+        
         if moveVel:Dot(startVel) < 0 then
             --we projected back in the opposite direction from where we started. No.
             moveVel = Vector3.new(0, 0, 0)
+   
             break
         end
 
-        local result = self.sweepModule:Sweep(movePos, movePos + moveVel, self.whiteList)
-
+        local result = self.collisionModule:Sweep(movePos, movePos + (moveVel))
+        
+ 
+        if (result.fraction > 0) then
+            movePos = result.endPos
+            
+        end
+        --See if we swept the whole way?
+        if result.fraction == 1 then
+            break
+        end        
+        
         if result.fraction < 1 then
+            
             hitSomething = true
         end
 
-        if result.fraction == 0 then
-            --start solid, don't do anything
+        if result.allSolid == true then
+            --all solid, don't do anything
             --(this doesn't mean we wont project along a normal!)
-        else
-            --See if we swept the whole way?
-            if result.fraction == 1 then
-                --Made it whole way
-                movePos = movePos + moveVel
-
-                break
-            end
-
-            if result.fraction > 0 then
-                --We moved
-                movePos = movePos + (moveVel * result.fraction)
-            end
+            moveVel = Vector3.new(0,0,0)
+            break
         end
-
-        --Deflect the velocity and keep going
-        moveVel = self:ClipVelocity(moveVel, result.normal, 1.0)
+        --Hit!
+        
+        --timeLeft -= (timeLeft * result.fraction)
+        
+        if (planes[result.planeNum] == nil) then
+            
+            planes[result.planeNum] = true
+            --Deflect the velocity and keep going
+            
+            local inVel = moveVel
+            moveVel = self:ClipVelocity(moveVel, result.normal, 1.0)
+        end
     end
+    
+    
     return movePos, moveVel, hitSomething
 end
 
@@ -325,14 +317,18 @@ function Simulation:WriteState()
     local record = {}
     record.pos = self.pos
     record.vel = self.vel
-
+    record.jump = self.jump
+    
     return record
 end
 
 --This too!
 function Simulation:ReadState(record)
-    self.pos = record.pos
+     
+    self.pos = record.pos 
     self.vel = record.vel
+    self.jump = record.jump
+
 end
 
 return Simulation

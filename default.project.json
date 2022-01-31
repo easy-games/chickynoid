@@ -2,11 +2,23 @@
   "name": "Rostar Project",
   "tree": {
     "$className": "DataModel",
+    "Chat": {
+      "$path": "DataModel/Chat.rbxm"
+    },
     "Lighting": {
       "$path": "DataModel/Lighting.rbxm"
     },
+    "LocalizationService": {
+      "$path": "DataModel/LocalizationService.rbxm"
+    },
+    "MaterialService": {
+      "$path": "DataModel/MaterialService.rbxm"
+    },
     "Players": {
       "$path": "DataModel/Players.rbxm"
+    },
+    "ReplicatedFirst": {
+      "$path": "DataModel/ReplicatedFirst.rbxm"
     },
     "ReplicatedStorage": {
       "$path": "DataModel/ReplicatedStorage.rbxm",
@@ -50,11 +62,23 @@
         "$path": "DataModel/ServerScriptService/Server"
       }
     },
+    "ServerStorage": {
+      "$path": "DataModel/ServerStorage.rbxm"
+    },
     "SoundService": {
       "$path": "DataModel/SoundService.rbxm"
     },
+    "StarterGui": {
+      "$path": "DataModel/StarterGui.rbxm"
+    },
+    "StarterPack": {
+      "$path": "DataModel/StarterPack.rbxm"
+    },
     "StarterPlayer": {
       "$path": "DataModel/StarterPlayer.rbxm",
+      "StarterCharacterScripts": {
+        "$path": "DataModel/StarterPlayer/StarterCharacterScripts.rbxm"
+      },
       "StarterPlayerScripts": {
         "$path": "DataModel/StarterPlayer/StarterPlayerScripts.rbxm",
         "Client": {
@@ -66,6 +90,9 @@
       "$path": "DataModel/Workspace.rbxm",
       "GameArea": {
         "$path": "DataModel/Workspace/GameArea.rbxm"
+      },
+      "GameArea2": {
+        "$path": "DataModel/Workspace/GameArea2.rbxm"
       }
     }
   }

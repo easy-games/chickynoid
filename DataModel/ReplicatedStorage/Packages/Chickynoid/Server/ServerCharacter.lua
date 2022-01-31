@@ -70,6 +70,8 @@ end
     Steps the simulation forward by one frame. This loop handles the simulation
     and replication timings.
 ]=]
+
+ 
 function ServerCharacter:Heartbeat(_dt: number)
     -- 1st stage: Step the simulation
     -- Simple version, just process all of their commands:
@@ -79,7 +81,9 @@ function ServerCharacter:Heartbeat(_dt: number)
     for _, command in ipairs(self._unprocessedCommands) do
         self._simulation:ProcessCommand(command)
         self._lastConfirmedCommand = command.l
+       
     end
+ 
     table.clear(self._unprocessedCommands)
 
     -- 2nd stage: Replicate to the player

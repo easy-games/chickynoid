@@ -132,6 +132,7 @@ function ClientCharacter:HandleNewState(state: table, lastConfirmed: number)
         local record = self._stateCache[lastConfirmed]
         if record then
             -- This is the state we were in, if the server agrees with this, we dont have to resim
+            
             if (record.state.pos - state.pos).magnitude < 0.01 and (record.state.vel - state.vel).magnitude < 0.01 then
                 resimulate = false
                 -- print("skipped resim")
@@ -169,12 +170,13 @@ function ClientCharacter:HandleNewState(state: table, lastConfirmed: number)
 
         -- Did we make a misprediction? We can tell if our predicted position isn't the same after reconstructing everything
         local delta = oldPos - self._simulation.pos
-        if delta.magnitude > 0.01 then
+        if delta.magnitude > 0.2 then
             print("Mispredict:", delta)
         end
     end
 end
 
+ 
 function ClientCharacter:Heartbeat(dt: number)
     self._localFrame += 1
 
@@ -184,7 +186,8 @@ function ClientCharacter:Heartbeat(dt: number)
 
     -- Step this frame
     self._simulation:ProcessCommand(cmd)
-
+ 
+ 
     -- Marker for positions added since the last server update
     self:_spawnDebugSphere(self._simulation.pos, Color3.fromRGB(44, 140, 39))
 
@@ -206,7 +209,7 @@ function ClientCharacter:Heartbeat(dt: number)
     if PRINT_NUM_CASTS then
         print("casts", self._simulation.sweepModule.raycastsThisFrame)
     end
-    self._simulation.sweepModule.raycastsThisFrame = 0
+    
 end
 
 function ClientCharacter:_spawnDebugSphere(pos, color)

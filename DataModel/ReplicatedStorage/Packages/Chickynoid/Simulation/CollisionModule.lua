@@ -269,7 +269,7 @@ function module:GenerateConvexHull(part, expansionSize)
         })
         self.planeNum+=1
         
-        self:GenerateDebugPlane(expanded, normal)
+        --self:GenerateDebugPlane(expanded, normal)
     end
     
     self:WritePartToHashMap(part, hull)
@@ -440,7 +440,9 @@ end
  
 
 function module:Sweep(startPos, endPos)
-
+    
+    debug.profilebegin("Sweep")
+    
     local data = {}
     data.startPos = startPos
     data.endPos = endPos
@@ -450,17 +452,21 @@ function module:Sweep(startPos, endPos)
     data.planeNum = 0
     data.planeD = 0 
     data.normal = Vector3.new(0,1,0)
-    
+    data.checks = 0
     
     --calc bounds of sweep
     local hulls = self:FetchHullsForBox(startPos, endPos)
     
  
     for _,hull in pairs(hulls) do
-  
+        
+        data.checks+=1
         self:CheckBrush(data, hull)
         if (data.allSolid == true) then
             data.fraction = 0
+            break
+        end
+        if (data.fraction < EPS) then
             break
         end
     end
@@ -473,6 +479,7 @@ function module:Sweep(startPos, endPos)
         data.endPos = startPos + (vec * data.fraction ) - (vec.unit * SKIN)
     end
     
+    debug.profileend()
     return data
 end
  

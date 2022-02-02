@@ -11,18 +11,19 @@ Simulation.__index = Simulation
 local playerSize = Vector3.new(3,5,3)
 
 Simulation.collisionModule = require(script.CollisionModule)
-
-
+Simulation.characterData = require(script.CharacterData)
 
 function Simulation.new(config: Types.ISimulationConfig)
     local self = setmetatable({}, Simulation)
-
-    self.pos = Vector3.new(0, 5, 0)
-    self.vel = Vector3.new(0, 0, 0)
-    self.jump = 0
     
     
-
+    self.state = {}
+     
+    self.state.pos = Vector3.new(0, 5, 0)
+    self.state.vel = Vector3.new(0, 0, 0)
+    self.state.jump = 0
+    
+    self.characterData = self.characterData.new()
     self.whiteList = config.raycastWhitelist
 
     --players feet height - height goes from -2.5 to +2.5
@@ -64,7 +65,11 @@ function Simulation.new(config: Types.ISimulationConfig)
     
     end
     
-    Simulation.collisionModule:MakeWorld(game.Workspace.GameArea, playerSize )
+    --THIS DOES NOT GO HERE LOL
+    
+    if (#Simulation.collisionModule.hulls == 0) then
+        Simulation.collisionModule:MakeWorld(game.Workspace.GameArea, playerSize )
+    end
 
     
     return self
@@ -76,6 +81,9 @@ end
 --	You'll have to manage it so clients/server see the same thing in workspace.GameArea for raycasts...
 
 function Simulation:ProcessCommand(cmd)
+    
+    debug.profilebegin("Chickynoid Simulation")
+    
     --Ground parameters
     local maxSpeed = 24 * self.perSecond
     local accel = 400 * self.perSecond
@@ -87,7 +95,7 @@ function Simulation:ProcessCommand(cmd)
     local onGround = nil
   
     --Check ground
-    onGround  = self:DoGroundCheck(self.pos, self.feetHeight)
+    onGround  = self:DoGroundCheck(self.state.pos)
 
     --Figure out our acceleration (airmove vs on ground)
     if onGround == nil then
@@ -96,7 +104,7 @@ function Simulation:ProcessCommand(cmd)
 
     --Did the player have a movement request?
     local wishDir = nil
-    local flatVel = Vector3.new(self.vel.x, 0, self.vel.z)
+    local flatVel = Vector3.new(self.state.vel.x, 0, self.state.vel.z)
 
     if cmd.x ~= 0 or cmd.z ~= 0 then
         wishDir = Vector3.new(cmd.x, 0, cmd.z).Unit
@@ -120,44 +128,44 @@ function Simulation:ProcessCommand(cmd)
         flatVel = self:Accelerate(wishDir, maxSpeed, accel, flatVel, cmd.deltaTime)
     end
 
-    self.vel = Vector3.new(flatVel.x, self.vel.y, flatVel.z)
+    self.state.vel = Vector3.new(flatVel.x, self.state.vel.y, flatVel.z)
 
     --Do jumping?
     if onGround ~= nil then
-        if self.jump > 0 then
-            self.jump -= cmd.deltaTime
-            if (self.jump < 0) then
-                self.jump = 0
+        if self.state.jump > 0 then
+            self.state.jump -= cmd.deltaTime
+            if (self.state.jump < 0) then
+                self.state.jump = 0
             end
         end
 
         --jump!
-        if cmd.y > 0 and self.jump <= 0 then
-            self.vel += Vector3.new(0, jumpPunch * (1 + self.jump), 0)
-            self.jump = 0.2
+        if cmd.y > 0 and self.state.jump <= 0 then
+            self.state.vel += Vector3.new(0, jumpPunch * (1 + self.state.jump), 0)
+            self.state.jump = 0.2
         end
     end
 
     --Gravity
     if onGround == nil then
         --gravity
-        self.vel += Vector3.new(0, -198 * self.perSecond * cmd.deltaTime, 0)
+        self.state.vel += Vector3.new(0, -198 * self.perSecond * cmd.deltaTime, 0)
     end
 
     --Sweep the player through the world
-    local walkNewPos, walkNewVel, hitSomething = self:ProjectVelocity(self.pos, self.vel)
+    local walkNewPos, walkNewVel, hitSomething = self:ProjectVelocity(self.state.pos, self.state.vel)
 
     --STEPUP - the magic that lets us traverse uneven world geometry
     --the idea is that you redo the player movement but "if I was x units higher in the air"
     --it adds a lot of extra casts...
   
-    local flatVel = Vector3.new(self.vel.x, 0, self.vel.z)
+    local flatVel = Vector3.new(self.state.vel.x, 0, self.state.vel.z)
     
     -- Do we even need to?                               (not jumping!)
-    if (onGround ~= nil  and hitSomething == true and self.jump == 0 ) then
+    if (onGround ~= nil  and hitSomething == true and self.state.jump == 0 ) then
         
         --first move upwards as high as we can go
-        local headHit = self.collisionModule:Sweep(self.pos, self.pos + Vector3.new(0, self.stepSize, 0))
+        local headHit = self.collisionModule:Sweep(self.state.pos, self.state.pos + Vector3.new(0, self.stepSize, 0))
         
         --Project forwards
         local stepUpNewPos, stepUpNewVel, stepHitSomething = self:ProjectVelocity(headHit.endPos, flatVel)
@@ -176,18 +184,18 @@ function Simulation:ProcessCommand(cmd)
         local ground = self:DoGroundCheck(stepUpNewPos, (-2.5 + self.stepSize))
 
         if ground ~= nil then
-            self.pos = stepUpNewPos
-            self.vel = stepUpNewVel
+            self.state.pos = stepUpNewPos
+            self.state.vel = stepUpNewVel
         else
             --cancel the whole thing
             --NO STEPUP
-            self.pos = walkNewPos
-            self.vel = walkNewVel
+            self.state.pos = walkNewPos
+            self.state.vel = walkNewVel
         end
     else
         --NO STEPUP
-        self.pos = walkNewPos
-        self.vel = walkNewVel
+        self.state.pos = walkNewPos
+        self.state.vel = walkNewVel
     end
 
  
@@ -195,8 +203,14 @@ function Simulation:ProcessCommand(cmd)
     
     --position the debug visualizer
     if self.debugModel then
-        self.debugModel:PivotTo(CFrame.new(self.pos))
+        self.debugModel:PivotTo(CFrame.new(self.state.pos))
     end
+    
+    
+    --Write this to the world state
+    self.characterData:SetPosition(self.state.pos)
+    
+    debug.profileend()
 end
 
 function Simulation:Accelerate(wishdir, wishspeed, accel, velocity, dt)
@@ -222,7 +236,7 @@ function Simulation:Destroy()
     end
 end
 
-function Simulation:DoGroundCheck(pos, feetHeight)
+function Simulation:DoGroundCheck(pos)
     local results = self.collisionModule:Sweep(pos, pos + Vector3.new(0, -0.1, 0))
     
     if (results.fraction < 1) then
@@ -315,19 +329,19 @@ end
 --This could be a lot more classy!
 function Simulation:WriteState()
     local record = {}
-    record.pos = self.pos
-    record.vel = self.vel
-    record.jump = self.jump
+    record.pos = self.state.pos
+    record.vel = self.state.vel
+    record.jump = self.state.jump
     
     return record
 end
 
 --This too!
 function Simulation:ReadState(record)
-     
-    self.pos = record.pos 
-    self.vel = record.vel
-    self.jump = record.jump
+    
+    self.state.pos = record.pos 
+    self.state.vel = record.vel
+    self.state.jump = record.jump
 
 end
 

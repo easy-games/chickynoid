@@ -1,10 +1,11 @@
 local Enums = {}
 
 Enums.EventType = {
-    CharacterAdded = 0,
-    CharacterRemoving = 1,
+    ChickynoidAdded = 0,
+    ChickynoidRemoving = 1,
     Command = 2,
     State = 3,
+    Snapshot = 4,
 }
 
 return Enums

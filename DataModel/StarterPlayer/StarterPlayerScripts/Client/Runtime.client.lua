@@ -3,10 +3,10 @@ local Packages = ReplicatedStorage:WaitForChild("Packages")
 
 local Chickynoid = require(Packages:WaitForChild("Chickynoid"):WaitForChild("Client"))
 
-Chickynoid.SetConfig({
+Chickynoid:SetConfig({
     simulationConfig = {
         -- stepSize = 3,
     },
 })
 
-Chickynoid.Setup()
+Chickynoid:Setup()

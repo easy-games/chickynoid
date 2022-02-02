@@ -1,17 +1,16 @@
 --!strict
 
 --[=[
-    @class ClientCharacter
+    @class ClientChickynoid
     @client
 
-    A character class that handles character rendering and other tasks on the
-    client. Designed to handle characters for the local player and other players.
+    A Chickynoid class that handles character simulation and command generation for the client
+    There is only one of these for the local player
 ]=]
 
 local UserInputService = game:GetService("UserInputService")
 local Players = game:GetService("Players")
 
-local ClientTransport = require(script.Parent.ClientTransport)
 local Simulation = require(script.Parent.Parent.Simulation)
 
 local Types = require(script.Parent.Parent.Types)
@@ -32,47 +31,45 @@ local SKIP_RESIMULATION = true
 local DEBUG_SPHERES = false
 local PRINT_NUM_CASTS = false
 
-local ClientCharacter = {}
-ClientCharacter.__index = ClientCharacter
+local ClientChickynoid = {}
+ClientChickynoid.__index = ClientChickynoid
 
 --[=[
-    Constructs a new ClientCharacter for a player, spawning it at the specified
-    position.
+    Constructs a new ClientChickynoid for the local player, spawning it at the specified
+    position. The position is just to prevent a mispredict.
 
-    @param player Player -- The player this character belongs to. Used to derive its [HumanoidDescription] and other things.
     @param position Vector3 -- The position to spawn this character, provided by the server.
-    @return ClientCharacter
+    @return ClientChickynoid
 ]=]
-function ClientCharacter.new(player: Player, position: Vector3, config: Types.IClientConfig)
+function ClientChickynoid.new(position: Vector3, config: Types.IClientConfig)
     local self = setmetatable({
-        _player = player,
-        _simulation = Simulation.new(config.simulationConfig),
+        
+        simulation = Simulation.new(config.simulationConfig),
 
-        _predictedCommands = {},
-        _stateCache = {},
+        predictedCommands = {},
+        stateCache = {},
 
-        _localFrame = 0,
-    }, ClientCharacter)
+        localFrame = 0,
+    }, ClientChickynoid)
 
-    self._simulation.pos = position
-    self._simulation.whiteList = { workspace.GameArea, workspace.Terrain }
+    self.simulation.state.pos = position
+    self.simulation.whiteList = { workspace.GameArea, workspace.Terrain }
 
-    if player == LocalPlayer then
-        self:_handleLocalPlayer()
-    end
+   
+    self:HandleLocalPlayer()   
 
     return self
 end
 
-function ClientCharacter:_handleLocalPlayer()
+function ClientChickynoid:HandleLocalPlayer()
     -- Bind the camera
-    Camera.CameraSubject = self._simulation.debugModel
+    Camera.CameraSubject = self.simulation.debugModel
     Camera.CameraType = Enum.CameraType.Custom
 end
 
-function ClientCharacter:_makeCommand(dt: number)
+function ClientChickynoid:MakeCommand(dt: number)
     local command = {}
-    command.l = self._localFrame
+    command.l = self.localFrame
 
     command.x = 0
     command.y = 0
@@ -92,14 +89,14 @@ function ClientCharacter:_makeCommand(dt: number)
         command.y = UserInputService:IsKeyDown(Enum.KeyCode.Space) and 1 or 0
     end
 
-    local rawMoveVector = self:_calculateRawMoveVector(Vector3.new(command.x, 0, command.z))
+    local rawMoveVector = self:CalculateRawMoveVector(Vector3.new(command.x, 0, command.z))
     command.x = rawMoveVector.X
     command.z = rawMoveVector.Z
 
     return command
 end
 
-function ClientCharacter:_calculateRawMoveVector(cameraRelativeMoveVector: Vector3)
+function ClientChickynoid:CalculateRawMoveVector(cameraRelativeMoveVector: Vector3)
     local _, yaw = Camera.CFrame:ToEulerAnglesYXZ()
     return CFrame.fromEulerAnglesYXZ(0, yaw, 0) * Vector3.new(cameraRelativeMoveVector.X, 0, cameraRelativeMoveVector.Z)
 end
@@ -111,25 +108,25 @@ end
     @param state table -- The new state sent by the server.
     @param lastConfirmed number -- The serial number of the last command confirmed by the server.
 ]=]
-function ClientCharacter:HandleNewState(state: table, lastConfirmed: number)
-    self:_clearDebugSpheres()
+function ClientChickynoid:HandleNewState(state: table, lastConfirmed: number)
+    self:ClearDebugSpheres()
 
     -- Build a list of the commands the server has not confirmed yet
     local remainingCommands = {}
-    for _, cmd in pairs(self._predictedCommands) do
+    for _, cmd in pairs(self.predictedCommands) do
         -- event.lastConfirmed = serial number of last confirmed command by server
         if cmd.l > lastConfirmed then
             -- Server hasn't processed this yet
             table.insert(remainingCommands, cmd)
         end
     end
-    self._predictedCommands = remainingCommands
+    self.predictedCommands = remainingCommands
 
     local resimulate = true
 
     -- Check to see if we can skip simulation
     if SKIP_RESIMULATION then
-        local record = self._stateCache[lastConfirmed]
+        local record = self.stateCache[lastConfirmed]
         if record then
             -- This is the state we were in, if the server agrees with this, we dont have to resim
             
@@ -140,9 +137,9 @@ function ClientCharacter:HandleNewState(state: table, lastConfirmed: number)
         end
 
         -- Clear all the ones older than lastConfirmed
-        for key, _ in pairs(self._stateCache) do
+        for key, _ in pairs(self.stateCache) do
             if key < lastConfirmed then
-                self._stateCache[key] = nil
+                self.stateCache[key] = nil
             end
         end
     end
@@ -151,25 +148,25 @@ function ClientCharacter:HandleNewState(state: table, lastConfirmed: number)
         print("resimulating")
 
         -- Record our old state
-        local oldPos = self._simulation.pos
+        local oldPos = self.simulation.state.pos
 
         -- Reset our base simulation to match the server
-        self._simulation:ReadState(state)
+        self.simulation:ReadState(state)
 
         -- Marker for where the server said we were
-        self:_spawnDebugSphere(self._simulation.pos, Color3.fromRGB(255, 170, 0))
+        self:SpawnDebugSphere(self.simulation.state.pos, Color3.fromRGB(255, 170, 0))
 
         -- Resimulate all of the commands the server has not confirmed yet
         -- print("winding forward", #remainingCommands, "commands")
         for _, cmd in pairs(remainingCommands) do
-            self._simulation:ProcessCommand(cmd)
+            self.simulation:ProcessCommand(cmd)
 
             -- Resimulated positions
-            self:_spawnDebugSphere(self._simulation.pos, Color3.fromRGB(255, 255, 0))
+            self:SpawnDebugSphere(self.simulation.state.pos, Color3.fromRGB(255, 255, 0))
         end
 
         -- Did we make a misprediction? We can tell if our predicted position isn't the same after reconstructing everything
-        local delta = oldPos - self._simulation.pos
+        local delta = oldPos - self.simulation.state.pos
         if delta.magnitude > 0.2 then
             print("Mispredict:", delta)
         end
@@ -177,42 +174,43 @@ function ClientCharacter:HandleNewState(state: table, lastConfirmed: number)
 end
 
  
-function ClientCharacter:Heartbeat(dt: number)
-    self._localFrame += 1
+function ClientChickynoid:Heartbeat(dt: number)
+    self.localFrame += 1
 
     -- Read user input
-    local cmd = self:_makeCommand(dt)
-    table.insert(self._predictedCommands, cmd)
+    local cmd = self:MakeCommand(dt)
+    table.insert(self.predictedCommands, cmd)
 
     -- Step this frame
-    self._simulation:ProcessCommand(cmd)
+    self.simulation:ProcessCommand(cmd)
  
  
     -- Marker for positions added since the last server update
-    self:_spawnDebugSphere(self._simulation.pos, Color3.fromRGB(44, 140, 39))
+    self:SpawnDebugSphere(self.simulation.state.pos, Color3.fromRGB(44, 140, 39))
 
     if SKIP_RESIMULATION then
         -- Add to our state cache, which we can use for skipping resims
         local cacheRecord = {}
         cacheRecord.l = cmd.l
-        cacheRecord.state = self._simulation:WriteState()
+        cacheRecord.state = self.simulation:WriteState()
 
-        self._stateCache[cmd.l] = cacheRecord
+        self.stateCache[cmd.l] = cacheRecord
     end
 
     -- Pass to server
-    ClientTransport:QueueEvent(EventType.Command, {
-        command = cmd,
-    })
-    ClientTransport:Flush()
+    local event = {}
+    event.t = EventType.Command
+    event.command = cmd
+    script.Parent.Parent.RemoteEvent:FireServer(event)
+   
 
     if PRINT_NUM_CASTS then
-        print("casts", self._simulation.sweepModule.raycastsThisFrame)
+        print("casts", self.simulation.sweepModule.raycastsThisFrame)
     end
     
 end
 
-function ClientCharacter:_spawnDebugSphere(pos, color)
+function ClientChickynoid:SpawnDebugSphere(pos, color)
     if DEBUG_SPHERES then
         local part = Instance.new("Part")
         part.Anchored = true
@@ -228,10 +226,10 @@ function ClientCharacter:_spawnDebugSphere(pos, color)
     end
 end
 
-function ClientCharacter:_clearDebugSpheres()
+function ClientChickynoid:ClearDebugSpheres()
     if DEBUG_SPHERES then
         DebugParts:ClearAllChildren()
     end
 end
 
-return ClientCharacter
+return ClientChickynoid

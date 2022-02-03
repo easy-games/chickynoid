@@ -15,13 +15,15 @@ Simulation.characterData = require(script.CharacterData)
 
 function Simulation.new(config: Types.ISimulationConfig)
     local self = setmetatable({}, Simulation)
-    
-    
+
     self.state = {}
      
     self.state.pos = Vector3.new(0, 5, 0)
     self.state.vel = Vector3.new(0, 0, 0)
     self.state.jump = 0
+    self.state.angle = 0
+    self.state.targetAngle = 0
+    
     
     self.characterData = self.characterData.new()
     self.whiteList = config.raycastWhitelist
@@ -33,11 +35,8 @@ function Simulation.new(config: Types.ISimulationConfig)
 
     -- How big an object we can step over
     self.stepSize = config.stepSize
-
-    --Scale for making units in "units per second"
-    self.perSecond = 1 / 60
-
-    local buildDebugSphereModelThing = true
+ 
+    local buildDebugSphereModelThing = false
 
     if buildDebugSphereModelThing == true then
         local model = Instance.new("Model")
@@ -83,19 +82,18 @@ end
 function Simulation:ProcessCommand(cmd)
     
     debug.profilebegin("Chickynoid Simulation")
-    
+
     --Ground parameters
-    local maxSpeed = 24 * self.perSecond
-    local accel = 400 * self.perSecond
-    local jumpPunch = 50 * self.perSecond
-
-    local brakeAccel = 400 * self.perSecond --how hard to brake if we're turning around
-
-    local result = nil
+    local maxSpeed = 20 --Units per second
+    local accel = 0.9   --Units per second per second
+    local airAccel = 0.5 
+    local jumpPunch = 70  -- Raw velocity
+    local brakeFriction = 0.1  -- Lower is brake harder, dont use 0
+    local turnSpeedFrac = 5
     local onGround = nil
   
     --Check ground
-    onGround  = self:DoGroundCheck(self.state.pos)
+    onGround  =  self:DoGroundCheck(self.state.pos)
 
     --Figure out our acceleration (airmove vs on ground)
     if onGround == nil then
@@ -110,26 +108,50 @@ function Simulation:ProcessCommand(cmd)
         wishDir = Vector3.new(cmd.x, 0, cmd.z).Unit
     end
 
-    --see if we're accelerating back against our current flatvel
+    
     local shouldBrake = false
+    
+    --see if we're accelerating back against our current flatvel (eg: turning around/strafing)
     if wishDir ~= nil and wishDir:Dot(flatVel.Unit) < -0.1 then
+        --This makes things much more snappy!
         shouldBrake = true
     end
+    
+    --Are we just standing still?
     if onGround ~= nil and wishDir == nil then
         shouldBrake = true
     end
+    
+    --Apply braking
     if shouldBrake == true then
-        flatVel = self:Accelerate(Vector3.zero, maxSpeed, brakeAccel, flatVel, cmd.deltaTime)
+        flatVel = self:Friction(flatVel, brakeFriction, cmd.deltaTime) 
     end
 
     --movement acceleration (walking/running/airmove)
     --Does nothing if we don't have an input
     if wishDir ~= nil then
-        flatVel = self:Accelerate(wishDir, maxSpeed, accel, flatVel, cmd.deltaTime)
+        
+        --Also trigger walking
+        if (onGround) then
+            self.characterData:PlayAnimation("Run", false)
+            flatVel = self:Accelerate(wishDir, maxSpeed, accel, flatVel, cmd.deltaTime)
+        else
+            self.characterData:PlayAnimation("Fall", false) --Airmove
+            flatVel = self:Accelerate(wishDir, maxSpeed, airAccel, flatVel, cmd.deltaTime)
+        end
+        
+        
+    else
+        if (onGround) then
+            self.characterData:PlayAnimation("Idle", false)
+        else
+            self.characterData:PlayAnimation("Fall", false)
+        end
+        
     end
 
     self.state.vel = Vector3.new(flatVel.x, self.state.vel.y, flatVel.z)
-
+    
     --Do jumping?
     if onGround ~= nil then
         if self.state.jump > 0 then
@@ -141,19 +163,20 @@ function Simulation:ProcessCommand(cmd)
 
         --jump!
         if cmd.y > 0 and self.state.jump <= 0 then
-            self.state.vel += Vector3.new(0, jumpPunch * (1 + self.state.jump), 0)
+            self.state.vel = Vector3.new( self.state.vel.x, jumpPunch * (1 + self.state.jump), self.state.vel.z)
             self.state.jump = 0.2
+            self.characterData:PlayAnimation("Jump", true, 0.1)
         end
     end
 
     --Gravity
     if onGround == nil then
         --gravity
-        self.state.vel += Vector3.new(0, -198 * self.perSecond * cmd.deltaTime, 0)
+        self.state.vel += Vector3.new(0, -198 * cmd.deltaTime, 0)
     end
 
     --Sweep the player through the world
-    local walkNewPos, walkNewVel, hitSomething = self:ProjectVelocity(self.state.pos, self.state.vel)
+    local walkNewPos, walkNewVel, hitSomething = self:ProjectVelocity(self.state.pos, self.state.vel, cmd.deltaTime  )
 
     --STEPUP - the magic that lets us traverse uneven world geometry
     --the idea is that you redo the player movement but "if I was x units higher in the air"
@@ -162,13 +185,13 @@ function Simulation:ProcessCommand(cmd)
     local flatVel = Vector3.new(self.state.vel.x, 0, self.state.vel.z)
     
     -- Do we even need to?                               (not jumping!)
-    if (onGround ~= nil  and hitSomething == true and self.state.jump == 0 ) then
+    if (onGround ~= nil  and hitSomething == true and self.state.jump == 0) then
         
         --first move upwards as high as we can go
         local headHit = self.collisionModule:Sweep(self.state.pos, self.state.pos + Vector3.new(0, self.stepSize, 0))
         
         --Project forwards
-        local stepUpNewPos, stepUpNewVel, stepHitSomething = self:ProjectVelocity(headHit.endPos, flatVel)
+        local stepUpNewPos, stepUpNewVel, stepHitSomething = self:ProjectVelocity(headHit.endPos, flatVel, cmd.deltaTime)
 
         --Trace back down
         local traceDownPos = stepUpNewPos
@@ -197,38 +220,27 @@ function Simulation:ProcessCommand(cmd)
         self.state.pos = walkNewPos
         self.state.vel = walkNewVel
     end
-
  
-    
     
     --position the debug visualizer
     if self.debugModel then
         self.debugModel:PivotTo(CFrame.new(self.state.pos))
     end
     
+    --Do angles
+    self.state.targetAngle = math.atan2(-flatVel.z, flatVel.x) - math.rad(90)
+    self.state.angle = self:LerpAngle( self.state.angle,  self.state.targetAngle, turnSpeedFrac * cmd.deltaTime)
     
-    --Write this to the world state
+    --Write this to the characterData
     self.characterData:SetPosition(self.state.pos)
+    self.characterData:SetAngle(self.state.angle)
+    
+    -- print(self.state.vel ,cmd.deltaTime)
+    
     
     debug.profileend()
 end
 
-function Simulation:Accelerate(wishdir, wishspeed, accel, velocity, dt)
-    local wishVelocity = wishdir * wishspeed
-    local pushDir = wishVelocity - velocity
-    local pushLen = pushDir.Magnitude
-
-    if pushLen < 0.01 then
-        return velocity
-    end
-
-    local canPush = accel * dt * wishspeed
-    if canPush > pushLen then
-        canPush = pushLen
-    end
-
-    return velocity + (pushDir.Unit * canPush)
-end
 
 function Simulation:Destroy()
     if self.debugModel then
@@ -261,7 +273,7 @@ function Simulation:ClipVelocity(input, normal, overbounce)
     return Vector3.new(input.x - changex, input.y - changey, input.z - changez)
 end
 
-function Simulation:ProjectVelocity(startPos, startVel)
+function Simulation:ProjectVelocity(startPos, startVel, deltaTime)
     local movePos = startPos
     local moveVel = startVel
     local hitSomething = false
@@ -269,7 +281,8 @@ function Simulation:ProjectVelocity(startPos, startVel)
   
     --Project our movement through the world
     local planes = {}
-    
+    local timeLeft = deltaTime 
+      
     for bumps = 0, 3 do
    
         if moveVel.magnitude < 0.001 then
@@ -277,28 +290,26 @@ function Simulation:ProjectVelocity(startPos, startVel)
             break
         end
         
-        
         if moveVel:Dot(startVel) < 0 then
             --we projected back in the opposite direction from where we started. No.
             moveVel = Vector3.new(0, 0, 0)
-   
             break
         end
-
-        local result = self.collisionModule:Sweep(movePos, movePos + (moveVel))
         
- 
+        --We only operate on a scaled down version of velocity
+        local result = self.collisionModule:Sweep(movePos, movePos + (moveVel * timeLeft))
+        
+        --Update our position
         if (result.fraction > 0) then
             movePos = result.endPos
-            
         end
+        
         --See if we swept the whole way?
         if result.fraction == 1 then
             break
         end        
         
         if result.fraction < 1 then
-            
             hitSomething = true
         end
 
@@ -308,23 +319,62 @@ function Simulation:ProjectVelocity(startPos, startVel)
             moveVel = Vector3.new(0,0,0)
             break
         end
-        --Hit!
         
-        --timeLeft -= (timeLeft * result.fraction)
+        --Hit!
+        timeLeft -= (timeLeft * result.fraction)
         
         if (planes[result.planeNum] == nil) then
             
             planes[result.planeNum] = true
             --Deflect the velocity and keep going
-            
-            local inVel = moveVel
             moveVel = self:ClipVelocity(moveVel, result.normal, 1.0)
         end
     end
-    
-    
+
     return movePos, moveVel, hitSomething
 end
+
+
+local THETA = math.pi * 2
+function Simulation:AngleAbs(angle)
+    while angle < 0 do
+        angle = angle + THETA
+    end
+    while angle > THETA do
+        angle = angle - THETA
+    end
+    return angle
+end
+
+function Simulation:AngleShortest(a0, a1)
+    local d1 = self:AngleAbs(a1 - a0)
+    local d2 = -self:AngleAbs(a0 - a1)
+    return math.abs(d1) > math.abs(d2) and d2 or d1
+end
+
+function Simulation:LerpAngle(a0, a1, frac)
+    return a0 + self:AngleShortest(a0, a1) * frac
+end
+
+function Simulation:Accelerate(wishDir, wishSpeed, accel, velocity, dt)
+    local wishVel = wishDir * wishSpeed
+    local pushDir = wishVel - velocity
+    local pushLen = pushDir.magnitude
+
+    local canPush = accel * dt * wishSpeed
+    if (canPush > pushLen) then
+        canPush = pushLen
+    end
+    velocity += canPush * pushDir 
+    return velocity
+end
+
+--dt variable friction function
+function Simulation:Friction(val, fric, deltaTime)
+    return	(1 / (1 + (deltaTime / fric)) ) * val
+end
+
+
 
 --This could be a lot more classy!
 function Simulation:WriteState()
@@ -332,6 +382,8 @@ function Simulation:WriteState()
     record.pos = self.state.pos
     record.vel = self.state.vel
     record.jump = self.state.jump
+    record.angle = self.state.angle
+    record.wishAngle = self.state.wishAngle
     
     return record
 end
@@ -342,7 +394,8 @@ function Simulation:ReadState(record)
     self.state.pos = record.pos 
     self.state.vel = record.vel
     self.state.jump = record.jump
-
+    self.state.angle = record.angle
+    self.state.wishAngle = record.wishAngle
 end
 
 return Simulation

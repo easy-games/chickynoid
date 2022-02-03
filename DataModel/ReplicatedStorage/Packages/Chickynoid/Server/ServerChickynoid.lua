@@ -1,5 +1,3 @@
---!strict
-
 --[=[
     @class ServerChickynoid
     @server
@@ -29,6 +27,7 @@ function ServerChickynoid.new(playerRecord, config: Types.IServerConfig)
         simulation = Simulation.new(config.simulationConfig),
         
         unprocessedCommands = {},
+        commandSerial = 0,
         lastConfirmedCommand = nil,
 
         serverFrames = 0,
@@ -38,8 +37,10 @@ function ServerChickynoid.new(playerRecord, config: Types.IServerConfig)
     
     -- TODO: The simulation shouldn't create a debug model like this.
     -- For now, just delete it server-side.
-    self.simulation.debugModel:Destroy()
-    self.simulation.debugModel = nil
+    if (self.simulation.debugModel) then
+        self.simulation.debugModel:Destroy()
+        self.simulation.debugModel = nil
+    end
     
     self.simulation.whiteList = { workspace.GameArea, workspace.Terrain }
 
@@ -82,7 +83,19 @@ function ServerChickynoid:Think(dt: number)
     --  No antiwarp (if no commands, synth one, or players wont fall/will freeze in air)
     --  No buffering (keep X ms of commands unprocessed)
     --  No speedcheat detection (monitor sum of dt)
-    for _, command in ipairs(self.unprocessedCommands) do
+    
+    --This should be sorted
+    
+    table.sort(self.unprocessedCommands,function(a,b)
+        return a.serial < b.serial
+    end)
+    
+    for _, command in pairs(self.unprocessedCommands) do
+                
+        --sanity check for deltatime
+        if (command.deltaTime > 0.2) then
+            command.deltaTime = 0.2
+        end
         
         self.simulation:ProcessCommand(command)
         
@@ -108,6 +121,8 @@ function ServerChickynoid:HandleClientEvent(event)
         local command = event.command
         if command and typeof(command) == "table" then
             
+            command.serial = self.commandSerial
+            self.commandSerial += 1
             table.insert(self.unprocessedCommands, command)
         end
         

@@ -1,5 +1,3 @@
---!strict
-
 --[=[
     @class ChickynoidClient
     @client
@@ -11,6 +9,7 @@ local RunService = game:GetService("RunService")
 local Players = game:GetService("Players")
 
 local ClientChickynoid = require(script.ClientChickynoid)
+local CharacterModel = require(script.CharacterModel)
 
 local DefaultConfigs = require(script.Parent.DefaultConfigs)
 local Types = require(script.Parent.Types)
@@ -22,9 +21,22 @@ local EventType = Enums.EventType
 local ChickynoidClient = {}
 ChickynoidClient.localChickynoid = nil
 ChickynoidClient.snapshots = {}
-ChickynoidClient.estimatedServerTime = -1
+ChickynoidClient.estimatedServerTime = 0
+ChickynoidClient.estimatedServerTimeOffset = 0
+ChickynoidClient.validServerTime = false
+ChickynoidClient.startTime = tick()
+
 ChickynoidClient.characters = {}
 ChickynoidClient.localFrame = 0
+ChickynoidClient.worldState = nil
+
+--The local character
+ChickynoidClient.characterModel = nil
+
+--Milliseconds of *extra* buffer time to account for ping flux
+ChickynoidClient.interpolationBuffer = 10 
+
+
 
 local ClientConfig = TableUtil.Copy(DefaultConfigs.DefaultClientConfig, true)
 
@@ -54,10 +66,7 @@ function ChickynoidClient:Setup()
     eventHandler[EventType.ChickynoidAdded] = function(event)
         local position = event.position
         print("Chickynoid spawned at", position)
-        
-        
-       
-        
+
         if (self.localChickynoid == nil) then
             self.localChickynoid = ClientChickynoid.new(position, ClientConfig)
         end
@@ -76,14 +85,24 @@ function ChickynoidClient:Setup()
         end
     end
     
-    -- EventType.Snapshot
     
+    -- EventType.WorldState
+    eventHandler[EventType.WorldState] = function(event)
+        print("Got worldstate")
+        --This would be a good time to run the collision setup
+        self.worldState = event.worldState    
+    end
+        
+    -- EventType.Snapshot
     eventHandler[EventType.Snapshot] = function(event)
         
-        event.t = event.f * (1/60)
+ 
         --Todo: correct this over time
-        if (self.estimatedServerTime == -1 or math.abs(self.estimatedServerTime - event.t) > 0.3 ) then     
-            self.estimatedServerTime = event.t
+        if (true) then   
+            
+            self:SetupTime(event.serverTime)
+           -- print("Retime!")
+            --self.estimatedServerTime = event.t
         end
             
         table.insert(self.snapshots, event)
@@ -109,40 +128,62 @@ function ChickynoidClient:Setup()
     
     RunService.Heartbeat:Connect(function(dt)
         
-        local serverHz = 20
+        
+        if (self.worldState == nil) then
+            --Waiting for worldstate
+            return
+        end
+        --Have we at least tried to figure out the server time?        
+        if (self.validServerTime == false) then
+            return
+        end
+        
+        --Do a new frame!!        
         self.localFrame += 1
         
+        --Step the chickynoid
         if (self.localChickynoid) then
             self.localChickynoid:Heartbeat(dt)
+            
+            
+            if (self.characterModel == nil) then
+                self.characterModel = CharacterModel.new()
+                self.characterModel:CreateModel()
+            end
+            
+            self.characterModel:Think(dt, self.localChickynoid.simulation.characterData.serialized)
+            
+            -- Bind the camera
+            local camera = game.Workspace.CurrentCamera
+            camera.CameraSubject = self.characterModel.model
+            camera.CameraType = Enum.CameraType.Custom
         end
         
-        
-        --This will drift after a while
-        if (self.estimatedServerTime ~= -1) then
-            self.estimatedServerTime += dt
-        end
-        
-        --Generate a worldview
-        --Generate a new worldstate
-        
-        local searchPoint = self.estimatedServerTime - ((1/60) * ((60/serverHz)+4))
-        
-        --print("searchpoint", searchPoint)
-        
+        --Start building the world view, based on us having enoug snapshots to do so
+        self.estimatedServerTime = self:LocalTick() - self.estimatedServerTimeOffset 
+   
+        --Calc the SERVER point in time to render out
+        --Because we need to be between two snapshots, the minimum search time is "timeBetweenFrames"
+        --But because there might be network flux, we add some extra buffer too
+        local timeBetweenServerFrames = (1 / self.worldState.serverHz)
+        local searchPad = math.clamp(self.interpolationBuffer,0,500) * 0.001
+        local pointInTimeToRender = self.estimatedServerTime - (timeBetweenServerFrames + searchPad)
+       
         local last = nil
         local prev = self.snapshots[1]
         for key,value in pairs(self.snapshots) do
             
-            if (value.t > searchPoint) then
+            if (value.serverTime > pointInTimeToRender) then
                 last = value
                 break
             end
             prev = value
         end
         
-        if (prev and last) then
-             --print(prev.t,last.t)
+        if (prev and last and prev ~= last) then
             
+            --So pointInTimeToRender is between prev.t and last.t
+            local frac = (pointInTimeToRender-prev.serverTime) / timeBetweenServerFrames
             
             for userId,lastData in pairs(last.charData) do
                 
@@ -152,47 +193,60 @@ function ChickynoidClient:Setup()
                     continue
                 end
                 
-                local frac = (searchPoint-prev.t) * serverHz
-                --print("Frac", frac)
-                local interp =  self.localChickynoid.simulation.characterData:Interpolate(prevData,lastData, frac)
-                
-                
+                local dataRecord = self.localChickynoid.simulation.characterData:Interpolate(prevData, lastData, frac)
                 local character = self.characters[userId]
                 
                 --Add the character
                 if (character == nil) then
-                    local instance = Instance.new("Part")
-                    instance.Anchored = true
-                    instance.Parent = game.Workspace
-                    instance.Color = Color3.new(1,0.5,0.2)
-                    instance.Size = Vector3.new(3,5,3)
+                    
                     local record = {}
-                    record.instance = instance
+                    record.characterModel = CharacterModel.new()
+                    record.characterModel:CreateModel()
+                    
                     character = record
                     self.characters[userId] = record
                 end
                 
                 character.frame = self.localFrame
-                character.instance.Position = interp.pos
-              
-
-            end
-        else
-            if (#self.snapshots>0) then
-                print("last known is", self.snapshots[#self.snapshots].t)
-                self.estimatedServerTime =  self.snapshots[#self.snapshots].t
+                
+                --Update it
+                character.characterModel:Think(dt, dataRecord)
             end
             
-        end
-        
-        --Remove the character
-        for key,value in pairs(self.characters) do
-            if value.frame ~= self.localFrame then
-                value.instance:Destroy()
-                self.characters[key] = nil
+            --Remove any characters who were not in this snapshot
+            for key,value in pairs(self.characters) do
+                if value.frame ~= self.localFrame then
+                    value.characterModel:DestroyModel()
+                    value.characterModel = nil
+                    
+                    self.characters[key] = nil
+                end
             end
+                
         end
+
     end)
+end
+
+--Use this instead of raw tick()
+function ChickynoidClient:LocalTick()
+    return tick() - self.startTime
+end
+
+
+-- This tries to figure out a correct delta for the server time
+-- Better to update this infrequently as it will cause a "pop" in prediction
+-- Thought: Replace with roblox solution or converging solution?
+function ChickynoidClient:SetupTime(serverActualTime)
+    
+    local oldDelta = self.estimatedServerTimeOffset
+    local newDelta = self:LocalTick() - serverActualTime
+    self.validServerTime = true
+    
+    local delta = oldDelta - newDelta
+    if (math.abs(delta * 1000) > 50) then --50ms out? try again
+        self.estimatedServerTimeOffset = newDelta
+    end
 end
 
 return ChickynoidClient

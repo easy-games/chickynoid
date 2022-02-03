@@ -25,7 +25,7 @@
       "Packages": {
         "$className": "Folder",
         "Chickynoid": {
-          "$className": "Folder",
+          "$path": "DataModel/ReplicatedStorage/Packages/Chickynoid.rbxm",
           "Assets": {
             "$className": "Folder",
             "R15Rig": {

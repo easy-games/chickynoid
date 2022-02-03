@@ -6,6 +6,7 @@ Enums.EventType = {
     Command = 2,
     State = 3,
     Snapshot = 4,
+    WorldState = 5,
 }
 
 return Enums

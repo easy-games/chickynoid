@@ -1,5 +1,3 @@
---!strict
-
 --[=[
     @class ClientChickynoid
     @client
@@ -62,9 +60,7 @@ function ClientChickynoid.new(position: Vector3, config: Types.IClientConfig)
 end
 
 function ClientChickynoid:HandleLocalPlayer()
-    -- Bind the camera
-    Camera.CameraSubject = self.simulation.debugModel
-    Camera.CameraType = Enum.CameraType.Custom
+
 end
 
 function ClientChickynoid:MakeCommand(dt: number)

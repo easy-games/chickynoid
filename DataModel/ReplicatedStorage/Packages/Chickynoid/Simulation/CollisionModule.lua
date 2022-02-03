@@ -454,6 +454,7 @@ function module:Sweep(startPos, endPos)
     data.normal = Vector3.new(0,1,0)
     data.checks = 0
     
+        
     --calc bounds of sweep
     local hulls = self:FetchHullsForBox(startPos, endPos)
     
@@ -472,10 +473,8 @@ function module:Sweep(startPos, endPos)
     end
  
     if (data.fraction < 1) then
-        --Todo: calculate the skin better? - endpos should be nearest point on the plane + skin
-        local vec =(endPos-startPos)
-        data.endPos = startPos + (vec * data.fraction ) 
-        
+        --Todo: calculate the skin better? - endpos should be nearest point on the plane + skin?
+        local vec = (endPos-startPos)
         data.endPos = startPos + (vec * data.fraction ) - (vec.unit * SKIN)
     end
     

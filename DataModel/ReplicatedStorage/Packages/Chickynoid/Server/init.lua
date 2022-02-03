@@ -1,5 +1,3 @@
---!strict
-
 --[=[
     @class ChickynoidServer
     @server
@@ -18,12 +16,12 @@ local ServerConfig = TableUtil.Copy(DefaultConfigs.DefaultServerConfig, true)
 local ChickynoidServer = {}
 
 ChickynoidServer.playerRecords = {}
-ChickynoidServer.serverFrames = 0
+ChickynoidServer.serverStepTimer = 0
 ChickynoidServer.serverTotalFrames = 0
-
+ChickynoidServer.serverTotalTime = 0
+ChickynoidServer.startTime = tick()
 
 local SERVER_HZ = 20
-
 
 function ChickynoidServer:Setup()
     
@@ -64,18 +62,24 @@ function ChickynoidServer:SpawnForPlayerAsync(playerRecord)
         end
     end
     
+    --Send worldstate
+    local event = {}
+    event.t = Enums.EventType.WorldState
+    event.worldState = {}
+    event.worldState.serverHz = SERVER_HZ
+    playerRecord:SendEventToClient(event)    
+    
+    
     --Todo: dont just spawn a character like this, handle the connection and wait for the game to ask
     local chickynoid = ServerChickynoid.new(playerRecord, ServerConfig)
     self.playerRecords[playerRecord.userId] = playerRecord 
     playerRecord.chickynoid = chickynoid
-
-
     
     return chickynoid
 end
 
 function ChickynoidServer:Think(deltaTime)
-    
+
     --1st stage, pump the commands
     --Many many todos on this!
     for userId,playerRecord in pairs(self.playerRecords) do
@@ -85,12 +89,20 @@ function ChickynoidServer:Think(deltaTime)
         end
         playerRecord.chickynoid:Think(deltaTime)
     end    
-        
+    
     -- 2nd stage: Replicate character state to the player
-    self.serverFrames += 1
+    self.serverStepTimer += deltaTime
     self.serverTotalFrames += 1
-    if self.serverFrames > (60 / SERVER_HZ) then
-        self.serverFrames = 0
+    self.serverTotalTime = tick() - self.startTime
+    
+    local fraction =  (1 / SERVER_HZ)
+    if self.serverStepTimer > fraction then
+        
+        while (self.serverStepTimer > fraction) do -- -_-'
+            self.serverStepTimer -= fraction 
+        end
+        
+  
         
         for userId,playerRecord in pairs(self.playerRecords) do
             --Not for you, bot!
@@ -115,9 +127,9 @@ function ChickynoidServer:Think(deltaTime)
                 end 
             end
             snapshot.f = self.serverTotalFrames 
-            snapshot.hz = SERVER_HZ
+            snapshot.serverTime = self.serverTotalTime
             playerRecord:SendEventToClient(snapshot)
-            
+    
         end
         
         

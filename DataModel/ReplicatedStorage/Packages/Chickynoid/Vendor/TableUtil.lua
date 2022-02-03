@@ -1,5 +1,3 @@
---!strict
-
 -- TableUtil
 -- Stephen Leitnick
 -- September 13, 2017

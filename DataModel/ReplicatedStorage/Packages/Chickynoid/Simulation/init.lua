@@ -133,7 +133,7 @@ function Simulation:ProcessCommand(cmd)
         
         --Also trigger walking
         if (onGround) then
-            self.characterData:PlayAnimation("Run", false)
+            self.characterData:PlayAnimation("Run", false,0.3) --make run animation a tiny bit sticky
             flatVel = self:Accelerate(wishDir, maxSpeed, accel, flatVel, cmd.deltaTime)
         else
             self.characterData:PlayAnimation("Fall", false) --Airmove
@@ -153,13 +153,15 @@ function Simulation:ProcessCommand(cmd)
     self.state.vel = Vector3.new(flatVel.x, self.state.vel.y, flatVel.z)
     
     --Do jumping?
-    if onGround ~= nil then
-        if self.state.jump > 0 then
-            self.state.jump -= cmd.deltaTime
-            if (self.state.jump < 0) then
-                self.state.jump = 0
-            end
+    
+    if self.state.jump > 0 then
+        self.state.jump -= cmd.deltaTime
+        if (self.state.jump < 0) then
+            self.state.jump = 0
         end
+    end
+    
+    if onGround ~= nil then
 
         --jump!
         if cmd.y > 0 and self.state.jump <= 0 then

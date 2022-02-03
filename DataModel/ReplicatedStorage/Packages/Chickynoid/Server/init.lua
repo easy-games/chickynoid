@@ -36,6 +36,18 @@ function ChickynoidServer:Setup()
     end)
 end
 
+function ChickynoidServer:PlayerDisconnected(userId)
+    
+    local playerRecord = self.playerRecords[userId]
+    
+    if (playerRecord) then
+        print("Player disconnected")
+        
+        self.playerRecords[userId] = nil
+    end
+end
+
+
 function ChickynoidServer:GetPlayerByUserId(userId)
     
     return self.playerRecords[userId]

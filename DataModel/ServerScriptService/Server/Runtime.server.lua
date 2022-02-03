@@ -24,6 +24,13 @@ Players.PlayerAdded:Connect(function(player)
  
 end)
 
+Players.PlayerRemoving:Connect(function(player)
+
+    Server:PlayerDisconnected(player.UserId)
+
+end)
+
+
 
 RunService.Heartbeat:Connect(function(deltaTime)
     Server:Think(deltaTime)

@@ -209,6 +209,10 @@ function Simulation:ProcessCommand(cmd)
         local ground = self:DoGroundCheck(stepUpNewPos, (-2.5 + self.stepSize))
 
         if ground ~= nil then
+            
+            local step = self.state.pos.y - stepUpNewPos.y
+            self.characterData:AddStepUp(step)
+            
             self.state.pos = stepUpNewPos
             self.state.vel = stepUpNewVel
         else
@@ -238,7 +242,8 @@ function Simulation:ProcessCommand(cmd)
     self.characterData:SetAngle(self.state.angle)
     
     -- print(self.state.vel ,cmd.deltaTime)
-    
+    --Adjust stepup
+    self.characterData:DecayStepUp(cmd.deltaTime)
     
     debug.profileend()
 end

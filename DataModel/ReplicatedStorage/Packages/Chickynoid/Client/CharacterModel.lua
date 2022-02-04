@@ -97,7 +97,7 @@ function CharacterModel:Think(deltaTime, dataRecord)
     end
      
     
-    self.model:PivotTo(CFrame.new(dataRecord.pos + self.modelOffset) * CFrame.fromEulerAnglesXYZ(0,dataRecord.angle,0))
+    self.model:PivotTo(CFrame.new(dataRecord.pos + self.modelOffset + Vector3.new(0,dataRecord.stepUp,0)) * CFrame.fromEulerAnglesXYZ(0,dataRecord.angle,0))
 end
 
 

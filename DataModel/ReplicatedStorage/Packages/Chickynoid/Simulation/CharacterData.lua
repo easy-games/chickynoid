@@ -12,6 +12,10 @@ function AngleLerp(a,b,frac)
     return a
 end
 
+function NumberLerp(a,b,frac)
+        
+    return (a * (1-frac)) + (b * frac)
+end
 
 function Raw(a,b,frac)
     return b
@@ -26,6 +30,7 @@ function CharacterData.new()
             angle = 0,
             animCounter = 0,
             animName = "Idle",
+            stepUp = 0,
         },
         
         
@@ -33,7 +38,8 @@ function CharacterData.new()
             pos = Lerp,
             angle = AngleLerp,
             animCounter = Raw,
-            animName = Raw 
+            animName = Raw,
+            stepUp = NumberLerp,
         },
         
         animationExclusiveTime = 0,
@@ -52,6 +58,15 @@ end
 function CharacterData:SetAngle(angle)
     self.serialized.angle = angle    
 end
+
+function CharacterData:AddStepUp(amount)
+    self.serialized.stepUp+=amount
+end
+
+function CharacterData:DecayStepUp(deltaTime)
+    self.serialized.stepUp *= 45 * deltaTime 
+end
+
 
 
 function CharacterData:PlayAnimation(animName, forceRestart, exclusiveTime )

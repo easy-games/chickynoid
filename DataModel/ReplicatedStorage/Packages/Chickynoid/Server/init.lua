@@ -12,7 +12,7 @@ local Enums = require(script.Parent.Enums)
 local EventType = Enums.EventType
 local ServerChickynoid = require(script.ServerChickynoid)
 local ServerConfig = TableUtil.Copy(DefaultConfigs.DefaultServerConfig, true)
-
+local BitBuffer = require(script.Parent.Vendor.BitBuffer)
 local ChickynoidServer = {}
 
 ChickynoidServer.playerRecords = {}
@@ -34,6 +34,7 @@ function ChickynoidServer:Setup()
         end
         
     end)
+    
 end
 
 function ChickynoidServer:PlayerDisconnected(userId)
@@ -131,23 +132,32 @@ function ChickynoidServer:Think(deltaTime)
             
             local snapshot = {}
             snapshot.t = EventType.Snapshot
-            snapshot.charData = {}
+            
+            
+            local count = 0
+            for otherUserId,otherPlayerRecord in pairs(self.playerRecords) do
+                if (otherUserId ~= userId) then
+                    count += 1
+                end
+            end
+            
+            local bitBuffer = BitBuffer()
+            bitBuffer.writeByte(count)
+            
             for otherUserId,otherPlayerRecord in pairs(self.playerRecords) do
                 if (otherUserId ~= userId) then
                     --Todo: delta compress , bitwise compress, etc etc    
-                    snapshot.charData[otherUserId] = otherPlayerRecord.chickynoid.simulation.characterData:Serialize()
+                    bitBuffer.writeSigned(48, otherUserId)
+                    otherPlayerRecord.chickynoid.simulation.characterData:SerializeToBitBuffer(bitBuffer)
                 end 
             end
+                        
+            snapshot.b = bitBuffer.dumpString()
             snapshot.f = self.serverTotalFrames 
             snapshot.serverTime = self.serverTotalTime
             playerRecord:SendEventToClient(snapshot)
-    
         end
-        
-        
-        --build a world snapshot
-        
-        
+       
     end
     
     

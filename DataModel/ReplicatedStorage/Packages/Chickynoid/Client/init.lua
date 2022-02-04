@@ -7,9 +7,11 @@
 
 local RunService = game:GetService("RunService")
 local Players = game:GetService("Players")
+local BitBuffer = require(script.Parent.Vendor.BitBuffer)
 
 local ClientChickynoid = require(script.ClientChickynoid)
 local CharacterModel = require(script.CharacterModel)
+local CharacterData = require(script.Parent.Simulation.CharacterData)
 
 local DefaultConfigs = require(script.Parent.DefaultConfigs)
 local Types = require(script.Parent.Types)
@@ -97,14 +99,9 @@ function ChickynoidClient:Setup()
     eventHandler[EventType.Snapshot] = function(event)
         
  
-        --Todo: correct this over time
-        if (true) then   
-            
-            self:SetupTime(event.serverTime)
-           -- print("Retime!")
-            --self.estimatedServerTime = event.t
-        end
-            
+        event = self:DeserializeSnapshot(event)
+        self:SetupTime(event.serverTime)
+        
         table.insert(self.snapshots, event)
         
         --we need like 2 or 3..
@@ -145,10 +142,9 @@ function ChickynoidClient:Setup()
         if (self.localChickynoid) then
             self.localChickynoid:Heartbeat(dt)
             
-            
             if (self.characterModel == nil) then
                 self.characterModel = CharacterModel.new()
-                self.characterModel:CreateModel()
+                self.characterModel:CreateModel(game.Players.LocalPlayer.UserId)
             end
             
             self.characterModel:Think(dt, self.localChickynoid.simulation.characterData.serialized)
@@ -203,8 +199,9 @@ function ChickynoidClient:Setup()
                 if (character == nil) then
                     
                     local record = {}
+                    record.userId = userId
                     record.characterModel = CharacterModel.new()
-                    record.characterModel:CreateModel()
+                    record.characterModel:CreateModel(userId)
                     
                     character = record
                     self.characters[userId] = record
@@ -225,9 +222,7 @@ function ChickynoidClient:Setup()
                     self.characters[key] = nil
                 end
             end
-                
         end
-
     end)
 end
 
@@ -250,6 +245,25 @@ function ChickynoidClient:SetupTime(serverActualTime)
     if (math.abs(delta * 1000) > 50) then --50ms out? try again
         self.estimatedServerTimeOffset = newDelta
     end
+end
+
+function ChickynoidClient:DeserializeSnapshot(event)
+    
+    local bitBuffer = BitBuffer(event.b)
+    local count = bitBuffer.readByte()
+    
+    event.charData = {}
+    for j=1,count do
+        local record = CharacterData.new()
+        
+        local userId = bitBuffer.readSigned(48)
+        record:DeserializeFromBitBuffer(bitBuffer)
+            
+        event.charData[userId] = record.serialized
+    end
+    
+    
+    return event
 end
 
 return ChickynoidClient

@@ -88,8 +88,6 @@ function ClientChickynoid:MakeCommand(dt: number)
         command.y = 1
     end
  
-    
-
     local rawMoveVector = self:CalculateRawMoveVector(Vector3.new(command.x, 0, command.z))
     command.x = rawMoveVector.X
     command.z = rawMoveVector.Z
@@ -104,6 +102,12 @@ end
 
 function ClientChickynoid:GetIsJumping()
     
+    if (ControlModule == nil) then
+        return false
+    end
+    if (ControlModule.activeController == nil) then
+        return false
+    end
     
     return ControlModule.activeController:GetIsJumping() or (ControlModule.touchJumpController and ControlModule.touchJumpController:GetIsJumping())
 end

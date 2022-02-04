@@ -1,6 +1,7 @@
 local CharacterData = {}
 CharacterData.__index = CharacterData
 
+local BitBuffer = require(script.Parent.Parent.Vendor.BitBuffer)
 
 function Lerp(a,b,frac)
     return a:Lerp(b,frac)
@@ -21,6 +22,26 @@ function Raw(a,b,frac)
     return b
 end
 
+function CharacterData:ModuleSetup()
+    
+    self.packFunctions = {
+        pos = { "writeVector3", "readVector3" },
+        angle = { "writeFloat16", "readFloat16"  },
+        animCounter = { "writeByte", "readByte"  },
+        animNum = { "writeByte", "readByte" },
+        stepUp = { "writeFloat16", "readFloat16" },
+    }
+
+    self.lerpFunctions = {
+        pos = Lerp,
+        angle = AngleLerp,
+        animCounter = Raw,
+        animNum = Raw,
+        stepUp = NumberLerp,
+    }
+end
+
+ 
 function CharacterData.new()
     
     local self = setmetatable({
@@ -29,19 +50,11 @@ function CharacterData.new()
             pos = Vector3.zero,
             angle = 0,
             animCounter = 0,
-            animName = "Idle",
+            animNum = 0,
             stepUp = 0,
         },
         
-        
-        lerpFunctions = {
-            pos = Lerp,
-            angle = AngleLerp,
-            animCounter = Raw,
-            animName = Raw,
-            stepUp = NumberLerp,
-        },
-        
+
         animationExclusiveTime = 0,
         
     }, CharacterData)
@@ -64,25 +77,29 @@ function CharacterData:SetStepUp(amount)
 end
 
 
-
-function CharacterData:PlayAnimation(animName, forceRestart, exclusiveTime )
+function CharacterData:PlayAnimation(animNum, forceRestart, exclusiveTime )
     
     if (tick() < self.animationExclusiveTime) then
         return
     end
+        
     
-    if (forceRestart or animName ~= self.serialized.animName) then
+    if (forceRestart or animNum ~= self.serialized.animNum) then
         self.serialized.animCounter += 1
+        if (self.serialized.animCounter > 255) then
+            self.serialized.animCounter = 0
+        end
     end    
     
     if (exclusiveTime ~= nil and exclusiveTime > 0) then
         self.animationExclusiveTime = tick() + exclusiveTime
     end
     
-    self.serialized.animName = animName
+    self.serialized.animNum = animNum
     
     
 end
+
 
 function CharacterData:Serialize()
     
@@ -95,6 +112,27 @@ function CharacterData:Serialize()
     return ret   
 end
 
+
+function CharacterData:SerializeToBitBuffer(bitBuffer)
+    
+    
+    for key,value in pairs(self.serialized) do
+        local func = self.packFunctions[key]
+        if (func) then
+            bitBuffer[func[1]](value)    
+        end
+    end
+end
+
+function CharacterData:DeserializeFromBitBuffer(bitBuffer)
+
+    for key,value in pairs(self.serialized) do
+        local func = self.packFunctions[key]
+        if (func) then
+            self.serialized[key] = bitBuffer[func[2]]()    
+        end
+    end
+end
 
 
 function CharacterData:Interpolate(dataA, dataB, fraction)
@@ -113,5 +151,5 @@ function CharacterData:Interpolate(dataA, dataB, fraction)
     return dataRecord
 end
 
-
+CharacterData:ModuleSetup()
 return CharacterData

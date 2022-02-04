@@ -12,7 +12,7 @@ CharacterModel.__index = CharacterModel
     Consumes a CharacterData 
 ]=]
 
-
+local Enums = require(script.Parent.Parent.Enums)
 CharacterModel.template = nil
 
 function CharacterModel:ModuleSetup()
@@ -29,31 +29,50 @@ function CharacterModel.new()
         playingTrack = nil,
         animCounter = -1,
         modelOffset = Vector3.new(0,0.5,0),
+        modelReady = false,
     }, CharacterModel)
     
     return self
 end
 
-function CharacterModel:CreateModel()
+function CharacterModel:CreateModel(userId)
     
    
     self:DestroyModel()
     
     self.model = self.template:Clone()
     self.animator = self.model:FindFirstChild("Animator",true)
-    self.model.Parent = game.Workspace
+    self.model.Parent = game.Lighting
     self.tracks = {}
     
-    --Load on the animations
-    for key,value in pairs(self.animator:GetChildren())  do
-        
-        if (value:IsA("Animation")) then
-            local track = self.animator:LoadAnimation(value)
-            self.tracks[value.Name] = track
-        end
-    end
     
-    self:PlayAnimation("Idle", true)
+    print("Create character")
+    coroutine.wrap(function()
+        
+        if (self.model) then
+            
+            if (userId ~= nil and string.sub(userId,1,1) ~= "-" ) then
+                local description = game.Players:GetHumanoidDescriptionFromUserId(userId)
+                self.model.Humanoid:ApplyDescription(description)
+            end
+
+            --Load on the animations
+            for key,value in pairs(self.animator:GetChildren())  do
+
+                if (value:IsA("Animation")) then
+                    local track = self.animator:LoadAnimation(value)
+                    self.tracks[value.Name] = track
+                end
+            end
+
+            self:PlayAnimation(Enums.Anims.Idle, true)
+            
+            self.modelReady = true
+            self.model.Parent = game.Workspace
+
+        end
+    end)()
+    
 end
 
 function CharacterModel:DestroyModel()
@@ -62,13 +81,23 @@ function CharacterModel:DestroyModel()
         self.model:Destroy()
     end 
     self.model = nil
+    self.modelReady = false
 end
 
 --you shouldnt ever have to call this directly, change the characterData to trigger this
-function CharacterModel:PlayAnimation(name, force)
+function CharacterModel:PlayAnimation(enum, force)
     if (self.model == nil) then
         return
     end
+    
+    local name = "Idle"
+    for key,value in pairs(Enums.Anims) do
+        if (value == enum) then
+            name = key
+            break
+        end
+    end
+    
     
     local track = self.tracks[name]
     if (track) then
@@ -89,14 +118,13 @@ function CharacterModel:Think(deltaTime, dataRecord)
     if (self.model == nil) then
         return
     end
-    
+
     --Flag that something has changed
     if (self.animCounter ~= dataRecord.animCounter) then
         self.animCounter = dataRecord.animCounter
-        self:PlayAnimation(dataRecord.animName, true)
+        self:PlayAnimation(dataRecord.animNum, true)
     end
-     
-    
+         
     self.model:PivotTo(CFrame.new(dataRecord.pos + self.modelOffset + Vector3.new(0,dataRecord.stepUp,0)) * CFrame.fromEulerAnglesXYZ(0,dataRecord.angle,0))
 end
 

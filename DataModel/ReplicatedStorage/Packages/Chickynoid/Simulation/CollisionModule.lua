@@ -1,7 +1,7 @@
 local module = {}
 
 
-module.hulls = {}
+module.hullRecords = {}
 local SKIN = 0.025 --closest you can get to a wall
 module.planeNum = 0
 module.gridSize = 5
@@ -149,16 +149,16 @@ function module:FindAABB(part)
     
 end
 
-function module:WritePartToHashMap(part, hull)
+function module:WritePartToHashMap(instance, hullRecord)
     
-    local minx,miny,minz, maxx, maxy, maxz = self:FindAABB(part)
+    local minx,miny,minz, maxx, maxy, maxz = self:FindAABB(instance)
     
     for x = math.floor(minx / self.gridSize), math.floor(maxx/self.gridSize)+1 do
         for z = math.floor(minz / self.gridSize), math.floor(maxz/self.gridSize)+1 do
             for y = math.floor(miny / self.gridSize), math.floor(maxy/self.gridSize)+1 do
                 
                 local cell = self:CreateAndFetchCell(x,y,z)
-                cell[part] = hull
+                cell[instance] = hullRecord
             end
         end
     end
@@ -192,7 +192,7 @@ function module:FetchHullsForBox(min, max)
         maxz = t
     end
     
-    local hulls = {}
+    local hullRecords = {}
     for x = math.floor(minx / self.gridSize), math.floor(maxx/self.gridSize)+1 do
         for z = math.floor(minz / self.gridSize), math.floor(maxz/self.gridSize)+1 do
             for y = math.floor(miny / self.gridSize), math.floor(maxy/self.gridSize)+1 do
@@ -201,13 +201,13 @@ function module:FetchHullsForBox(min, max)
                 if (cell) then
                     
                     for key,hull in pairs(cell) do
-                        hulls[hull] = hull
+                        hullRecords[hull] = hull
                     end
                 end
             end
         end
     end
-    return hulls
+    return hullRecords
 end
 
 
@@ -272,7 +272,7 @@ function module:GenerateConvexHull(part, expansionSize)
         --self:GenerateDebugPlane(expanded, normal)
     end
     
-    self:WritePartToHashMap(part, hull)
+   
 
     return hull
 end
@@ -283,8 +283,13 @@ function module:MakeWorld(folder, playerSize)
     self.hulls = {}
     for key,value in pairs(folder:GetDescendants()) do
         if (value:IsA("BasePart")) then
-
-            table.insert(module.hulls, self:GenerateConvexHull(value, playerSize))
+            
+            local record = {}
+            record.instance = value
+            record.hull = self:GenerateConvexHull(value, playerSize)
+            self:WritePartToHashMap(record.instance, record)
+            
+            table.insert(module.hullRecords, record)
         end
     end
 
@@ -344,7 +349,7 @@ function module:SimpleRayTest(a, b, hull)
 end
 
 local EPS = 0.00001
-function module:CheckBrush(data, hull )
+function module:CheckBrush(data, hullRecord )
 
     local startFraction = -1.0
     local endFraction = 1.0
@@ -352,7 +357,7 @@ function module:CheckBrush(data, hull )
     local endsOut = false
     local lastPlane = nil
 
-    for _,p in pairs(hull) do
+    for _,p in pairs(hullRecord.hull) do
 
         local startDistance = data.startPos:Dot(p.n ) - p.ed
         local endDistance = data.endPos:Dot(p.n ) - p.ed
@@ -382,6 +387,7 @@ function module:CheckBrush(data, hull )
             if (fraction > startFraction) then
                 startFraction = fraction
                 lastPlane = p
+                
             end
         else
             --line is leaving the brush
@@ -419,7 +425,7 @@ function module:CheckBrush(data, hull )
             data.normal = lastPlane.n
             data.planeD = lastPlane.d
             data.planeNum = lastPlane.planeNum
-            
+            data.hullRecord = hullRecord
         end
     end
 
@@ -453,16 +459,17 @@ function module:Sweep(startPos, endPos)
     data.planeD = 0 
     data.normal = Vector3.new(0,1,0)
     data.checks = 0
+    data.hullRecord = nil
     
         
     --calc bounds of sweep
-    local hulls = self:FetchHullsForBox(startPos, endPos)
+    local hullRecords = self:FetchHullsForBox(startPos, endPos)
     
  
-    for _,hull in pairs(hulls) do
+    for _,hullRecord in pairs(hullRecords) do
         
         data.checks+=1
-        self:CheckBrush(data, hull)
+        self:CheckBrush(data, hullRecord)
         if (data.allSolid == true) then
             data.fraction = 0
             break

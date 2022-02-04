@@ -12,6 +12,7 @@ local playerSize = Vector3.new(3,5,3)
 
 Simulation.collisionModule = require(script.CollisionModule)
 Simulation.characterData = require(script.CharacterData)
+local Enums = require(script.Parent.Enums)
 
 function Simulation.new(config: Types.ISimulationConfig)
     local self = setmetatable({}, Simulation)
@@ -67,7 +68,7 @@ function Simulation.new(config: Types.ISimulationConfig)
     
     --THIS DOES NOT GO HERE LOL
     
-    if (#Simulation.collisionModule.hulls == 0) then
+    if (#Simulation.collisionModule.hullRecords == 0) then
         Simulation.collisionModule:MakeWorld(game.Workspace.GameArea, playerSize )
     end
 
@@ -94,7 +95,7 @@ function Simulation:ProcessCommand(cmd)
     local onGround = nil
   
     --Check ground
-    onGround  =  self:DoGroundCheck(self.state.pos)
+    onGround = self:DoGroundCheck(self.state.pos)
 
     --Figure out our acceleration (airmove vs on ground)
     if onGround == nil then
@@ -134,19 +135,19 @@ function Simulation:ProcessCommand(cmd)
         
         --Also trigger walking
         if (onGround) then
-            self.characterData:PlayAnimation("Run", false,0.3) --make run animation a tiny bit sticky
+            self.characterData:PlayAnimation(Enums.Anims.Run, false,0.3) --make run animation a tiny bit sticky
             flatVel = self:Accelerate(wishDir, maxSpeed, accel, flatVel, cmd.deltaTime)
         else
-            self.characterData:PlayAnimation("Fall", false) --Airmove
+            self.characterData:PlayAnimation(Enums.Anims.Fall, false) --Airmove
             flatVel = self:Accelerate(wishDir, maxSpeed, airAccel, flatVel, cmd.deltaTime)
         end
         
         
     else
         if (onGround) then
-            self.characterData:PlayAnimation("Idle", false)
+            self.characterData:PlayAnimation(Enums.Anims.Idle, false)
         else
-            self.characterData:PlayAnimation("Fall", false)
+            self.characterData:PlayAnimation(Enums.Anims.Fall, false)
         end
         
     end
@@ -168,7 +169,20 @@ function Simulation:ProcessCommand(cmd)
         if cmd.y > 0 and self.state.jump <= 0 then
             self.state.vel = Vector3.new( self.state.vel.x, jumpPunch * (1 + self.state.jump), self.state.vel.z)
             self.state.jump = 0.2
-            self.characterData:PlayAnimation("Jump", true, 0.1)
+            self.characterData:PlayAnimation(Enums.Anims.Jump, true, 0.1)
+        end
+        
+        
+        --Check jumpPads
+        if (onGround.hullRecord) then
+            local instance = onGround.hullRecord.instance
+            
+            local vec3 = instance:GetAttribute("launch")
+            if (vec3) then
+                print("Voosh!")
+                local dir = instance.CFrame:VectorToWorldSpace(vec3)
+                self.state.vel = dir 
+            end
         end
     end
 

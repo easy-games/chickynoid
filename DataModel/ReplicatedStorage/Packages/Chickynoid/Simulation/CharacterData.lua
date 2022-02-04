@@ -59,12 +59,8 @@ function CharacterData:SetAngle(angle)
     self.serialized.angle = angle    
 end
 
-function CharacterData:AddStepUp(amount)
-    self.serialized.stepUp+=amount
-end
-
-function CharacterData:DecayStepUp(deltaTime)
-    self.serialized.stepUp *= 45 * deltaTime 
+function CharacterData:SetStepUp(amount)
+    self.serialized.stepUp = amount
 end
 
 

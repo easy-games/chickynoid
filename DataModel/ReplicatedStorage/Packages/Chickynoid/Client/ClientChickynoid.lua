@@ -84,6 +84,11 @@ function ClientChickynoid:MakeCommand(dt: number)
     if not UserInputService:GetFocusedTextBox() then
         command.y = UserInputService:IsKeyDown(Enum.KeyCode.Space) and 1 or 0
     end
+    if (self:GetIsJumping() == true) then
+        command.y = 1
+    end
+ 
+    
 
     local rawMoveVector = self:CalculateRawMoveVector(Vector3.new(command.x, 0, command.z))
     command.x = rawMoveVector.X
@@ -95,6 +100,12 @@ end
 function ClientChickynoid:CalculateRawMoveVector(cameraRelativeMoveVector: Vector3)
     local _, yaw = Camera.CFrame:ToEulerAnglesYXZ()
     return CFrame.fromEulerAnglesYXZ(0, yaw, 0) * Vector3.new(cameraRelativeMoveVector.X, 0, cameraRelativeMoveVector.Z)
+end
+
+function ClientChickynoid:GetIsJumping()
+    
+    
+    return ControlModule.activeController:GetIsJumping() or (ControlModule.touchJumpController and ControlModule.touchJumpController:GetIsJumping())
 end
 
 --[=[

@@ -157,6 +157,9 @@ function ChickynoidClient:Setup()
             local camera = game.Workspace.CurrentCamera
             camera.CameraSubject = self.characterModel.model
             camera.CameraType = Enum.CameraType.Custom
+            
+            --Bind the local character, which activates all the thumbsticks etc
+            game.Players.LocalPlayer.Character = self.characterModel.model
         end
         
         --Start building the world view, based on us having enoug snapshots to do so

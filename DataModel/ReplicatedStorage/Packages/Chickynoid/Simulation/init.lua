@@ -23,6 +23,7 @@ function Simulation.new(config: Types.ISimulationConfig)
     self.state.jump = 0
     self.state.angle = 0
     self.state.targetAngle = 0
+    self.state.stepUp = 0
     
     
     self.characterData = self.characterData.new()
@@ -211,7 +212,7 @@ function Simulation:ProcessCommand(cmd)
         if ground ~= nil then
             
             local step = self.state.pos.y - stepUpNewPos.y
-            self.characterData:AddStepUp(step)
+            self.state.stepUp += step
             
             self.state.pos = stepUpNewPos
             self.state.vel = stepUpNewVel
@@ -237,14 +238,16 @@ function Simulation:ProcessCommand(cmd)
     self.state.targetAngle = math.atan2(-flatVel.z, flatVel.x) - math.rad(90)
     self.state.angle = self:LerpAngle( self.state.angle,  self.state.targetAngle, turnSpeedFrac * cmd.deltaTime)
     
+    
+    --Adjust stepup
+    self:DecayStepUp(cmd.deltaTime)
+    
     --Write this to the characterData
     self.characterData:SetPosition(self.state.pos)
     self.characterData:SetAngle(self.state.angle)
-    
+    self.characterData:SetStepUp(self.state.stepUp)    
     -- print(self.state.vel ,cmd.deltaTime)
-    --Adjust stepup
-    self.characterData:DecayStepUp(cmd.deltaTime)
-    
+
     debug.profileend()
 end
 
@@ -254,6 +257,12 @@ function Simulation:Destroy()
         self.debugModel:Destroy()
     end
 end
+
+
+function Simulation:DecayStepUp(deltaTime)
+    self.state.stepUp *= 45 * deltaTime 
+end
+
 
 function Simulation:DoGroundCheck(pos)
     local results = self.collisionModule:Sweep(pos, pos + Vector3.new(0, -0.1, 0))
@@ -391,7 +400,7 @@ function Simulation:WriteState()
     record.jump = self.state.jump
     record.angle = self.state.angle
     record.wishAngle = self.state.wishAngle
-    
+    record.stepUp = self.state.stepUp
     return record
 end
 
@@ -403,6 +412,7 @@ function Simulation:ReadState(record)
     self.state.jump = record.jump
     self.state.angle = record.angle
     self.state.wishAngle = record.wishAngle
+    self.state.stepUp = record.stepUp
 end
 
 return Simulation

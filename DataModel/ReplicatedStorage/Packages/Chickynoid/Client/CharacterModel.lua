@@ -30,6 +30,7 @@ function CharacterModel.new()
         animCounter = -1,
         modelOffset = Vector3.new(0,0.5,0),
         modelReady = false,
+        startingAnimation = Enums.Anims.Idle 
     }, CharacterModel)
     
     return self
@@ -64,10 +65,10 @@ function CharacterModel:CreateModel(userId)
                     self.tracks[value.Name] = track
                 end
             end
-
-            self:PlayAnimation(Enums.Anims.Idle, true)
             
             self.modelReady = true
+            self:PlayAnimation(self.startingAnimation, true)
+                        
             self.model.Parent = game.Workspace
 
         end
@@ -86,9 +87,7 @@ end
 
 --you shouldnt ever have to call this directly, change the characterData to trigger this
 function CharacterModel:PlayAnimation(enum, force)
-    if (self.model == nil) then
-        return
-    end
+
     
     local name = "Idle"
     for key,value in pairs(Enums.Anims) do
@@ -98,15 +97,19 @@ function CharacterModel:PlayAnimation(enum, force)
         end
     end
     
-    
-    local track = self.tracks[name]
-    if (track) then
-        if (self.playingTrack ~= track or force == true) then
-            track:Play(0.3)
-            if (self.playingTrack) then
-                self.playingTrack:Stop()
+    if (self.modelReady == false) then
+        --Model not instantiated yet
+        self.startingAnimation = enum
+    else
+        local track = self.tracks[name]
+        if (track) then
+            if (self.playingTrack ~= track or force == true) then
+                track:Play(0.3)
+                if (self.playingTrack) then
+                    self.playingTrack:Stop()
+                end
+                self.playingTrack = track
             end
-            self.playingTrack = track
         end
     end
 end

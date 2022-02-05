@@ -446,8 +446,7 @@ end
  
 
 function module:Sweep(startPos, endPos)
-    
-    debug.profilebegin("Sweep")
+ 
     
     local data = {}
     data.startPos = startPos
@@ -461,7 +460,13 @@ function module:Sweep(startPos, endPos)
     data.checks = 0
     data.hullRecord = nil
     
-        
+    
+    if (startPos-endPos).magnitude > 1000 then
+        return data
+    end
+    
+
+    debug.profilebegin("Sweep")
     --calc bounds of sweep
     local hullRecords = self:FetchHullsForBox(startPos, endPos)
     

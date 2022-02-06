@@ -36,7 +36,7 @@ ChickynoidClient.worldState = nil
 ChickynoidClient.characterModel = nil
 
 --Milliseconds of *extra* buffer time to account for ping flux
-ChickynoidClient.interpolationBuffer = 10 
+ChickynoidClient.interpolationBuffer = 20 
 
 
 

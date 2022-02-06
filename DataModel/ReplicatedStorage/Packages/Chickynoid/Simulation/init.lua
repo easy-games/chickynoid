@@ -89,12 +89,12 @@ function Simulation:ProcessCommand(cmd)
     local maxSpeed = 20 --Units per second
     local airSpeed = 20
     local accel = 4.5   --Units per second per second
-    local airAccel = 3.0
+    local airAccel = 5.0  --Different than ground accel!
     local jumpPunch = 70  -- Raw velocity
-    local brakeFriction = 0.08  -- Lower is brake harder, dont use 0
+    local brakeFriction = 0.05  -- Lower is brake harder, dont use 0
     local turnSpeedFrac = 5
     local onGround = nil
-  
+   
     --Check ground
     onGround = self:DoGroundCheck(self.state.pos)
 

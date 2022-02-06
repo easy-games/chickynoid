@@ -86,7 +86,7 @@ function CharacterData:PlayAnimation(animNum, forceRestart, exclusiveTime )
     
     if (forceRestart or animNum ~= self.serialized.animNum) then
         self.serialized.animCounter += 1
-        if (self.serialized.animCounter > 255) then
+        if (self.serialized.animCounter > 128) then
             self.serialized.animCounter = 0
         end
     end    

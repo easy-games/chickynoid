@@ -20,16 +20,17 @@ Special thanks to https://easy.gg/ who are currently sponsoring Chickynoids deve
 
 **What is it?**
 
-Chickynoid is intended to be a replacement for roblox "humanoid" based characters. 
-It consists of the chickynoid character controller, a character 'renderer' (TBD), and a framework on the client and server for managing player connections and network replication. 
+Chickynoid is intended to be a hard replacement for roblox "humanoid" based characters.
+It consists of the chickynoid character controller simulation, a character 'renderer', and a replication framework on the client and server for managing player connections and network replication. 
 
+Because of how invasive it is and how it works, it's never going to be a drag-and-drop replacement for characters in your existing game. If you're not comfortable doing some serious engineering, this project is probably not for you.
 
 
 **What does it do?**
 
 Chickynoid heavily borrows from the same principles that games like quake, cod, overwatch, and other first person shooters use to prevent fly hacking, teleporting, and other "typical" character hacks that roblox is typically vulnerable to.
 
-It implements a full character controller and character physics using it's own math (Spherecast when pls roblox?), and trusts nothing from the client except input directions and buttons (and to a limited degree dt).
+It implements a full character controller, character physics, replication, and world collision using it's own math and systems (Spherecast when pls roblox?), and trusts nothing from the client except input directions and buttons (and to a limited degree dt).
 
 It implements "rollback" style networking on the client, so if the server disagrees about the results of your input, the client corrects to where it should be based on the remaining unconfirmed input.
 
@@ -47,9 +48,9 @@ Turn speed, braking, max speed, "step up size" and acceleration are much easier 
 
 **What are the drawbacks?**
 
-The collision module is limited to parts right now and totally custom. 
+The collision module is limited to parts right now and totally custom. It's designed for making rapid short-distance traces for player movement in a world made out of parts, and not much else.
 
-This doesn't replace even a significant subset of what humanoids currently do. It's a platforming character and not much else right now.  
+This doesn't replace even a significant subset of what humanoids currently do. It's a platforming character and not much else.
 
 Your character is a box, not a nice physically accurate mess like roblox uses.
 
@@ -61,10 +62,9 @@ Buffer underrun detection "Antiwarp" (so technically freezing your character is 
 
 Delta time validation (so technically speed cheating is still possible right now)
 
-Character rendering (we dont replicate the avatar yet)
+More tweaks to character rendering (hip height)
 
-All the nice stuff surrounding controls like mobile controls and bindings
-
+Handling player death, resetting, teleporting.
 
 
 ## How does it do it?

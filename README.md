@@ -4,6 +4,11 @@ A server-authoritative networking character controller for Roblox.
 
 Maintained and written by MrChickenRocket and Brooke.
 
+A relatively recent build can usually be found here:
+
+https://www.roblox.com/games/8289135181/Chickynoid
+
+
 
 **Massive Work In Progress**
 
@@ -24,6 +29,7 @@ Chickynoid is intended to be a hard replacement for roblox "humanoid" based char
 It consists of the chickynoid character controller simulation, a character 'renderer', and a replication framework on the client and server for managing player connections and network replication. 
 
 Because of how invasive it is and how it works, it's never going to be a drag-and-drop replacement for characters in your existing game. If you're not comfortable doing some serious engineering, this project is probably not for you.
+
 
 
 **What does it do?**

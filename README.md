@@ -11,6 +11,11 @@ Fair warning, this is not ready for production in it's current form.
 Feel free to have a look at it and see how it does what it does, though!
 
 
+**Thankyous!**
+
+Special thanks to https://easy.gg/ who are currently sponsoring Chickynoids development! 
+
+
 ## 
 
 **What is it?**

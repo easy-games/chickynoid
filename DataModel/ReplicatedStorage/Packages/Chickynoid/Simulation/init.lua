@@ -81,19 +81,24 @@ end
 --	or the server and client state will get out of sync.
 --	You'll have to manage it so clients/server see the same thing in workspace.GameArea for raycasts...
 
+
+-- Regarding AirAccel
+
 function Simulation:ProcessCommand(cmd)
     
     debug.profilebegin("Chickynoid Simulation")
 
-    --Ground parameters
-    local maxSpeed = 20 --Units per second
-    local airSpeed = 20
-    local accel = 4.5   --Units per second per second
-    local airAccel = 5.0  --Different than ground accel!
-    local jumpPunch = 70  -- Raw velocity
-    local brakeFriction = 0.05  -- Lower is brake harder, dont use 0
-    local turnSpeedFrac = 5
+    --Ground parameters, for stock "Humanoid" recreation
+    local maxSpeed = 16         --Units per second
+    local airSpeed = 16         --Units per second
+    local accel = 5.5           --Units per second per second
+    local airAccel = 10        --Uses a different function than ground accel! 
+    local jumpPunch = 55        --Raw velocity, just barely enough to climb on a 7 unit tall block
+    local brakeFriction = 0.05  --Lower is brake harder, dont use 0
+    local turnSpeedFrac = 12    --seems about right? Very fast.
+    
     local onGround = nil
+    
    
     --Check ground
     onGround = self:DoGroundCheck(self.state.pos)
@@ -123,7 +128,7 @@ function Simulation:ProcessCommand(cmd)
         end
         if wishDir ~= nil and wishDir:Dot(flatVel.Unit) < -0.1 then
             --This makes things much more snappy!
-            --shouldBrake = true
+            shouldBrake = true
         end 
     end
 
@@ -141,18 +146,17 @@ function Simulation:ProcessCommand(cmd)
             self.characterData:PlayAnimation(Enums.Anims.Run, false,0.3) --make run animation a tiny bit sticky
             
             local inVec = flatVel
-            flatVel = self:GroundAccelerate(wishDir, maxSpeed, accel, flatVel, cmd.deltaTime)
+            flatVel = self:ClampedAccelerate(wishDir, maxSpeed, accel, flatVel, cmd.deltaTime)
         else
             self.characterData:PlayAnimation(Enums.Anims.Fall, false) --Airmove
+            
+            
             flatVel = self:AirAccelerate(wishDir, airSpeed, airAccel, flatVel, cmd.deltaTime)
         end
-        
-        
+
     else
-        if (onGround) then
+        if (onGround and self.state.jump <= 0 ) then
             self.characterData:PlayAnimation(Enums.Anims.Idle, false)
-        else
-            self.characterData:PlayAnimation(Enums.Anims.Fall, false)
         end
         
     end
@@ -174,7 +178,7 @@ function Simulation:ProcessCommand(cmd)
         if cmd.y > 0 and self.state.jump <= 0 then
             self.state.vel = Vector3.new( self.state.vel.x, jumpPunch, self.state.vel.z)
             self.state.jump = 0.2
-            self.characterData:PlayAnimation(Enums.Anims.Jump, true, 0.1)
+            self.characterData:PlayAnimation(Enums.Anims.Jump, true, 0.2)
         end
         
         
@@ -184,9 +188,10 @@ function Simulation:ProcessCommand(cmd)
             
             local vec3 = instance:GetAttribute("launch")
             if (vec3) then
-                print("Voosh!")
                 local dir = instance.CFrame:VectorToWorldSpace(vec3)
                 self.state.vel = dir 
+                self.state.jump = 0.2
+                self.characterData:PlayAnimation(Enums.Anims.Jump, true, 0.2)
             end
         end
     end
@@ -195,6 +200,10 @@ function Simulation:ProcessCommand(cmd)
     if onGround == nil then
         --gravity
         self.state.vel += Vector3.new(0, -198 * cmd.deltaTime, 0)
+        
+        if (self.state.vel.y <=0.01) then
+            self.characterData:PlayAnimation(Enums.Anims.Fall, false)
+        end
     end
     
     
@@ -268,6 +277,7 @@ function Simulation:ProcessCommand(cmd)
     self.characterData:SetPosition(self.state.pos)
     self.characterData:SetAngle(self.state.angle)
     self.characterData:SetStepUp(self.state.stepUp)    
+    self.characterData:SetFlatSpeed(flatVel.Magnitude)
     -- print(self.state.vel ,cmd.deltaTime)
 
     debug.profileend()
@@ -398,7 +408,7 @@ function Simulation:LerpAngle(a0, a1, frac)
     return a0 + self:AngleShortest(a0, a1) * frac
 end
 
-function Simulation:GroundAccelerate(wishDir, wishSpeed, accel, velocity, dt)
+function Simulation:ClampedAccelerate(wishDir, wishSpeed, accel, velocity, dt)
     
     local dot = wishDir:Dot(velocity)
     
@@ -434,7 +444,7 @@ function Simulation:AirAccelerate(wishDir, wishSpeed, accel, velocity, dt)
     local projected = self:VectorProject( velocity,(wishDir*wishSpeed)).magnitude
  
     if (dot < 0) then --back the other way?
-        projected = - projected
+        projected = -projected
     end
     
     local allowedChange = wishSpeed - projected  

@@ -27,10 +27,13 @@ function CharacterModel.new()
         model = nil,
         characterData = nil,
         playingTrack = nil,
+        playingTrackNum = nil,
         animCounter = -1,
         modelOffset = Vector3.new(0,0.5,0),
         modelReady = false,
-        startingAnimation = Enums.Anims.Idle 
+        startingAnimation = Enums.Anims.Idle,
+     
+        
     }, CharacterModel)
     
     return self
@@ -55,6 +58,10 @@ function CharacterModel:CreateModel(userId)
             if (userId ~= nil and string.sub(userId,1,1) ~= "-" ) then
                 local description = game.Players:GetHumanoidDescriptionFromUserId(userId)
                 self.model.Humanoid:ApplyDescription(description)
+                
+                
+                local hip = (2.5-self.model.Humanoid.hipHeight)
+                self.modelOffset = Vector3.new(0,hip,0)
             end
 
             --Load on the animations
@@ -70,7 +77,7 @@ function CharacterModel:CreateModel(userId)
             self:PlayAnimation(self.startingAnimation, true)
                         
             self.model.Parent = game.Workspace
-
+            
         end
     end)()
     
@@ -104,11 +111,17 @@ function CharacterModel:PlayAnimation(enum, force)
         local track = self.tracks[name]
         if (track) then
             if (self.playingTrack ~= track or force == true) then
-                track:Play(0.3)
-                if (self.playingTrack) then
-                    self.playingTrack:Stop()
+        
+                for key,value in pairs(self.tracks) do
+                    if (value ~= track) then
+                        value:Stop(0.1)
+                    end
                 end
+                track:Play(0.1)
+
                 self.playingTrack = track
+                self.playingTrackNum = enum
+       
             end
         end
     end
@@ -127,7 +140,16 @@ function CharacterModel:Think(deltaTime, dataRecord)
         self.animCounter = dataRecord.animCounter
         self:PlayAnimation(dataRecord.animNum, true)
     end
-         
+    
+    if (self.playingTrackNum == Enums.Anims.Run) then
+        
+        local vel = dataRecord.flatSpeed
+        local playbackSpeed = (vel / 16)  
+--        self.playingTrack:AdjustSpeed(playbackSpeed)
+    end
+    
+    
+    
     self.model:PivotTo(CFrame.new(dataRecord.pos + self.modelOffset + Vector3.new(0,dataRecord.stepUp,0)) * CFrame.fromEulerAnglesXYZ(0,dataRecord.angle,0))
 end
 

@@ -284,6 +284,9 @@ function module:MakeWorld(folder, playerSize)
     for key,value in pairs(folder:GetDescendants()) do
         if (value:IsA("BasePart")) then
             
+            if (value.CanCollide == false) then
+                continue
+            end
             local record = {}
             record.instance = value
             record.hull = self:GenerateConvexHull(value, playerSize)

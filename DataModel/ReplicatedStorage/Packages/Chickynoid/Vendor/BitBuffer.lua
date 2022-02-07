@@ -1,4 +1,4 @@
---Bitbuffer, courtesy of https://github.com/Dekkonot/bitbuffer
+        --Bitbuffer, courtesy of https://github.com/Dekkonot/bitbuffer
 
 local CHAR_SET = [[ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/]]
 
@@ -42,7 +42,7 @@ for i = 0, 255 do
         local mask = -bit32.band(crc, 1)
         crc = bit32.bxor(bit32.rshift(crc, 1), bit32.band(CRC32_POLYNOMIAL, mask))
     end
-    crc32_poly_lookup[i] = crc
+    crc32_poly_lookup[i] = crc  
 end
 
 local powers_of_2 = {}

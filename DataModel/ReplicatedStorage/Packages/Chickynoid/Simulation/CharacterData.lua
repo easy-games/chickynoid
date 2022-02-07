@@ -22,14 +22,29 @@ function Raw(a,b,frac)
     return b
 end
 
+local MAX_FLOAT16 = math.pow(2,16)
+function ValidateFloat16(float)
+    return math.clamp(float,-MAX_FLOAT16, MAX_FLOAT16)
+end
+
+local MAX_BYTE = 255
+function ValidateByte(byte)
+    return math.clamp(byte,0, MAX_BYTE)
+end
+
+function ValidateVector3(input)
+    return input
+end
+
 function CharacterData:ModuleSetup()
     
     self.packFunctions = {
-        pos = { "writeVector3", "readVector3" },
-        angle = { "writeFloat16", "readFloat16"  },
-        animCounter = { "writeByte", "readByte"  },
-        animNum = { "writeByte", "readByte" },
-        stepUp = { "writeFloat16", "readFloat16" },
+        pos = { write = "writeVector3", read = "readVector3" , validate = ValidateVector3 },
+        angle = { write = "writeFloat16", read = "readFloat16", validate = ValidateFloat16  },
+        animCounter = { write = "writeByte", read = "readByte", validate = ValidateByte  },
+        animNum = { write = "writeByte", read = "readByte", validate = ValidateByte },
+        stepUp = { write = "writeFloat16", read = "readFloat16", validate = ValidateFloat16 },
+        flatSpeed = { write = "writeFloat16", read = "readFloat16", validate = ValidateFloat16 },
     }
 
     self.lerpFunctions = {
@@ -38,6 +53,7 @@ function CharacterData:ModuleSetup()
         animCounter = Raw,
         animNum = Raw,
         stepUp = NumberLerp,
+        flatSpeed = NumberLerp,
     }
 end
 
@@ -52,6 +68,7 @@ function CharacterData.new()
             animCounter = 0,
             animNum = 0,
             stepUp = 0,
+            flatSpeed = 0,
         },
         
 
@@ -68,8 +85,12 @@ function CharacterData:SetPosition(pos)
     self.serialized.pos = pos    
 end
 
+function CharacterData:SetFlatSpeed(num)
+    self.serialized.flatSpeed = num
+end
+
 function CharacterData:SetAngle(angle)
-    self.serialized.angle = angle    
+    self.serialized.angle = angle  
 end
 
 function CharacterData:SetStepUp(amount)
@@ -79,14 +100,14 @@ end
 
 function CharacterData:PlayAnimation(animNum, forceRestart, exclusiveTime )
     
-    if (tick() < self.animationExclusiveTime) then
+    if (tick() < self.animationExclusiveTime and forceRestart == false) then
         return
     end
         
     
-    if (forceRestart or animNum ~= self.serialized.animNum) then
+    if (forceRestart == true or animNum ~= self.serialized.animNum) then
         self.serialized.animCounter += 1
-        if (self.serialized.animCounter > 128) then
+        if (self.serialized.animCounter > 255) then
             self.serialized.animCounter = 0
         end
     end    
@@ -95,9 +116,8 @@ function CharacterData:PlayAnimation(animNum, forceRestart, exclusiveTime )
         self.animationExclusiveTime = tick() + exclusiveTime
     end
     
+ 
     self.serialized.animNum = animNum
-    
-    
 end
 
 
@@ -117,9 +137,12 @@ function CharacterData:SerializeToBitBuffer(bitBuffer)
     
     
     for key,value in pairs(self.serialized) do
+               
+        
         local func = self.packFunctions[key]
         if (func) then
-            bitBuffer[func[1]](value)    
+            value = func.validate(value)
+            bitBuffer[func.write](value)    
         end
     end
 end
@@ -129,7 +152,7 @@ function CharacterData:DeserializeFromBitBuffer(bitBuffer)
     for key,value in pairs(self.serialized) do
         local func = self.packFunctions[key]
         if (func) then
-            self.serialized[key] = bitBuffer[func[2]]()    
+            self.serialized[key] = bitBuffer[func.read]()    
         end
     end
 end

@@ -95,11 +95,7 @@ function MakeDebugPlayers()
     
 end
 
-MakeDebugPlayers()
+--MakeDebugPlayers()
 
 
---benchmarking
--- 4.2kb/s baseload
--- 6.6kb/s after 1 bot == 2.2kb/s per bot
--- 5.3kb/s after 2 bot == ?!
-
+ 

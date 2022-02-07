@@ -29,7 +29,12 @@ function ServerChickynoid.new(playerRecord, config: Types.IServerConfig)
         unprocessedCommands = {},
         commandSerial = 0,
         lastConfirmedCommand = nil,
-
+        elapsedTime = 0,
+        playerElapsedTime = 0,
+        tooFarAhead = false,
+        
+        speedCheatThreshhold = 150 * 0.001, --milliseconds
+        bufferedCommandTime = 30, --ms
         serverFrames = 0,
     }, ServerChickynoid)
     
@@ -42,10 +47,7 @@ function ServerChickynoid.new(playerRecord, config: Types.IServerConfig)
         self.simulation.debugModel = nil
     end
     
-    self.simulation.whiteList = { workspace.GameArea, workspace.Terrain }
-
-    
-    
+ 
     self:SpawnChickynoid()
 
     return self
@@ -62,6 +64,7 @@ end
 ]=]
 function ServerChickynoid:SetPosition(position: Vector3)
     self.simulation.state.pos = position
+   
 end
 
 --[=[
@@ -85,27 +88,50 @@ function ServerChickynoid:Think(dt: number)
     --  No speedcheat detection (monitor sum of dt)
     
     --This should be sorted
+    self.elapsedTime += dt
     
+    
+    if (#self.unprocessedCommands == 0) then
+        --This is a problem, the player has no commands (are they freezing?)
+        
+    end 
+    
+
     table.sort(self.unprocessedCommands,function(a,b)
         return a.serial < b.serial
     end)
     
+    local maxCommandsPerFrame = 5
+            
     for _, command in pairs(self.unprocessedCommands) do
-                
-        --sanity check for deltatime
-        if (command.deltaTime > 0.2) then
-            command.deltaTime = 0.2
+        
+        maxCommandsPerFrame-=1
+        if (maxCommandsPerFrame < 0) then
+            print("Player lagged:", self.playerRecord.name)
+            self.playerElapsedTime = self.elapsedTime
+            break --Discard all buffered commands
         end
         
+                
         self.simulation:ProcessCommand(command)
+        command.processed = true
         
         if (command.l and tonumber(command.l) ~= nil) then
             self.lastConfirmedCommand = command.l
         end
-       
     end
+    
+    local newList = {}
+    for _, command in pairs(self.unprocessedCommands) do
+        if (command.processed ~= true) then
+            table.insert(newList,command)
+        end
+    end
+    
+    self.unprocessedCommands = newList
+    
  
-    table.clear(self.unprocessedCommands)
+    
 end
 
 
@@ -123,9 +149,31 @@ function ServerChickynoid:HandleClientEvent(event)
             
             command.serial = self.commandSerial
             self.commandSerial += 1
-            table.insert(self.unprocessedCommands, command)
+         
+            --sanitize
+            if (command.deltaTime) then
+                if (command.deltaTime > 0.2) then
+                    command.deltaTime = 0.2
+                end
+                
+                --On the first command, init
+                if (self.playerElapsedTime == 0) then
+                    self.playerElapsedTime = self.elapsedTime
+                end
+                
+                
+                if (self.playerElapsedTime > self.elapsedTime + self.speedCheatThreshhold) then
+                    print("Player too far ahead", self.playerRecord.name) 
+                             
+                else
+                    self.playerElapsedTime += command.deltaTime
+                    command.totalTime = self.playerElapsedTime 
+                    table.insert(self.unprocessedCommands, command)
+                end
+            else
+                --discard
+            end
         end
-        
     end
 end
 
@@ -147,6 +195,7 @@ function ServerChickynoid:SpawnChickynoid()
     else
         self:SetPosition(Vector3.new(0, 10, 0))
     end
+    self.simulation.state.vel = Vector3.zero
     
     if (self.playerRecord.dummy == false) then
         

@@ -101,6 +101,10 @@ function ChickynoidServer:Think(deltaTime)
             playerRecord.BotThink(deltaTime)
         end
         playerRecord.chickynoid:Think(deltaTime)
+        
+        if (playerRecord.chickynoid.simulation.state.pos.y < -2000) then
+            playerRecord.chickynoid:SpawnChickynoid()
+        end
     end    
     
     -- 2nd stage: Replicate character state to the player

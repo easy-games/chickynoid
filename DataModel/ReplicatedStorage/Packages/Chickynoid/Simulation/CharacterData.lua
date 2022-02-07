@@ -33,6 +33,7 @@ function ValidateByte(byte)
 end
 
 function ValidateVector3(input)
+    
     return input
 end
 
@@ -82,7 +83,8 @@ end
 
 
 function CharacterData:SetPosition(pos)
-    self.serialized.pos = pos    
+    self.serialized.pos = pos  
+   
 end
 
 function CharacterData:SetFlatSpeed(num)

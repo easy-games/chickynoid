@@ -25,6 +25,7 @@ function Simulation.new(config: Types.ISimulationConfig)
     self.state.angle = 0
     self.state.targetAngle = 0
     self.state.stepUp = 0
+    self.state.inAir = 0
     
     
     self.characterData = self.characterData.new()
@@ -80,108 +81,86 @@ end
 --	and no other client or server state can "leak" into here
 --	or the server and client state will get out of sync.
 --	You'll have to manage it so clients/server see the same thing in workspace.GameArea for raycasts...
-
-
--- Regarding AirAccel
-
+ 
 function Simulation:ProcessCommand(cmd)
-    
+ 
     debug.profilebegin("Chickynoid Simulation")
 
     --Ground parameters, for stock "Humanoid" recreation
-    local maxSpeed = 16         --Units per second
-    local airSpeed = 16         --Units per second
-    local accel = 5.5           --Units per second per second
-    local airAccel = 10        --Uses a different function than ground accel! 
-    local jumpPunch = 55        --Raw velocity, just barely enough to climb on a 7 unit tall block
-    local brakeFriction = 0.05  --Lower is brake harder, dont use 0
-    local turnSpeedFrac = 12    --seems about right? Very fast.
+    local maxSpeed = 16                 --Units per second
+    local airSpeed = 16                 --Units per second
+    local accel =  40                   --Units per second per second 
+    local airAccel = 40                 --Uses a different function than ground accel! 
+    local jumpPunch = 55                --Raw velocity, just barely enough to climb on a 7 unit tall block
+    local turnSpeedFrac = 12            --seems about right? Very fast.
+    local brakeFriction = 0.01          --Lower is brake harder, dont use 0
     
-    local onGround = nil
-    
-   
+    --Regarding Humanoid: Best guess is real humanoids are manipulating position+velocity at the same time via critically dampened springs
+    --                    This means they don't really have the concept of acceleration
+    --                    So best approx is just jacking accel and friction through the roof!
+        
     --Check ground
+    local onGround = nil
     onGround = self:DoGroundCheck(self.state.pos)
-
-    --Figure out our acceleration (airmove vs on ground)
-    if onGround == nil then
-        --different if we're in the air?
-    end
 
     --Did the player have a movement request?
     local wishDir = nil
-    local flatVel = Vector3.new(self.state.vel.x, 0, self.state.vel.z)
 
-    if cmd.x ~= 0 or cmd.z ~= 0 then
+    if (cmd.x ~= 0 or cmd.z ~= 0) then
         wishDir = Vector3.new(cmd.x, 0, cmd.z).Unit
     end
-
     
-    local shouldBrake = false
+    --Create flat velocity to operate our input command on
+    --In theory this should be relative to the ground plane instead...
+    local flatVel = self:FlatVec(self.state.vel)
     
-    --see if we're accelerating back against our current flatvel (eg: turning around/strafing)
-    if(onGround ~= nil) then
-        
-        --Are we just standing still?
-        if wishDir == nil then
-            shouldBrake = true
-        end
-        if wishDir ~= nil and wishDir:Dot(flatVel.Unit) < -0.1 then
-            --This makes things much more snappy!
-            shouldBrake = true
-        end 
-    end
-
-    --Apply braking
-    if shouldBrake == true then
-        flatVel = self:Friction(flatVel, brakeFriction, cmd.deltaTime) 
-    end
-
-    --movement acceleration (walking/running/airmove)
-    --Does nothing if we don't have an input
-    if wishDir ~= nil then
-        
-        --Also trigger walking
+    --Does the player have an input?
+    if (wishDir ~= nil) then
+       
         if (onGround) then
-            self.characterData:PlayAnimation(Enums.Anims.Run, false,0.3) --make run animation a tiny bit sticky
+            --Moving along the ground under player input
+            flatVel = self:Friction(flatVel, brakeFriction, cmd.deltaTime) 
+            flatVel = self:Accelerate(wishDir, maxSpeed, accel, flatVel, cmd.deltaTime)
             
-            local inVec = flatVel
-            flatVel = self:ClampedAccelerate(wishDir, maxSpeed, accel, flatVel, cmd.deltaTime)
+            --Good time to trigger our walk anim
+            self.characterData:PlayAnimation(Enums.Anims.Run, false)
         else
-            self.characterData:PlayAnimation(Enums.Anims.Fall, false) --Airmove
-            
-            
-            flatVel = self:AirAccelerate(wishDir, airSpeed, airAccel, flatVel, cmd.deltaTime)
+            --Moving through the air under player control
+            flatVel = self:Accelerate(wishDir, airSpeed, airAccel, flatVel, cmd.deltaTime)
         end
-
     else
-        if (onGround and self.state.jump <= 0 ) then
+        if (onGround ~= nil) then
+            --Just standing around
+            flatVel = self:Friction(flatVel, brakeFriction, cmd.deltaTime)
+            
+            --Enter idle
             self.characterData:PlayAnimation(Enums.Anims.Idle, false)
+        else
+            --moving through the air with no input
+            
         end
-        
     end
-
+    
+    --Turn out flatvel back into our vel
     self.state.vel = Vector3.new(flatVel.x, self.state.vel.y, flatVel.z)
     
-    --Do jumping?
     
-    if self.state.jump > 0 then
+    --Do jumping?
+    if (self.state.jump > 0) then
         self.state.jump -= cmd.deltaTime
         if (self.state.jump < 0) then
             self.state.jump = 0
         end
     end
     
-    if onGround ~= nil then
-
+    if (onGround ~= nil) then
         --jump!
-        if cmd.y > 0 and self.state.jump <= 0 then
-            self.state.vel = Vector3.new( self.state.vel.x, jumpPunch, self.state.vel.z)
-            self.state.jump = 0.2
+        if (cmd.y > 0 and self.state.jump <= 0) then
+            self.state.vel = Vector3.new(self.state.vel.x, jumpPunch, self.state.vel.z)
+            self.state.jump = 0.2 --jumping has a cooldown (think jumping up a staircase)
             self.characterData:PlayAnimation(Enums.Anims.Jump, true, 0.2)
         end
-        
-        
+  
         --Check jumpPads
         if (onGround.hullRecord) then
             local instance = onGround.hullRecord.instance
@@ -196,28 +175,42 @@ function Simulation:ProcessCommand(cmd)
         end
     end
 
-    --Gravity
-    if onGround == nil then
+    --In air?
+    if (onGround == nil) then
+        
+        self.state.inAir += cmd.deltaTime
+        if (self.state.inAir > 10) then
+            self.state.inAir = 10 --Capped just to keep the state var reasonable
+        end
+        
         --gravity
         self.state.vel += Vector3.new(0, -198 * cmd.deltaTime, 0)
         
-        if (self.state.vel.y <=0.01) then
+        --Switch to falling if we've been off the ground for a bit
+        if (self.state.vel.y <=0.01 and self.state.inAir > 0.5) then
             self.characterData:PlayAnimation(Enums.Anims.Fall, false)
         end
+
+    else
+        --Land after jump
+        if (self.state.inAir > 0) then
+            --We don't do anything special here atm
+           
+        end
+        self.state.inAir = 0
     end
-    
+ 
     
     --Sweep the player through the world
     local walkNewPos, walkNewVel, hitSomething = self:ProjectVelocity(self.state.pos, self.state.vel, cmd.deltaTime  )
-  
-   
+     
     --STEPUP - the magic that lets us traverse uneven world geometry
     --the idea is that you redo the player movement but "if I was x units higher in the air"
     --it adds a lot of extra casts...
     local flatVel = Vector3.new(self.state.vel.x, 0, self.state.vel.z)
     
     -- Do we even need to?                               (not jumping!)
-    if (onGround ~= nil  and hitSomething == true and self.state.jump == 0) then
+    if (onGround ~= nil and hitSomething == true and self.state.jump == 0) then
         
         --first move upwards as high as we can go
         local headHit = self.collisionModule:Sweep(self.state.pos, self.state.pos + Vector3.new(0, self.stepSize, 0))
@@ -238,11 +231,11 @@ function Simulation:ProcessCommand(cmd)
         --See if we're mostly on the ground after this? otherwise rewind it
         local ground = self:DoGroundCheck(stepUpNewPos, (-2.5 + self.stepSize))
 
-        if ground ~= nil then
+        if (ground ~= nil) then
             
             local step = self.state.pos.y - stepUpNewPos.y
             self.state.stepUp += step
-            
+             
             self.state.pos = stepUpNewPos
             self.state.vel = stepUpNewVel
         else
@@ -256,10 +249,15 @@ function Simulation:ProcessCommand(cmd)
         self.state.pos = walkNewPos
         self.state.vel = walkNewVel
     end
- 
+    
+    
+    --Input/Movement is done, do the update of timers and write out values
+    
+    --Adjust stepup
+    self:DecayStepUp(cmd.deltaTime)
     
     --position the debug visualizer
-    if self.debugModel then
+    if (self.debugModel ~= nil) then
         self.debugModel:PivotTo(CFrame.new(self.state.pos))
     end
     
@@ -269,18 +267,14 @@ function Simulation:ProcessCommand(cmd)
         self.state.angle = self:LerpAngle( self.state.angle,  self.state.targetAngle, turnSpeedFrac * cmd.deltaTime)
     end
     
-    
-    --Adjust stepup
-    self:DecayStepUp(cmd.deltaTime)
-    
     --Write this to the characterData
     self.characterData:SetPosition(self.state.pos)
     self.characterData:SetAngle(self.state.angle)
     self.characterData:SetStepUp(self.state.stepUp)    
     self.characterData:SetFlatSpeed(flatVel.Magnitude)
-    -- print(self.state.vel ,cmd.deltaTime)
-
+ 
     debug.profileend()
+    
 end
 
 
@@ -292,7 +286,7 @@ end
 
 
 function Simulation:DecayStepUp(deltaTime)
-    self.state.stepUp *= 45 * deltaTime 
+    self.state.stepUp = Simulation:Friction(self.state.stepUp, 0.05, deltaTime) --higher == slower
 end
 
 function Simulation:FlatVec(vec)
@@ -408,68 +402,31 @@ function Simulation:LerpAngle(a0, a1, frac)
     return a0 + self:AngleShortest(a0, a1) * frac
 end
 
-function Simulation:ClampedAccelerate(wishDir, wishSpeed, accel, velocity, dt)
+
+
+function Simulation:Accelerate(wishDir, wishSpeed, accel, velocity, dt)
     
-    local dot = wishDir:Dot(velocity)
+    local speed = velocity.magnitude
     
+    local currentSpeed = velocity:Dot(wishDir)
+    local addSpeed = wishSpeed - currentSpeed
     
-    
-    local wishVel = wishDir * wishSpeed
-    local pushDir = wishVel - velocity
-    local pushLen = pushDir.magnitude
-    
-    local canPush = accel * dt * wishSpeed
-    if (canPush > pushLen) then
-        canPush = pushLen
-    end
-    velocity += pushDir * canPush 
-    
-    --Because we're on the ground, make sure we can never go faster than our feet allow
-    --(this prevents direction deflection on crash lands too)   
-    if (velocity.magnitude > wishSpeed) then
-        velocity = velocity.unit * wishSpeed
+    if (addSpeed <= 0) then
+        return velocity
     end
     
+    local accelSpeed = accel * dt * wishSpeed
+    if (accelSpeed > addSpeed) then
+        accelSpeed = addSpeed
+    end
+    
+    velocity = velocity + (accelSpeed * wishDir)
+    
+    --if we're already going over max speed, don't go any faster than that
+    if (speed > wishSpeed and velocity.magnitude > speed) then
+        velocity = velocity.unit * speed        
+    end
     return velocity
-end
-
-function Simulation:AirAccelerate(wishDir, wishSpeed, accel, velocity, dt)
-    
-    --This was difficult to derive!
-    --first we calculate a "allowedChange" scalar
-    --Essentially, in situations like boost pads we want an allowed change of 1 for orthogonal or behind, and 0..1 up to max speed    
-    --So you can't accelerate "faster" than maxspeed 
-    
-    local dot = wishDir:Dot(velocity)
-    local projected = self:VectorProject( velocity,(wishDir*wishSpeed)).magnitude
- 
-    if (dot < 0) then --back the other way?
-        projected = -projected
-    end
-    
-    local allowedChange = wishSpeed - projected  
-    allowedChange = math.clamp(allowedChange, 0, wishSpeed)
-    allowedChange/= wishSpeed
-
-    local change = accel * dt * wishSpeed * allowedChange
-    velocity += wishDir * change
-    
-    return velocity
-
-end
-
-function Simulation:VectorProject(vector, onNormal)
-
-    local sqrMag = onNormal:Dot(onNormal)
-    if (sqrMag < 0.00001) then
-        return Vector3.zero
-    end
-    
-    local dot = vector:Dot(onNormal)
-    
-    return Vector3.new(onNormal.x * dot / sqrMag,
-                       onNormal.y * dot / sqrMag,
-                       onNormal.z * dot / sqrMag)
 end
 
 --dt variable friction function
@@ -486,6 +443,7 @@ function Simulation:WriteState()
     record.angle = self.state.angle
     record.wishAngle = self.state.wishAngle
     record.stepUp = self.state.stepUp
+    record.inAir = self.state.inAir
     return record
 end
 
@@ -498,6 +456,7 @@ function Simulation:ReadState(record)
     self.state.angle = record.angle
     self.state.wishAngle = record.wishAngle
     self.state.stepUp = record.stepUp
+    self.state.inAir = record.inAir
 end
 
 return Simulation

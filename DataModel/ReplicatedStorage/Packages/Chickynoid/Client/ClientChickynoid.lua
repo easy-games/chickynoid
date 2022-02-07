@@ -71,6 +71,8 @@ function ClientChickynoid:MakeCommand(dt: number)
     command.y = 0
     command.z = 0
     command.deltaTime = dt
+    
+  
 
     local moveVector = ControlModule:GetMoveVector() :: Vector3
     if moveVector.Magnitude > 0 then
@@ -83,6 +85,12 @@ function ClientChickynoid:MakeCommand(dt: number)
     -- This approach isn't ideal but it's the easiest right now
     if not UserInputService:GetFocusedTextBox() then
         command.y = UserInputService:IsKeyDown(Enum.KeyCode.Space) and 1 or 0
+        
+        
+        if (UserInputService:IsKeyDown(Enum.KeyCode.P)) then
+            command.deltaTime *= 3
+        end
+
     end
     if (self:GetIsJumping() == true) then
         command.y = 1
@@ -119,7 +127,7 @@ end
     @param state table -- The new state sent by the server.
     @param lastConfirmed number -- The serial number of the last command confirmed by the server.
 ]=]
-function ClientChickynoid:HandleNewState(state: table, lastConfirmed: number)
+function ClientChickynoid:HandleNewState(state, lastConfirmed)
     self:ClearDebugSpheres()
 
     -- Build a list of the commands the server has not confirmed yet

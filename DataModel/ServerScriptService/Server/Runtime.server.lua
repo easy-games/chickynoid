@@ -1,9 +1,11 @@
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
 local Packages = ReplicatedStorage.Packages
 
 local Server = require(Packages.Chickynoid.Server)
+local Enums = require(Packages.Chickynoid.Enums)
 
 Server:SetConfig({
     simulationConfig = {
@@ -42,7 +44,7 @@ end)
 local debugPlayers = {}
 function MakeDebugPlayers()
     
-    for counter = 1, 10 do
+    for counter = 1, 20 do
         local record = {}
         
         record.player = {}
@@ -56,7 +58,7 @@ function MakeDebugPlayers()
         record.chickynoid =  Server:SpawnForPlayerAsync(record)
         table.insert(debugPlayers, record)
         
-        record.chickynoid:SetPosition(Vector3.new(math.random(-300,300),30,math.random(-300,300) ))
+        record.chickynoid:SetPosition(Vector3.new(math.random(-150,150),60,math.random(-150,150) ))
         
         record.BotThink = function(deltaTime)
             
@@ -65,20 +67,22 @@ function MakeDebugPlayers()
                 record.waitTime -= deltaTime
             end
             
-            local command = {}
-            command.l = record.frame
-            command.x = 0
-            command.y = 0
-            command.z =  0
-            command.deltaTime = deltaTime
+            local event = {}
+            event.t = Enums.EventType.Command
+            event.command = {}
+            event.command.l = record.frame
+            event.command.x = 0
+            event.command.y = 0
+            event.command.z =  0
+            event.command.deltaTime = deltaTime
             
             if (record.waitTime <=0) then
-                command.x = math.sin(record.frame*0.03)
-                command.y = 0
-                command.z =  math.cos(record.frame*0.03)
+                event.command.x = math.sin(record.frame*0.03)
+                event.command.y = 0
+                event.command.z =  math.cos(record.frame*0.03)
       
                 if (math.random() < 0.05) then
-                    command.y = 1
+                    event.command.y = 1
                 end
             end
             
@@ -88,7 +92,7 @@ function MakeDebugPlayers()
             
             record.frame += 1
             
-            table.insert(record.chickynoid.unprocessedCommands, command)
+            record.chickynoid:HandleEvent(event)
            
         end
     end

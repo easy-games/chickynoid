@@ -18,7 +18,10 @@
       "$path": "DataModel/Players.rbxm"
     },
     "ReplicatedFirst": {
-      "$path": "DataModel/ReplicatedFirst.rbxm"
+      "$path": "DataModel/ReplicatedFirst.rbxm",
+      "Client": {
+        "$path": "DataModel/ReplicatedFirst/Client"
+      }
     },
     "ReplicatedStorage": {
       "$path": "DataModel/ReplicatedStorage.rbxm",
@@ -80,10 +83,7 @@
         "$path": "DataModel/StarterPlayer/StarterCharacterScripts.rbxm"
       },
       "StarterPlayerScripts": {
-        "$path": "DataModel/StarterPlayer/StarterPlayerScripts.rbxm",
-        "Client": {
-          "$path": "DataModel/StarterPlayer/StarterPlayerScripts/Client"
-        }
+        "$path": "DataModel/StarterPlayer/StarterPlayerScripts.rbxm"
       }
     },
     "Workspace": {

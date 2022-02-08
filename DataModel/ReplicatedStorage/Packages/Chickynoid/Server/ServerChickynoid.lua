@@ -74,6 +74,21 @@ function ServerChickynoid:GetPosition()
     return self.simulation.state.pos
 end
 
+function ServerChickynoid:GenerateFakeCommand(deltaTime)
+    local command = {}
+    command.deltaTime = deltaTime
+    command.x = 0
+    command.y = 0
+    command.z = 0
+        
+    command.serial =self.commandSerial
+    self.commandSerial += 1
+    
+    self.playerElapsedTime += command.deltaTime
+    command.totalTime = self.playerElapsedTime 
+    table.insert(self.unprocessedCommands, command)
+end
+
 --[=[
     Steps the simulation forward by one frame. This loop handles the simulation
     and replication timings.
@@ -90,18 +105,29 @@ function ServerChickynoid:Think(dt: number)
     --This should be sorted
     self.elapsedTime += dt
     
-    
-    if (#self.unprocessedCommands == 0) then
-        --This is a problem, the player has no commands (are they freezing?)
-        
-    end 
+   
+    --Once a player has connected, monitor their total elapsed time
+    --If it falls behind, catch them up!
+    if (self.playerElapsedTime > 0 and self.playerRecord.dummy == false) then
+        if (self.playerElapsedTime < self.elapsedTime - self.speedCheatThreshhold) then
+            print("Player too far behind", self.playerRecord.name)
+            --Generate some commands
+            local timeToCover = (self.elapsedTime - self.speedCheatThreshhold) - self.playerElapsedTime
+            
+            while (timeToCover > 0) do
+                timeToCover-= 1/60
+                self:GenerateFakeCommand(1/60)
+            end
+        end
+    end
+
     
 
     table.sort(self.unprocessedCommands,function(a,b)
         return a.serial < b.serial
     end)
     
-    local maxCommandsPerFrame = 5
+    local maxCommandsPerFrame = 15
             
     for _, command in pairs(self.unprocessedCommands) do
         
@@ -156,6 +182,12 @@ function ServerChickynoid:HandleClientEvent(event)
                     command.deltaTime = 0.2
                 end
                 
+                --500fps cap
+                if (command.deltaTime < 1/500) then
+                    command.deltaTime = 1/500
+                    --print("Player over 500fps:", self.playerRecord.name)
+                end
+                
                 --On the first command, init
                 if (self.playerElapsedTime == 0) then
                     self.playerElapsedTime = self.elapsedTime
@@ -164,7 +196,6 @@ function ServerChickynoid:HandleClientEvent(event)
                 
                 if (self.playerElapsedTime > self.elapsedTime + self.speedCheatThreshhold) then
                     print("Player too far ahead", self.playerRecord.name) 
-                             
                 else
                     self.playerElapsedTime += command.deltaTime
                     command.totalTime = self.playerElapsedTime 

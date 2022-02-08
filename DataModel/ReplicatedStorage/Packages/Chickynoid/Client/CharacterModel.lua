@@ -59,9 +59,8 @@ function CharacterModel:CreateModel(userId)
                 local description = game.Players:GetHumanoidDescriptionFromUserId(userId)
                 self.model.Humanoid:ApplyDescription(description)
                 
-                
-                local hip = (2.5-self.model.Humanoid.hipHeight)
-                self.modelOffset = Vector3.new(0,hip,0)
+                local hip = (self.model.HumanoidRootPart.Size.y * 0.5) + self.model.Humanoid.hipHeight
+                self.modelOffset = Vector3.new(0,hip-2.5,0)
             end
 
             --Load on the animations

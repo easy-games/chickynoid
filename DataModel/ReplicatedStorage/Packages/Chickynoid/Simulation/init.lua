@@ -93,7 +93,7 @@ function Simulation:ProcessCommand(cmd)
     local airAccel = 40                 --Uses a different function than ground accel! 
     local jumpPunch = 55                --Raw velocity, just barely enough to climb on a 7 unit tall block
     local turnSpeedFrac = 12            --seems about right? Very fast.
-    local brakeFriction = 0.01          --Lower is brake harder, dont use 0
+    local brakeFriction = 0.02          --Lower is brake harder, dont use 0
     
     --Regarding Humanoid: Best guess is real humanoids are manipulating position+velocity at the same time via critically dampened springs
     --                    This means they don't really have the concept of acceleration
@@ -119,9 +119,11 @@ function Simulation:ProcessCommand(cmd)
        
         if (onGround) then
             --Moving along the ground under player input
-            flatVel = self:Friction(flatVel, brakeFriction, cmd.deltaTime) 
-            flatVel = self:Accelerate(wishDir, maxSpeed, accel, flatVel, cmd.deltaTime)
             
+            
+            flatVel = self:VelocityFriction(flatVel, brakeFriction, cmd.deltaTime) --Error! This function is failing at really tiny Dt.
+            flatVel = self:Accelerate(wishDir, maxSpeed, accel, flatVel, cmd.deltaTime)
+          
             --Good time to trigger our walk anim
             self.characterData:PlayAnimation(Enums.Anims.Run, false)
         else
@@ -131,7 +133,7 @@ function Simulation:ProcessCommand(cmd)
     else
         if (onGround ~= nil) then
             --Just standing around
-            flatVel = self:Friction(flatVel, brakeFriction, cmd.deltaTime)
+            flatVel = self:VelocityFriction(flatVel, brakeFriction, cmd.deltaTime)
             
             --Enter idle
             self.characterData:PlayAnimation(Enums.Anims.Idle, false)
@@ -429,9 +431,22 @@ function Simulation:Accelerate(wishDir, wishSpeed, accel, velocity, dt)
     return velocity
 end
 
---dt variable friction function
+--dt variable decay function
 function Simulation:Friction(val, fric, deltaTime)
     return	(1 / (1 + (deltaTime / fric)) ) * val
+end
+
+function Simulation:VelocityFriction(vel, fric, deltaTime)
+    
+    local speed = vel.magnitude
+    speed = self:Friction(speed, fric,deltaTime)
+    
+    if (speed < 0.001) then
+        return Vector3.new(0,0,0)
+    end
+    vel = vel.unit * speed
+    
+    return vel
 end
 
 --This could be a lot more classy!

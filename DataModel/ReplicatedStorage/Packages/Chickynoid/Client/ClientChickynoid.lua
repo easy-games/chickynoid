@@ -86,9 +86,13 @@ function ClientChickynoid:MakeCommand(dt: number)
     if not UserInputService:GetFocusedTextBox() then
         command.y = UserInputService:IsKeyDown(Enum.KeyCode.Space) and 1 or 0
         
-        
+        --Cheat #1 - speed cheat!
         if (UserInputService:IsKeyDown(Enum.KeyCode.P)) then
-            command.deltaTime *= 3
+            --command.deltaTime *= 3
+        end
+        --Cheat #2 - slow cheat!
+        if (UserInputService:IsKeyDown(Enum.KeyCode.P)) then
+            command.deltaTime /= 3
         end
 
     end

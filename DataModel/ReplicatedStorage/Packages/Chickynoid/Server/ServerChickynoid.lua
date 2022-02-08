@@ -104,11 +104,10 @@ function ServerChickynoid:Think(dt: number)
     --  We keep X ms of commands unprocessed, so that if players stop sending upstream, we have some commands to keep going with
     --  We only allow the player to get +150ms ahead of the servers estimated sim time (Speed cheat), if they're over this, we discard commands
     --  We only allow the player to get -60ms behind the servers estimated sim time (Lag cheat), if they're under this, we generate fake commands to catch them up
-    --  We only allow 5 commands per server tick (ratio of 5:1) if the user somehow has more than 5 commands that are legitimately needing processing, we discard them all
+    --  We only allow 15 commands per server tick (ratio of 5:1) if the user somehow has more than 5 commands that are legitimately needing processing, we discard them all
     
-    --This should be sorted
+
     self.elapsedTime += dt
-    
    
     --Once a player has connected, monitor their total elapsed time
     --If it falls behind, catch them up!
@@ -124,9 +123,8 @@ function ServerChickynoid:Think(dt: number)
             end
         end
     end
-
     
-
+    --Sort commands by their serial
     table.sort(self.unprocessedCommands,function(a,b)
         return a.serial < b.serial
     end)
@@ -139,8 +137,7 @@ function ServerChickynoid:Think(dt: number)
             --Can't process this yet, its our buffer
             continue
         end        
-        
-        
+                
         maxCommandsPerFrame-=1
         if (maxCommandsPerFrame < 0) then
             print("Player send too many commands at once:", self.playerRecord.name)
@@ -164,13 +161,8 @@ function ServerChickynoid:Think(dt: number)
             table.insert(newList,command)
         end
     end
-    
- 
-    
+
     self.unprocessedCommands = newList
-    
- 
-    
 end
 
 

@@ -159,7 +159,7 @@ function CharacterModel:Think(deltaTime, dataRecord)
     
     
     local newCF = CFrame.new(dataRecord.pos + self.modelOffset + Vector3.new(0,dataRecord.stepUp,0)) * CFrame.fromEulerAnglesXYZ(0,dataRecord.angle,0)
-    self.model:SetPrimaryPartCFrame(newCF)
+    self.model:PivotTo(newCF)
 end
 
 

@@ -21,13 +21,14 @@ local Enums = require(script.Parent.Enums)
 local EventType = Enums.EventType
 
 local ChickynoidClient = {}
+
 ChickynoidClient.localChickynoid = nil
 ChickynoidClient.snapshots = {}
+ChickynoidClient.previouSnapshot = nil -- for delta compression
 ChickynoidClient.estimatedServerTime = 0
 ChickynoidClient.estimatedServerTimeOffset = 0
 ChickynoidClient.validServerTime = false
 ChickynoidClient.startTime = tick()
-
 ChickynoidClient.characters = {}
 ChickynoidClient.localFrame = 0
 ChickynoidClient.worldState = nil
@@ -99,10 +100,11 @@ function ChickynoidClient:Setup()
     eventHandler[EventType.Snapshot] = function(event)
         
  
-        event = self:DeserializeSnapshot(event)
+        event = self:DeserializeSnapshot(event, self.previousSnapshot)
         self:SetupTime(event.serverTime)
         
         table.insert(self.snapshots, event)
+        self.previousSnapshot = event
         
         --we need like 2 or 3..
         if (#self.snapshots > 10) then
@@ -247,21 +249,29 @@ function ChickynoidClient:SetupTime(serverActualTime)
     end
 end
 
-function ChickynoidClient:DeserializeSnapshot(event)
+function ChickynoidClient:DeserializeSnapshot(event, previousSnapshot)
     
     local bitBuffer = BitBuffer(event.b)
     local count = bitBuffer.readByte()
     
     event.charData = {}
+    
     for j=1,count do
         local record = CharacterData.new()
-        
+       
+        --CharacterData.CopyFrom(self.previous)
         local userId = bitBuffer.readSigned(48)
+        
+        if (previousSnapshot ~= nil) then
+            local previousRecord = previousSnapshot.charData[userId]
+            if (previousRecord) then
+                record:CopySerialized(previousRecord)
+            end
+        end
         record:DeserializeFromBitBuffer(bitBuffer)
             
         event.charData[userId] = record.serialized
     end
-    
     
     return event
 end

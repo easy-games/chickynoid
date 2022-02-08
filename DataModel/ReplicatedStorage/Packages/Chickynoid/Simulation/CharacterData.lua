@@ -2,11 +2,11 @@ local CharacterData = {}
 CharacterData.__index = CharacterData
 
 local BitBuffer = require(script.Parent.Parent.Vendor.BitBuffer)
+local EPSILION = 0.00001
 
 function Lerp(a,b,frac)
     return a:Lerp(b,frac)
 end
-
 
 function AngleLerp(a,b,frac)
     --Todo
@@ -33,19 +33,39 @@ function ValidateByte(byte)
 end
 
 function ValidateVector3(input)
-    
     return input
 end
 
+function CompareVector3(a,b)
+    if (math.abs(a.x-b.x)>EPSILION or math.abs(a.y-b.y)>EPSILION or math.abs(a.z-b.z)>EPSILION) then
+        return false
+    end
+    return true
+end
+
+function CompareByte(a,b)
+    return a==b
+end
+
+function CompareFloat16(a,b)
+    return a==b
+end
+
+
+
 function CharacterData:ModuleSetup()
     
+    local netVector3 =  { write = "writeVector3", read = "readVector3" , validate = ValidateVector3, compare = CompareVector3 }
+    local netFloat16 = { write = "writeFloat16", read = "readFloat16", validate = ValidateFloat16,compare = CompareFloat16  }
+    local netByte = { write = "writeByte", read = "readByte", validate = ValidateByte, compare = CompareByte  }
+    
     self.packFunctions = {
-        pos = { write = "writeVector3", read = "readVector3" , validate = ValidateVector3 },
-        angle = { write = "writeFloat16", read = "readFloat16", validate = ValidateFloat16  },
-        animCounter = { write = "writeByte", read = "readByte", validate = ValidateByte  },
-        animNum = { write = "writeByte", read = "readByte", validate = ValidateByte },
-        stepUp = { write = "writeFloat16", read = "readFloat16", validate = ValidateFloat16 },
-        flatSpeed = { write = "writeFloat16", read = "readFloat16", validate = ValidateFloat16 },
+        pos = netVector3,
+        angle = netFloat16,
+        animCounter = netByte,
+        animNum = netByte,
+        stepUp = netFloat16,
+        flatSpeed = netFloat16,
     }
 
     self.lerpFunctions = {
@@ -72,7 +92,8 @@ function CharacterData.new()
             flatSpeed = 0,
         },
         
-
+        --Be extremely careful about having any kind of persistant nonserialized data!
+        --If in doubt, stick it in the serialized!
         animationExclusiveTime = 0,
         
     }, CharacterData)
@@ -106,7 +127,6 @@ function CharacterData:PlayAnimation(animNum, forceRestart, exclusiveTime )
         return
     end
         
-    
     if (forceRestart == true or animNum ~= self.serialized.animNum) then
         self.serialized.animCounter += 1
         if (self.serialized.animCounter > 255) then
@@ -135,30 +155,62 @@ function CharacterData:Serialize()
 end
 
 
-function CharacterData:SerializeToBitBuffer(bitBuffer)
+function CharacterData:SerializeToBitBuffer(previousData, bitBuffer)
     
-    
-    for key,value in pairs(self.serialized) do
-               
+    if (previousData == nil) then
         
-        local func = self.packFunctions[key]
-        if (func) then
-            value = func.validate(value)
-            bitBuffer[func.write](value)    
-        end
+        --calculate bits
+        for key,value in pairs(self.serialized) do
+            local func = self.packFunctions[key]
+            if (func) then
+                bitBuffer.writeBits(1)
+                value = func.validate(value)
+                bitBuffer[func.write](value)    
+            else
+                warn("Missing serializer for ", key)
+            end
+        end    
+    else
+        --calculate bits
+        for key,value in pairs(self.serialized) do
+            local func = self.packFunctions[key]
+            if (func) then
+                
+                local valueA = func.validate(previousData.serialized[key])
+                local valueB = func.validate(value)
+                
+                if (func.compare(valueA, valueB) == true) then
+                    bitBuffer.writeBits(0)
+                else
+                    bitBuffer.writeBits(1)
+                    bitBuffer[func.write](value)
+                end
+            else
+                warn("Missing serializer for ", key)
+            end
+        end    
+        
     end
+    
 end
 
 function CharacterData:DeserializeFromBitBuffer(bitBuffer)
-
+    
     for key,value in pairs(self.serialized) do
-        local func = self.packFunctions[key]
-        if (func) then
+        local set = bitBuffer.readBits(1)
+        if (set[1] == 1) then
+            local func = self.packFunctions[key]
             self.serialized[key] = bitBuffer[func.read]()    
+             
         end
     end
 end
+function CharacterData:CopySerialized(otherSerialized)
 
+    for key,value in pairs(otherSerialized) do
+        self.serialized[key] = value
+    end
+end
 
 function CharacterData:Interpolate(dataA, dataB, fraction)
     

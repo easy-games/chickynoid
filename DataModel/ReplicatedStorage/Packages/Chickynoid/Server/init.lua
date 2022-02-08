@@ -11,6 +11,7 @@ local TableUtil = require(script.Parent.Vendor.TableUtil)
 local Enums = require(script.Parent.Enums)
 local EventType = Enums.EventType
 local ServerChickynoid = require(script.ServerChickynoid)
+local CharacterData = require(script.Parent.Simulation.CharacterData)
 local ServerConfig = TableUtil.Copy(DefaultConfigs.DefaultServerConfig, true)
 local BitBuffer = require(script.Parent.Vendor.BitBuffer)
 local ChickynoidServer = {}
@@ -45,6 +46,11 @@ function ChickynoidServer:PlayerDisconnected(userId)
         print("Player disconnected")
         
         self.playerRecords[userId] = nil
+        
+        --Clear this out        
+        for key,playerRecord in pairs(self.playerRecords) do
+            playerRecord.previousCharacterData[userId] = nil
+        end
     end
 end
 
@@ -74,6 +80,8 @@ function ChickynoidServer:SpawnForPlayerAsync(playerRecord)
             script.Parent.RemoteEvent:FireClient(playerRecord.player, event)
         end
     end
+    
+    playerRecord.previousCharacterData = {}
     
     --Send worldstate
     local event = {}
@@ -147,14 +155,29 @@ function ChickynoidServer:Think(deltaTime)
             
             local bitBuffer = BitBuffer()
             bitBuffer.writeByte(count)
-            
+             
             for otherUserId,otherPlayerRecord in pairs(self.playerRecords) do
                 if (otherUserId ~= userId) then
                     --Todo: delta compress , bitwise compress, etc etc    
                     bitBuffer.writeSigned(48, otherUserId)
-                    otherPlayerRecord.chickynoid.simulation.characterData:SerializeToBitBuffer(bitBuffer)
+                    
+                    if (playerRecord.firstSnapshot == nil) then
+                        --Make sure the first write is always a full packet
+                        otherPlayerRecord.chickynoid.simulation.characterData:SerializeToBitBuffer(nil, bitBuffer)
+                    else
+                        local previousRecord = playerRecord.previousCharacterData[otherUserId]
+                        otherPlayerRecord.chickynoid.simulation.characterData:SerializeToBitBuffer(previousRecord, bitBuffer)
+                    end
+                    
+                    --Make a copy for delta compression against
+                    local previousRecord = CharacterData.new()
+                    previousRecord:CopySerialized(otherPlayerRecord.chickynoid.simulation.characterData.serialized)
+                    playerRecord.previousCharacterData[otherUserId] = previousRecord
                 end 
             end
+            
+            
+            playerRecord.firstSnapshot = true
                         
             snapshot.b = bitBuffer.dumpString()
             snapshot.f = self.serverTotalFrames 

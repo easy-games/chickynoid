@@ -22,6 +22,7 @@ Players.PlayerAdded:Connect(function(player)
     record.dummy = false
     record.name = player.Name
     record.userId = player.UserId
+   
     local chickynoid = Server:SpawnForPlayerAsync(record)
  
 end)
@@ -44,7 +45,7 @@ end)
 local debugPlayers = {}
 function MakeDebugPlayers()
     
-    for counter = 1, 20 do
+    for counter = 1, 50 do
         local record = {}
         
         record.player = {}
@@ -58,7 +59,7 @@ function MakeDebugPlayers()
         record.chickynoid =  Server:SpawnForPlayerAsync(record)
         table.insert(debugPlayers, record)
         
-        record.chickynoid:SetPosition(Vector3.new(math.random(-150,150),60,math.random(-150,150) ))
+        record.chickynoid:SetPosition(Vector3.new(math.random(-150,150),60,math.random(-150,150) ) + Vector3.new(-150, 0,0)) 
         
         record.BotThink = function(deltaTime)
             

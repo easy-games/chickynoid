@@ -88,12 +88,9 @@ function ClientChickynoid:MakeCommand(dt: number)
         
         --Cheat #1 - speed cheat!
         if (UserInputService:IsKeyDown(Enum.KeyCode.P)) then
-            --command.deltaTime *= 3
+            command.deltaTime *= 3
         end
-        --Cheat #2 - slow cheat!
-        if (UserInputService:IsKeyDown(Enum.KeyCode.P)) then
-            command.deltaTime /= 3
-        end
+ 
 
     end
     if (self:GetIsJumping() == true) then

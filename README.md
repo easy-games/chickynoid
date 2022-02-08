@@ -103,6 +103,8 @@ If a player "underruns" or "lags", we also generate fake commands to catch them 
 You can see what is going on inside ServerChickynoid.lua
 
 
-## Is this compatible with FPS unlocking
+## Is this compatible with FPS unlocking?
 
 Yes, although every extra frame you generate makes extra work for the server. It would be reasonable for the server to throttle you if you go over say, 200fps. Right now you'll start deliberately lagging if you go to 500fps, but that's just some test code right now.
+
+Also, the physics simulation produces ever so slightly different results at different framerates, so there is some debates about the correct way to go about this.

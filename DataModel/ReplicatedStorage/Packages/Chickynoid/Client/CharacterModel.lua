@@ -32,7 +32,7 @@ function CharacterModel.new()
         modelOffset = Vector3.new(0,0.5,0),
         modelReady = false,
         startingAnimation = Enums.Anims.Idle,
-     
+        userId = nil,
         
     }, CharacterModel)
     
@@ -45,6 +45,7 @@ function CharacterModel:CreateModel(userId)
     self:DestroyModel()
     
     self.model = self.template:Clone()
+    self.userId = userId
     self.animator = self.model:FindFirstChild("Animator",true)
     self.model.Parent = game.Lighting
     self.tracks = {}
@@ -55,8 +56,8 @@ function CharacterModel:CreateModel(userId)
         
         if (self.model) then
             
-            if (userId ~= nil and string.sub(userId,1,1) ~= "-" ) then
-                local description = game.Players:GetHumanoidDescriptionFromUserId(userId)
+            if (userId ~= nil and string.sub(self.userId,1,1) ~= "-" ) then
+                local description = game.Players:GetHumanoidDescriptionFromUserId(self.userId)
                 self.model.Humanoid:ApplyDescription(description)
                 
                 local hip = (self.model.HumanoidRootPart.Size.y * 0.5) + self.model.Humanoid.hipHeight
@@ -143,8 +144,17 @@ function CharacterModel:Think(deltaTime, dataRecord)
     if (self.playingTrackNum == Enums.Anims.Run) then
         
         local vel = dataRecord.flatSpeed
-        local playbackSpeed = (vel / 16)  
---        self.playingTrack:AdjustSpeed(playbackSpeed)
+        local playbackSpeed = (vel / 16)   --Todo: Persistant player stats
+        self.playingTrack:AdjustSpeed(playbackSpeed)
+    end
+    
+    if (self.model.Humanoid.Health <= 0) then
+        --its dead! Really this should never happen
+        self.model:Destroy()
+        self.modelReady = false
+        self.model = nil
+        self:CreateModel(self.userId)
+        return
     end
     
     

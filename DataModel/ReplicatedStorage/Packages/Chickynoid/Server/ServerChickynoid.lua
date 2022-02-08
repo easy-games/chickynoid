@@ -34,7 +34,9 @@ function ServerChickynoid.new(playerRecord, config: Types.IServerConfig)
         tooFarAhead = false,
         
         speedCheatThreshhold = 150 * 0.001, --milliseconds
-        bufferedCommandTime = 30, --ms
+        antiwarpThreshhold = 60 * 0.001, --milliseconds
+        
+        bufferedCommandTime = 60 * 0.001, --ms
         serverFrames = 0,
     }, ServerChickynoid)
     
@@ -85,7 +87,7 @@ function ServerChickynoid:GenerateFakeCommand(deltaTime)
     self.commandSerial += 1
     
     self.playerElapsedTime += command.deltaTime
-    command.totalTime = self.playerElapsedTime 
+    command.totalTime = self.elapsedTime 
     table.insert(self.unprocessedCommands, command)
 end
 
@@ -109,10 +111,10 @@ function ServerChickynoid:Think(dt: number)
     --Once a player has connected, monitor their total elapsed time
     --If it falls behind, catch them up!
     if (self.playerElapsedTime > 0 and self.playerRecord.dummy == false) then
-        if (self.playerElapsedTime < self.elapsedTime - self.speedCheatThreshhold) then
+        if (self.playerElapsedTime < self.elapsedTime - self.antiwarpThreshhold) then
             print("Player too far behind", self.playerRecord.name)
             --Generate some commands
-            local timeToCover = (self.elapsedTime - self.speedCheatThreshhold) - self.playerElapsedTime
+            local timeToCover = (self.elapsedTime - self.antiwarpThreshhold) - self.playerElapsedTime
             
             while (timeToCover > 0) do
                 timeToCover-= 1/60
@@ -131,10 +133,17 @@ function ServerChickynoid:Think(dt: number)
             
     for _, command in pairs(self.unprocessedCommands) do
         
+        if (command.totalTime > self.elapsedTime - self.bufferedCommandTime) then
+            --Can't process this yet, its our buffer
+            continue
+        end        
+        
+        
         maxCommandsPerFrame-=1
         if (maxCommandsPerFrame < 0) then
-            print("Player lagged:", self.playerRecord.name)
+            print("Player send too many commands at once:", self.playerRecord.name)
             self.playerElapsedTime = self.elapsedTime
+            self.unprocessedCommands = {}
             break --Discard all buffered commands
         end
         
@@ -153,6 +162,8 @@ function ServerChickynoid:Think(dt: number)
             table.insert(newList,command)
         end
     end
+    
+ 
     
     self.unprocessedCommands = newList
     
@@ -198,7 +209,7 @@ function ServerChickynoid:HandleClientEvent(event)
                     print("Player too far ahead", self.playerRecord.name) 
                 else
                     self.playerElapsedTime += command.deltaTime
-                    command.totalTime = self.playerElapsedTime 
+                    command.totalTime = self.elapsedTime 
                     table.insert(self.unprocessedCommands, command)
                 end
             else

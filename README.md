@@ -86,3 +86,19 @@ A main concept is the "command". Every frame the client generates a command, app
 The server, because it owns the authoritative version of the characters and has done all of the same moves, tells the player what really happened. 
 
 If the client disagrees, this is called a mispredict, and forces a resimulation (or rollback!). What this means is the client resets to the last known good state from the server, and then **instantly** re-applies all of the remaining unconfirmed commands to put the player back exactly where they were. If it all goes well, visually, the player should see little to no difference, and the game continues. If it doesn't go well, the player will feel a "tug" to correct them.
+
+
+## What cheating does this prevent?
+
+We completely eliminate clipping/geometry hacks, teleport hacks, and fly hacks.
+This _mostly_ eliminates lag hacks (freeze your window) and speed hacks.
+We make a good effort to detect speed and lag hacks by watching the stream of incoming commands and looking for problems. A speed hack tries to tell the server to simulate more time than has actually passed, which we can detect and prevent. A lag hack is generally you are not sending enough commands, or asking for enough simulation time to pass. We can detect that too. Unfortunately these have to tested with some tolerances because peoples network connections are wobbly. The worst that happens is you'll mispredect and feel a lag spike.
+
+If a player "underruns" or "lags", we also generate fake commands to catch them back up. This stops their avatar from freezing in the world.
+
+You can see what is going on inside ServerChickynoid.lua
+
+
+## Is this compatible with FPS unlocking
+
+Yes, although every extra frame you generate makes extra work for the server. It would be reasonable for the server to throttle you if you go over say, 200fps. Right now you'll start deliberately lagging if you go to 500fps, but that's just some test code right now.

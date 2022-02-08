@@ -91,8 +91,12 @@ If the client disagrees, this is called a mispredict, and forces a resimulation 
 ## What cheating does this prevent?
 
 We completely eliminate clipping/geometry hacks, teleport hacks, and fly hacks.
+
 This _mostly_ eliminates lag hacks (freeze your window) and speed hacks.
-We make a good effort to detect speed and lag hacks by watching the stream of incoming commands and looking for problems. A speed hack tries to tell the server to simulate more time than has actually passed, which we can detect and prevent. A lag hack is generally you are not sending enough commands, or asking for enough simulation time to pass. We can detect that too. Unfortunately these have to tested with some tolerances because peoples network connections are wobbly. The worst that happens is you'll mispredect and feel a lag spike.
+
+We make a good effort to detect speed and lag hacks by watching the stream of incoming commands and looking for problems. A speed hack tries to tell the server to simulate more time than has actually passed, which we can detect and prevent. 
+
+A lag hack is generally you are not sending enough commands, or asking for enough simulation time to pass. We can detect that too. Unfortunately these have to tested with some tolerances because peoples network connections are wobbly. The worst that happens is you'll mispredect and feel a lag spike.
 
 If a player "underruns" or "lags", we also generate fake commands to catch them back up. This stops their avatar from freezing in the world.
 

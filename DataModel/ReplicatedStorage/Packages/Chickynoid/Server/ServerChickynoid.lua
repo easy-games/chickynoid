@@ -98,11 +98,13 @@ end
 
  
 function ServerChickynoid:Think(dt: number)
-    -- 1st stage: Step the simulation
-    -- Simple version, just process all of their commands:
-    --  No antiwarp (if no commands, synth one, or players wont fall/will freeze in air)
-    --  No buffering (keep X ms of commands unprocessed)
-    --  No speedcheat detection (monitor sum of dt)
+    
+    
+    --  Anticheat methods
+    --  We keep X ms of commands unprocessed, so that if players stop sending upstream, we have some commands to keep going with
+    --  We only allow the player to get +150ms ahead of the servers estimated sim time (Speed cheat), if they're over this, we discard commands
+    --  We only allow the player to get -60ms behind the servers estimated sim time (Lag cheat), if they're under this, we generate fake commands to catch them up
+    --  We only allow 5 commands per server tick (ratio of 5:1) if the user somehow has more than 5 commands that are legitimately needing processing, we discard them all
     
     --This should be sorted
     self.elapsedTime += dt

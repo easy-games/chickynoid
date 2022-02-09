@@ -12,6 +12,7 @@ local playerSize = Vector3.new(3,5,3)
 
 Simulation.collisionModule = require(script.CollisionModule)
 Simulation.characterData = require(script.CharacterData)
+Simulation.mathUtils = require(script.MathUtils)
 local Enums = require(script.Parent.Enums)
 
 function Simulation.new(config: Types.ISimulationConfig)
@@ -112,7 +113,7 @@ function Simulation:ProcessCommand(cmd)
     
     --Create flat velocity to operate our input command on
     --In theory this should be relative to the ground plane instead...
-    local flatVel = self:FlatVec(self.state.vel)
+    local flatVel = self.mathUtils:FlatVec(self.state.vel)
     
     --Does the player have an input?
     if (wishDir ~= nil) then
@@ -121,7 +122,7 @@ function Simulation:ProcessCommand(cmd)
             --Moving along the ground under player input
             
             
-            flatVel = self:VelocityFriction(flatVel, brakeFriction, cmd.deltaTime) --Error! This function is failing at really tiny Dt.
+            flatVel = self.mathUtils:VelocityFriction(flatVel, brakeFriction, cmd.deltaTime) --Error! This function is failing at really tiny Dt.
             flatVel = self:Accelerate(wishDir, maxSpeed, accel, flatVel, cmd.deltaTime)
           
             --Good time to trigger our walk anim
@@ -133,7 +134,7 @@ function Simulation:ProcessCommand(cmd)
     else
         if (onGround ~= nil) then
             --Just standing around
-            flatVel = self:VelocityFriction(flatVel, brakeFriction, cmd.deltaTime)
+            flatVel = self.mathUtils:VelocityFriction(flatVel, brakeFriction, cmd.deltaTime)
             
             --Enter idle
             self.characterData:PlayAnimation(Enums.Anims.Idle, false)
@@ -265,12 +266,12 @@ function Simulation:ProcessCommand(cmd)
     
     --Do angles
     if (wishDir ~= nil) then
-        self.state.targetAngle = math.atan2(-wishDir.z, wishDir.x) - math.rad(90)
-        self.state.angle = self:LerpAngle( self.state.angle,  self.state.targetAngle, turnSpeedFrac * cmd.deltaTime)
+        self.state.targetAngle = self.mathUtils:PlayerVecToAngle(wishDir)
+        self.state.angle = self.mathUtils:LerpAngle( self.state.angle,  self.state.targetAngle, turnSpeedFrac * cmd.deltaTime)
     end
     
     --Write this to the characterData
-    self.characterData:SetPosition(self.state.pos)
+    self.characterData:SetPosition(self.state.pos)  
     self.characterData:SetAngle(self.state.angle)
     self.characterData:SetStepUp(self.state.stepUp)    
     self.characterData:SetFlatSpeed(flatVel.Magnitude)
@@ -288,11 +289,7 @@ end
 
 
 function Simulation:DecayStepUp(deltaTime)
-    self.state.stepUp = Simulation:Friction(self.state.stepUp, 0.05, deltaTime) --higher == slower
-end
-
-function Simulation:FlatVec(vec)
-    return Vector3.new(vec.x,0,vec.z)
+    self.state.stepUp = self.mathUtils:Friction(self.state.stepUp, 0.05, deltaTime) --higher == slower
 end
 
 
@@ -383,26 +380,6 @@ function Simulation:ProjectVelocity(startPos, startVel, deltaTime)
 end
 
 
-local THETA = math.pi * 2
-function Simulation:AngleAbs(angle)
-    while angle < 0 do
-        angle = angle + THETA
-    end
-    while angle > THETA do
-        angle = angle - THETA
-    end
-    return angle
-end
-
-function Simulation:AngleShortest(a0, a1)
-    local d1 = self:AngleAbs(a1 - a0)
-    local d2 = -self:AngleAbs(a0 - a1)
-    return math.abs(d1) > math.abs(d2) and d2 or d1
-end
-
-function Simulation:LerpAngle(a0, a1, frac)
-    return a0 + self:AngleShortest(a0, a1) * frac
-end
 
 
 
@@ -425,53 +402,30 @@ function Simulation:Accelerate(wishDir, wishSpeed, accel, velocity, dt)
     velocity = velocity + (accelSpeed * wishDir)
     
     --if we're already going over max speed, don't go any faster than that
+    --Or you'll get strafe jumping!
     if (speed > wishSpeed and velocity.magnitude > speed) then
         velocity = velocity.unit * speed        
     end
     return velocity
 end
 
---dt variable decay function
-function Simulation:Friction(val, fric, deltaTime)
-    return	(1 / (1 + (deltaTime / fric)) ) * val
-end
 
-function Simulation:VelocityFriction(vel, fric, deltaTime)
-    
-    local speed = vel.magnitude
-    speed = self:Friction(speed, fric,deltaTime)
-    
-    if (speed < 0.001) then
-        return Vector3.new(0,0,0)
-    end
-    vel = vel.unit * speed
-    
-    return vel
-end
-
---This could be a lot more classy!
+--Todo: Compress?
 function Simulation:WriteState()
     local record = {}
-    record.pos = self.state.pos
-    record.vel = self.state.vel
-    record.jump = self.state.jump
-    record.angle = self.state.angle
-    record.wishAngle = self.state.wishAngle
-    record.stepUp = self.state.stepUp
-    record.inAir = self.state.inAir
+    
+    for key,value in pairs(self.state) do
+        record[key] = value
+    end
+    
     return record
 end
 
---This too!
 function Simulation:ReadState(record)
     
-    self.state.pos = record.pos 
-    self.state.vel = record.vel
-    self.state.jump = record.jump
-    self.state.angle = record.angle
-    self.state.wishAngle = record.wishAngle
-    self.state.stepUp = record.stepUp
-    self.state.inAir = record.inAir
+    for key,value in pairs(self.record) do
+        self.state[key] = value
+    end
 end
 
 return Simulation

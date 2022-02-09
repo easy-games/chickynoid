@@ -3,14 +3,14 @@ CharacterData.__index = CharacterData
 
 local BitBuffer = require(script.Parent.Parent.Vendor.BitBuffer)
 local EPSILION = 0.00001
+local mathUtils = require(script.Parent.MathUtils)
 
 function Lerp(a,b,frac)
     return a:Lerp(b,frac)
 end
 
 function AngleLerp(a,b,frac)
-    --Todo
-    return a
+    return mathUtils:LerpAngle(a,b,frac)
 end
 
 function NumberLerp(a,b,frac)

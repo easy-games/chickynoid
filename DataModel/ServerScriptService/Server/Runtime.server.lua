@@ -17,14 +17,9 @@ Server:Setup()
 
 Players.PlayerAdded:Connect(function(player)
     
-    local record = {}
-    record.player = player
-    record.dummy = false
-    record.name = player.Name
-    record.userId = player.UserId
-   
-    local chickynoid = Server:SpawnForPlayerAsync(record)
- 
+    
+    local record = Server:AddConnection(player.UserId, player)
+    record.chickynoid = Server:CreateChickynoidAsync(playerRecord)
 end)
 
 Players.PlayerRemoving:Connect(function(player)
@@ -45,42 +40,47 @@ end)
 local debugPlayers = {}
 function MakeDebugPlayers()
     
-    for counter = 1, 50 do
-        local record = {}
+    --Always the same seed
+    math.randomseed(1)
+    for counter = 1, 10 do
         
-        record.player = {}
-        record.name = "RandomBot" .. counter
-        record.dummy = true
-        record.frame = 0
-        record.userId = -10000-counter
+        local userId = -10000-counter
+        local playerRecord = Server:AddConnection(userId, nil)
+                
+        playerRecord.name = "RandomBot" .. counter
         
-        record.waitTime = 0 --Bot AI
+        playerRecord.waitTime = 0 --Bot AI
+        playerRecord.leftOrRight = 1 
+        
+        if (math.random()>0.5) then
+            playerRecord.leftOrRight = -1
+        end
             
-        record.chickynoid =  Server:SpawnForPlayerAsync(record)
-        table.insert(debugPlayers, record)
+        playerRecord.chickynoid = Server:CreateChickynoidAsync(playerRecord)
+        table.insert(debugPlayers, playerRecord)
         
-        record.chickynoid:SetPosition(Vector3.new(math.random(-150,150),60,math.random(-150,150) ) + Vector3.new(-150, 0,0)) 
+        playerRecord.chickynoid:SetPosition(Vector3.new(math.random(-150,150),60,math.random(-150,150) ) + Vector3.new(-150, 0,0)) 
         
-        record.BotThink = function(deltaTime)
+        playerRecord.BotThink = function(deltaTime)
             
             
-            if (record.waitTime>0) then
-                record.waitTime -= deltaTime
+            if (playerRecord.waitTime>0) then
+                playerRecord.waitTime -= deltaTime
             end
             
             local event = {}
             event.t = Enums.EventType.Command
             event.command = {}
-            event.command.l = record.frame
+            event.command.l = playerRecord.frame
             event.command.x = 0
             event.command.y = 0
             event.command.z =  0
             event.command.deltaTime = deltaTime
             
-            if (record.waitTime <=0) then
-                event.command.x = math.sin(record.frame*0.03)
+            if (playerRecord.waitTime <=0) then
+                event.command.x = math.sin(playerRecord.frame*0.03 * playerRecord.leftOrRight)
                 event.command.y = 0
-                event.command.z =  math.cos(record.frame*0.03)
+                event.command.z =  math.cos(playerRecord.frame*0.03 * playerRecord.leftOrRight)
       
                 if (math.random() < 0.05) then
                     event.command.y = 1
@@ -88,12 +88,12 @@ function MakeDebugPlayers()
             end
             
             if (math.random() < 0.01) then
-                record.waitTime = math.random() * 3                
+                playerRecord.waitTime = math.random() * 3                
             end
             
-            record.frame += 1
+            playerRecord.frame += 1
             
-            record.chickynoid:HandleEvent(event)
+            playerRecord.chickynoid:HandleEvent(event)
            
         end
     end

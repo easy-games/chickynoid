@@ -204,51 +204,21 @@ function Simulation:ProcessCommand(cmd)
     end
  
     
-    --Sweep the player through the world
+    --Sweep the player through the world, once flat along the ground, and once "step up'd"
+    local stepupResult = nil
     local walkNewPos, walkNewVel, hitSomething = self:ProjectVelocity(self.state.pos, self.state.vel, cmd.deltaTime  )
-     
-    --STEPUP - the magic that lets us traverse uneven world geometry
-    --the idea is that you redo the player movement but "if I was x units higher in the air"
-    --it adds a lot of extra casts...
-    local flatVel = Vector3.new(self.state.vel.x, 0, self.state.vel.z)
     
-    -- Do we even need to?                               (not jumping!)
+    -- Do we attempt a stepup?                              (not jumping!)
     if (onGround ~= nil and hitSomething == true and self.state.jump == 0) then
-        
-        --first move upwards as high as we can go
-        local headHit = self.collisionModule:Sweep(self.state.pos, self.state.pos + Vector3.new(0, self.stepSize, 0))
-        
-        --Project forwards
-        local stepUpNewPos, stepUpNewVel, stepHitSomething = self:ProjectVelocity(headHit.endPos, flatVel, cmd.deltaTime)
-
-        --Trace back down
-        local traceDownPos = stepUpNewPos
-
-        local hitResult = self.collisionModule:Sweep(
-            traceDownPos,
-            traceDownPos - Vector3.new(0, self.stepSize, 0)
-        )
-
-        stepUpNewPos = hitResult.endPos
-
-        --See if we're mostly on the ground after this? otherwise rewind it
-        local ground = self:DoGroundCheck(stepUpNewPos, (-2.5 + self.stepSize))
-
-        if (ground ~= nil) then
-            
-            local step = self.state.pos.y - stepUpNewPos.y
-            self.state.stepUp += step
-             
-            self.state.pos = stepUpNewPos
-            self.state.vel = stepUpNewVel
-        else
-            --cancel the whole thing
-            --NO STEPUP
-            self.state.pos = walkNewPos
-            self.state.vel = walkNewVel
-        end
+        stepupResult = self:DoStepUp(self.state.pos, self.state.vel, cmd.deltaTime)
+    end
+    
+    --Choose which one to use, either the original move or the stepup
+    if (stepupResult ~= nil) then
+        self.state.stepUp = stepupResult.stepUp
+        self.state.pos = stepupResult.pos
+        self.state.vel = stepupResult.vel
     else
-        --NO STEPUP
         self.state.pos = walkNewPos
         self.state.vel = walkNewVel
     end
@@ -278,6 +248,48 @@ function Simulation:ProcessCommand(cmd)
  
     debug.profileend()
     
+end
+
+
+--STEPUP - the magic that lets us traverse uneven world geometry
+--the idea is that you redo the player movement but "if I was x units higher in the air"
+
+function Simulation:DoStepUp(pos, vel, deltaTime)
+    
+    local flatVel = self.mathUtils:FlatVec(vel)
+
+    --first move upwards as high as we can go
+    local headHit = self.collisionModule:Sweep(pos, pos + Vector3.new(0, self.stepSize, 0))
+
+    --Project forwards
+    local stepUpNewPos, stepUpNewVel, stepHitSomething = self:ProjectVelocity(headHit.endPos, flatVel, deltaTime)
+
+    --Trace back down
+    local traceDownPos = stepUpNewPos
+
+    local hitResult = self.collisionModule:Sweep(
+        traceDownPos,
+        traceDownPos - Vector3.new(0, self.stepSize, 0)
+    )
+
+    stepUpNewPos = hitResult.endPos
+
+    --See if we're mostly on the ground after this? otherwise rewind it
+    local ground = self:DoGroundCheck(stepUpNewPos, (-2.5 + self.stepSize))
+
+    if (ground ~= nil) then
+
+        local step = self.state.pos.y - stepUpNewPos.y
+        
+        local result = {
+            stepUp = step,
+            pos = stepUpNewPos,
+            vel = stepUpNewVel
+        }
+        return result
+    end
+    
+    return nil
 end
 
 
@@ -379,10 +391,6 @@ function Simulation:ProjectVelocity(startPos, startVel, deltaTime)
     return movePos, moveVel, hitSomething
 end
 
-
-
-
-
 function Simulation:Accelerate(wishDir, wishSpeed, accel, velocity, dt)
     
     local speed = velocity.magnitude
@@ -423,7 +431,7 @@ end
 
 function Simulation:ReadState(record)
     
-    for key,value in pairs(self.record) do
+    for key,value in pairs(record) do
         self.state[key] = value
     end
 end

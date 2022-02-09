@@ -194,7 +194,7 @@ function ChickynoidClient:Setup()
                     continue
                 end
                 
-                local dataRecord = self.localChickynoid.simulation.characterData:Interpolate(prevData, lastData, frac)
+                local dataRecord = CharacterData:Interpolate(prevData, lastData, frac)
                 local character = self.characters[userId]
                 
                 --Add the character

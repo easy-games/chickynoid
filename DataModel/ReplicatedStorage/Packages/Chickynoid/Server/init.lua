@@ -38,6 +38,51 @@ function ChickynoidServer:Setup()
     
 end
 
+function ChickynoidServer:AddConnection(userId, player)
+    if (self.playerRecords[userId]~= nil) then
+        warn("Player was already connected.", userId)
+        self:PlayerDisconnected(userId)
+    end
+    
+    
+    local playerRecord = {}
+    self.playerRecords[userId] = playerRecord
+
+    playerRecord.userId = userId
+    playerRecord.spawned = false
+    
+    playerRecord.previousCharacterData = {}
+    playerRecord.chickynoid = nil    
+    playerRecord.frame = 0
+    
+    playerRecord.player = player
+    if (playerRecord.player ~= nil) then
+        playerRecord.dummy = false
+        playerRecord.name = player.name
+    else
+        --Is a bot
+        playerRecord.dummy = true
+    end
+
+    
+    function playerRecord:SendEventToClient(event)
+        if (playerRecord.player) then
+            script.Parent.RemoteEvent:FireClient(playerRecord.player, event)
+        end
+    end
+    
+    --Send initial worldstate
+    if (playerRecord.player)  then
+        local event = {}
+        event.t = Enums.EventType.WorldState
+        event.worldState = {}
+        event.worldState.serverHz = SERVER_HZ
+        playerRecord:SendEventToClient(event)   
+    end
+        
+    return playerRecord    
+end
+
 function ChickynoidServer:PlayerDisconnected(userId)
     
     local playerRecord = self.playerRecords[userId]
@@ -72,28 +117,9 @@ end
     @param player Player -- The player to spawn this Chickynoid for.
     @return ServerCharacter -- New chickynoid instance made for this player.
 ]=]
-function ChickynoidServer:SpawnForPlayerAsync(playerRecord)
-  
+function ChickynoidServer:CreateChickynoidAsync(playerRecord)
 
-    function playerRecord:SendEventToClient(event)
-        if (playerRecord.dummy == false) then
-            script.Parent.RemoteEvent:FireClient(playerRecord.player, event)
-        end
-    end
-    
-    playerRecord.previousCharacterData = {}
-    
-    --Send worldstate
-    local event = {}
-    event.t = Enums.EventType.WorldState
-    event.worldState = {}
-    event.worldState.serverHz = SERVER_HZ
-    playerRecord:SendEventToClient(event)    
-    
-    
-    --Todo: dont just spawn a character like this, handle the connection and wait for the game to ask
     local chickynoid = ServerChickynoid.new(playerRecord, ServerConfig)
-    self.playerRecords[playerRecord.userId] = playerRecord 
     playerRecord.chickynoid = chickynoid
     
     return chickynoid
@@ -105,13 +131,16 @@ function ChickynoidServer:Think(deltaTime)
     --Many many todos on this!
     for userId,playerRecord in pairs(self.playerRecords) do
         
-        if (playerRecord.dummy==true) then
+        if (playerRecord.dummy == true) then
             playerRecord.BotThink(deltaTime)
         end
-        playerRecord.chickynoid:Think(deltaTime)
         
-        if (playerRecord.chickynoid.simulation.state.pos.y < -2000) then
-            playerRecord.chickynoid:SpawnChickynoid()
+        if (playerRecord.chickynoid) then
+            playerRecord.chickynoid:Think(deltaTime)
+            
+            if (playerRecord.chickynoid.simulation.state.pos.y < -2000) then
+                playerRecord.chickynoid:SpawnChickynoid()
+            end
         end
     end    
     
@@ -127,24 +156,25 @@ function ChickynoidServer:Think(deltaTime)
             self.serverStepTimer -= fraction 
         end
         
-  
-        
         for userId,playerRecord in pairs(self.playerRecords) do
             --Not for you, bot!
             if (playerRecord.dummy == true) then
                 continue
             end
             
-            local event = {}
-            event.t = EventType.State
-            event.lastConfirmed = playerRecord.chickynoid.lastConfirmedCommand
-            event.state = playerRecord.chickynoid.simulation:WriteState()
-            playerRecord:SendEventToClient(event)
+            --Send results of server move
+            if (playerRecord.chickynoid ~= nil) then
+                
+                local event = {}
+                event.t = EventType.State
+                event.lastConfirmed = playerRecord.chickynoid.lastConfirmedCommand
+                event.state = playerRecord.chickynoid.simulation:WriteState()
+                playerRecord:SendEventToClient(event)
+            end
             
-            
+            --Send snapshot
             local snapshot = {}
             snapshot.t = EventType.Snapshot
-            
             
             local count = 0
             for otherUserId,otherPlayerRecord in pairs(self.playerRecords) do

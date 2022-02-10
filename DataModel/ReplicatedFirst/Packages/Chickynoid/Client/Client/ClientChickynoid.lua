@@ -11,10 +11,11 @@ local RemoteEvent = game.ReplicatedStorage:WaitForChild("Packages"):WaitForChild
 local UserInputService = game:GetService("UserInputService")
 local Players = game:GetService("Players")
 
-local Simulation = require(script.Parent.Parent.Simulation)
+local path = game.ReplicatedFirst.Packages.Chickynoid
+local Simulation = require(path.Simulation)
 
-local Types = require(script.Parent.Parent.Types)
-local Enums = require(script.Parent.Parent.Enums)
+local Types = require(path.Types)
+local Enums = require(path.Enums)
 local EventType = Enums.EventType
 
 local Camera = workspace.CurrentCamera

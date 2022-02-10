@@ -12,11 +12,12 @@ CharacterModel.__index = CharacterModel
     Consumes a CharacterData 
 ]=]
 
-local Enums = require(script.Parent.Parent.Enums)
+local path = game.ReplicatedFirst.Packages.Chickynoid
+local Enums = require(path.Enums)
 CharacterModel.template = nil
 
 function CharacterModel:ModuleSetup()
-    self.template = script.Parent.Parent.Assets:FindFirstChild("R15Rig")
+    self.template = game.ReplicatedFirst.Packages.Chickynoid.Assets:FindFirstChild("R15Rig")
     
 end
 

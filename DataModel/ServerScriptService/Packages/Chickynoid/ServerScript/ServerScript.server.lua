@@ -23,8 +23,40 @@ end)
 
 
 
+--Step the game along at a rigid 60fps
+--This isn't the same technique clients use, because we want clients to have variable (capped!) fps
+local MAX_FPS = 60
+local elapsedTime = 0
+local timeSinceLastThink = 0
+local frameCount = 0
+local frameCountTime = 0
+
 RunService.Heartbeat:Connect(function(deltaTime)
-    Server:Think(deltaTime)
+    
+    frameCountTime += deltaTime
+    
+    elapsedTime += deltaTime
+    timeSinceLastThink += deltaTime
+    
+    if (elapsedTime < 1/MAX_FPS) then
+        return
+    end
+    
+    frameCount+=1
+    if (frameCountTime>1) then
+        --print("FPS:",frameCount)
+        frameCountTime -= 1
+        frameCount = 0        
+    end
+    
+    Server:Think(timeSinceLastThink)
+    timeSinceLastThink = 0
+    
+    --Could replace this with a modf
+    while(elapsedTime > 1/MAX_FPS) do
+        elapsedTime -= 1/MAX_FPS
+    end
+       
 end)
 
 
@@ -52,12 +84,12 @@ function MakeDebugPlayers()
         playerRecord.chickynoid = Server:CreateChickynoidAsync(playerRecord)
         table.insert(debugPlayers, playerRecord)
         
-        playerRecord.chickynoid:SetPosition(Vector3.new(math.random(-150,150),60,math.random(-150,150) ) + Vector3.new(-150, 0,0)) 
+        playerRecord.chickynoid:SetPosition(Vector3.new(math.random(-150,150), 60 ,math.random(-150,150) ) + Vector3.new(-150, 0,0)) 
         
         playerRecord.BotThink = function(deltaTime)
             
             
-            if (playerRecord.waitTime>0) then
+            if (playerRecord.waitTime > 0) then
                 playerRecord.waitTime -= deltaTime
             end
             

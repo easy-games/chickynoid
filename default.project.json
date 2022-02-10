@@ -35,8 +35,8 @@
           "Client": {
             "$path": "DataModel/ReplicatedFirst/Packages/Chickynoid/Client"
           },
-          "ClientRuntime": {
-            "$path": "DataModel/ReplicatedFirst/Packages/Chickynoid/ClientRuntime"
+          "ClientScript": {
+            "$path": "DataModel/ReplicatedFirst/Packages/Chickynoid/ClientScript"
           },
           "Configuration": {
             "$path": "DataModel/ReplicatedFirst/Packages/Chickynoid/Configuration"

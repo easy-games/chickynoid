@@ -13,6 +13,19 @@ Players.PlayerAdded:Connect(function(player)
     
     local playerRecord = Server:AddConnection(player.UserId, player)
     playerRecord.chickynoid = Server:CreateChickynoidAsync(playerRecord)
+    
+    
+    --Spawn the gui
+    for _,child in pairs(game.StarterGui:GetChildren()) do
+        local clone = child:Clone()
+        if (clone:IsA("ScreenGui")) then
+            clone.ResetOnSpawn = false
+        end
+        clone.Parent = playerRecord.player.PlayerGui 
+    end
+    
+
+    
 end)
 
 Players.PlayerRemoving:Connect(function(player)
@@ -67,7 +80,7 @@ function MakeDebugPlayers()
     
     --Always the same seed
     math.randomseed(1)
-    for counter = 1, 10 do
+    for counter = 1, 50 do
         
         local userId = -10000-counter
         local playerRecord = Server:AddConnection(userId, nil)
@@ -99,7 +112,7 @@ function MakeDebugPlayers()
             event.command.l = playerRecord.frame
             event.command.x = 0
             event.command.y = 0
-            event.command.z =  0
+            event.command.z = 0
             event.command.deltaTime = deltaTime
             
             if (playerRecord.waitTime <=0) then

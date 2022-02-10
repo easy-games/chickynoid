@@ -10,6 +10,7 @@ local RemoteEvent = game.ReplicatedStorage:WaitForChild("Packages"):WaitForChild
 local RunService = game:GetService("RunService")
 local Players = game:GetService("Players")
 
+
 local path = game.ReplicatedFirst.Packages.Chickynoid
 local BitBuffer = require(path.Vendor.BitBuffer)
 
@@ -18,6 +19,7 @@ local CharacterModel = require(script.CharacterModel)
 local CharacterData = require(path.Simulation.CharacterData)
 local Types = require(path.Types)
 local Enums = require(path.Enums)
+local FpsGraph = require(path.Client.Client.FpsGraph)
 
 local EventType = Enums.EventType
 local ChickynoidClient = {}
@@ -32,7 +34,10 @@ ChickynoidClient.startTime = tick()
 ChickynoidClient.characters = {}
 ChickynoidClient.localFrame = 0
 ChickynoidClient.worldState = nil
-ChickynoidClient.MAX_FPS = 144  --Think carefully about changing this! Every extra frame clients make, puts load on the server
+ChickynoidClient.fpsMax = 144  --Think carefully about changing this! Every extra frame clients make, puts load on the server
+ChickynoidClient.fpsCap = true  --Dynamically sets to true if your fps is fpsMax + 5
+ 
+
 ChickynoidClient.cappedElapsedTime = 0 --
 ChickynoidClient.timeSinceLastThink = 0
 ChickynoidClient.frameCounter = 0
@@ -75,9 +80,6 @@ function ChickynoidClient:Setup()
         end
         --Force the position
         self.localChickynoid.simulation.state.pos = position
-        
-            
-        
     end
     
     -- EventType.State
@@ -87,8 +89,7 @@ function ChickynoidClient:Setup()
             self.localChickynoid:HandleNewState(event.state, event.lastConfirmed)
         end
     end
-    
-    
+        
     -- EventType.WorldState
     eventHandler[EventType.WorldState] = function(event)
         print("Got worldstate")
@@ -126,16 +127,20 @@ function ChickynoidClient:Setup()
     
     RunService.Heartbeat:Connect(function(deltaTime)
         
+        FpsGraph:Scroll()
         self:DoFpsCount(deltaTime)
         
         --Do a framerate cap to 144? fps
         self.cappedElapsedTime += deltaTime
         self.timeSinceLastThink += deltaTime
-        local fraction = 1/self.MAX_FPS
-        if (self.cappedElapsedTime < fraction) then
+        local fraction = 1/self.fpsMax
+        
+        if (self.cappedElapsedTime < fraction and self.fpsCap == true) then
             return    --If not enough time for a whole frame has elapsed
         end
-               
+        
+        local fps = 1 / self.timeSinceLastThink 
+        FpsGraph:AddBar(fps / 2, Color3.new(0.239216, 0.678431, 0.141176), 0)
         self:ProcessFrame(self.timeSinceLastThink)
         self.timeSinceLastThink = 0
         
@@ -148,15 +153,31 @@ function ChickynoidClient:DoFpsCount(deltaTime)
     self.frameCounter+=1
     self.frameCounterTime += deltaTime
     
+ 
+    
     if (self.frameCounterTime > 1) then
         
         while (self.frameCounterTime > 1) do
             self.frameCounterTime -= 1
         end
         --print("FPS: real ", self.frameCounter, "( physics: ",self.frameSimCounter ,")")
+
+        
+        if (self.frameCounter > self.fpsMax+5) then
+            FpsGraph:SetWarning("Cap your FPS to 144!")
+            self.fpsCap = true
+        else
+            FpsGraph:SetWarning("Fps: " .. self.frameCounter .. " Sim: " .. self.frameSimCounter )
+            self.fpsCap = false
+        end
+        
         self.frameCounter = 0
-        self.frameSimCounter = 0
+        self.frameSimCounter = 0        
+        
     end
+  
+  
+    
 end
 
 --Use this instead of raw tick()

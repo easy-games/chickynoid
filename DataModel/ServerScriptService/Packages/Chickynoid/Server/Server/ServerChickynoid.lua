@@ -179,6 +179,21 @@ function ServerChickynoid:HandleClientEvent(event)
         local command = event.command
         if command and typeof(command) == "table" then
             
+            --Sanitize
+            if (command.x == nil or typeof(command.x) ~= "number" or command.x~=command.x) then
+                return
+            end
+            if (command.y == nil or typeof(command.y) ~= "number" or command.y~=command.y) then
+                return
+            end
+            if (command.z == nil or typeof(command.z) ~= "number" or command.z~=command.z) then
+                return
+            end
+            if (command.deltaTime == nil or typeof(command.deltaTime) ~= "number" or command.deltaTime~=command.deltaTime) then
+                return
+            end
+            
+            
             command.serial = self.commandSerial
             self.commandSerial += 1
          

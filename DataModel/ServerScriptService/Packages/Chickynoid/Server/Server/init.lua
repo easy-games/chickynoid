@@ -5,15 +5,16 @@
     Server namespace for the Chickynoid package.
 ]=]
 
-local DefaultConfigs = require(script.Parent.DefaultConfigs)
-local Types = require(script.Parent.Types)
-local TableUtil = require(script.Parent.Vendor.TableUtil)
-local Enums = require(script.Parent.Enums)
+local path = game.ReplicatedFirst.Packages.Chickynoid
+
+local Types = require(path.Types)
+local Enums = require(path.Enums)
 local EventType = Enums.EventType
 local ServerChickynoid = require(script.ServerChickynoid)
-local CharacterData = require(script.Parent.Simulation.CharacterData)
-local ServerConfig = TableUtil.Copy(DefaultConfigs.DefaultServerConfig, true)
-local BitBuffer = require(script.Parent.Vendor.BitBuffer)
+local CharacterData = require(path.Simulation.CharacterData)
+local BitBuffer = require(path.Vendor.BitBuffer)
+local RemoteEvent = game.ReplicatedStorage.Packages.Chickynoid.RemoteEvent
+
 local ChickynoidServer = {}
 
 ChickynoidServer.playerRecords = {}
@@ -26,7 +27,7 @@ local SERVER_HZ = 20
 
 function ChickynoidServer:Setup()
     
-    script.Parent.RemoteEvent.OnServerEvent:Connect(function(player: Player, event)
+    RemoteEvent.OnServerEvent:Connect(function(player: Player, event)
         
         local playerRecord = self:GetPlayerByUserId(player.UserId)
         
@@ -67,7 +68,7 @@ function ChickynoidServer:AddConnection(userId, player)
     
     function playerRecord:SendEventToClient(event)
         if (playerRecord.player) then
-            script.Parent.RemoteEvent:FireClient(playerRecord.player, event)
+            RemoteEvent:FireClient(playerRecord.player, event)
         end
     end
     
@@ -103,12 +104,6 @@ end
 function ChickynoidServer:GetPlayerByUserId(userId)
     
     return self.playerRecords[userId]
-end
-
-function ChickynoidServer:SetConfig(config: Types.IServerConfig)
-    local newConfig = TableUtil.Reconcile(config, DefaultConfigs.DefaultServerConfig)
-    ServerConfig = newConfig
-    print("Set server config to:", ServerConfig)
 end
 
 --[=[

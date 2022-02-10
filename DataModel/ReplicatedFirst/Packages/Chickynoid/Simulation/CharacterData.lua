@@ -5,49 +5,49 @@ local BitBuffer = require(script.Parent.Parent.Vendor.BitBuffer)
 local EPSILION = 0.00001
 local mathUtils = require(script.Parent.MathUtils)
 
-function Lerp(a,b,frac)
+local function Lerp(a,b,frac)
     return a:Lerp(b,frac)
 end
 
-function AngleLerp(a,b,frac)
+local function AngleLerp(a,b,frac)
     return mathUtils:LerpAngle(a,b,frac)
 end
 
-function NumberLerp(a,b,frac)
+local function NumberLerp(a,b,frac)
         
     return (a * (1-frac)) + (b * frac)
 end
 
-function Raw(a,b,frac)
+local function Raw(a,b,frac)
     return b
 end
 
 local MAX_FLOAT16 = math.pow(2,16)
-function ValidateFloat16(float)
+local function ValidateFloat16(float)
     return math.clamp(float,-MAX_FLOAT16, MAX_FLOAT16)
 end
 
 local MAX_BYTE = 255
-function ValidateByte(byte)
+local function ValidateByte(byte)
     return math.clamp(byte,0, MAX_BYTE)
 end
 
-function ValidateVector3(input)
+local function ValidateVector3(input)
     return input
 end
 
-function CompareVector3(a,b)
+local function CompareVector3(a,b)
     if (math.abs(a.x-b.x)>EPSILION or math.abs(a.y-b.y)>EPSILION or math.abs(a.z-b.z)>EPSILION) then
         return false
     end
     return true
 end
 
-function CompareByte(a,b)
+local function CompareByte(a,b)
     return a==b
 end
 
-function CompareFloat16(a,b)
+local function CompareFloat16(a,b)
     return a==b
 end
 
@@ -55,17 +55,18 @@ end
 
 function CharacterData:ModuleSetup()
     
-    local netVector3 =  { write = "writeVector3", read = "readVector3" , validate = ValidateVector3, compare = CompareVector3 }
-    local netFloat16 = { write = "writeFloat16", read = "readFloat16", validate = ValidateFloat16,compare = CompareFloat16  }
-    local netByte = { write = "writeByte", read = "readByte", validate = ValidateByte, compare = CompareByte  }
+    CharacterData.methods = {}
+    CharacterData.methods["Vector3"] =  { write = "writeVector3", read = "readVector3" , validate = ValidateVector3, compare = CompareVector3 }
+    CharacterData.methods["Float16"] = { write = "writeFloat16", read = "readFloat16", validate = ValidateFloat16,compare = CompareFloat16  }
+    CharacterData.methods["Byte"] = { write = "writeByte", read = "readByte", validate = ValidateByte, compare = CompareByte  }
     
     self.packFunctions = {
-        pos = netVector3,
-        angle = netFloat16,
-        animCounter = netByte,
-        animNum = netByte,
-        stepUp = netFloat16,
-        flatSpeed = netFloat16,
+        pos = "Vector3",
+        angle = "Float16",
+        animCounter = "Byte",
+        animNum = "Byte",
+        stepUp = "Float16",
+        flatSpeed = "Float16",
     }
 
     self.lerpFunctions = {
@@ -161,7 +162,7 @@ function CharacterData:SerializeToBitBuffer(previousData, bitBuffer)
         
         --calculate bits
         for key,value in pairs(self.serialized) do
-            local func = self.packFunctions[key]
+            local func = CharacterData.methods[self.packFunctions[key]]
             if (func) then
                 bitBuffer.writeBits(1)
                 value = func.validate(value)
@@ -173,7 +174,8 @@ function CharacterData:SerializeToBitBuffer(previousData, bitBuffer)
     else
         --calculate bits
         for key,value in pairs(self.serialized) do
-            local func = self.packFunctions[key]
+            
+            local func = CharacterData.methods[self.packFunctions[key]]
             if (func) then
                 
                 local valueA = func.validate(previousData.serialized[key])
@@ -199,7 +201,7 @@ function CharacterData:DeserializeFromBitBuffer(bitBuffer)
     for key,value in pairs(self.serialized) do
         local set = bitBuffer.readBits(1)
         if (set[1] == 1) then
-            local func = self.packFunctions[key]
+            local func = CharacterData.methods[self.packFunctions[key]]
             self.serialized[key] = bitBuffer[func.read]()    
              
         end

@@ -8,14 +8,16 @@ local Types = require(script.Parent.Types)
 local Simulation = {}
 Simulation.__index = Simulation
 
-local playerSize = Vector3.new(3,5,3)
-
-Simulation.collisionModule = require(script.CollisionModule)
-Simulation.characterData = require(script.CharacterData)
-Simulation.mathUtils = require(script.MathUtils)
+local CollisionModule = require(script.CollisionModule)
+local CharacterData = require(script.CharacterData)
+local MathUtils = require(script.MathUtils)
 local Enums = require(script.Parent.Enums)
 
-function Simulation.new(config: Types.ISimulationConfig)
+--This is currently baked into the collision system.
+local playerSize = Vector3.new(3,5,3)
+
+
+function Simulation.new()
     local self = setmetatable({}, Simulation)
 
     self.state = {}
@@ -28,50 +30,20 @@ function Simulation.new(config: Types.ISimulationConfig)
     self.state.stepUp = 0
     self.state.inAir = 0
     
+    self.characterData = CharacterData.new()
     
-    self.characterData = self.characterData.new()
-    self.whiteList = config.raycastWhitelist
-
     --players feet height - height goes from -2.5 to +2.5
     --So any point below this number is considered the players feet
     --the distance between middle and feetHeight is "ledge"
-    self.feetHeight = config.feetHeight
+    self.feetHeight = -1.9
 
     -- How big an object we can step over
-    self.stepSize = config.stepSize
+    self.stepSize = 2.1
  
-    local buildDebugSphereModelThing = false
-
-    if buildDebugSphereModelThing == true then
-        local model = Instance.new("Model")
-        model.Name = "Chickynoid"
-
-        local part = Instance.new("Part")
-        self.debugMarker = part
-        part.Size = playerSize
-        part.Shape = Enum.PartType.Block
-        part.CanCollide = false
-        part.CanQuery = false
-        part.CanTouch = false
-        part.Parent = model
-        part.Anchored = true
-        part.TopSurface = Enum.SurfaceType.Smooth
-        part.BottomSurface = Enum.SurfaceType.Smooth
-        part.Transparency = 0.4
-        part.Material = Enum.Material.SmoothPlastic
-        part.Color = Color3.new(0, 1, 1)
-
-        model.PrimaryPart = part
-        model.Parent = game.Workspace
-        self.debugModel = model
-
-    
-    end
     
     --THIS DOES NOT GO HERE LOL
-    
-    if (#Simulation.collisionModule.hullRecords == 0) then
-        Simulation.collisionModule:MakeWorld(game.Workspace.GameArea, playerSize )
+    if (#CollisionModule.hullRecords == 0) then
+        CollisionModule:MakeWorld(game.Workspace.GameArea, playerSize )
     end
 
     
@@ -81,7 +53,7 @@ end
 --	It is very important that this method rely only on whats in the cmd object
 --	and no other client or server state can "leak" into here
 --	or the server and client state will get out of sync.
---	You'll have to manage it so clients/server see the same thing in workspace.GameArea for raycasts...
+--	You'll have to manage it so clients/server see the same thing in workspace.GameArea for collision...
  
 function Simulation:ProcessCommand(cmd)
  
@@ -113,7 +85,7 @@ function Simulation:ProcessCommand(cmd)
     
     --Create flat velocity to operate our input command on
     --In theory this should be relative to the ground plane instead...
-    local flatVel = self.mathUtils:FlatVec(self.state.vel)
+    local flatVel = MathUtils:FlatVec(self.state.vel)
     
     --Does the player have an input?
     if (wishDir ~= nil) then
@@ -122,7 +94,7 @@ function Simulation:ProcessCommand(cmd)
             --Moving along the ground under player input
             
             
-            flatVel = self.mathUtils:VelocityFriction(flatVel, brakeFriction, cmd.deltaTime) --Error! This function is failing at really tiny Dt.
+            flatVel = MathUtils:VelocityFriction(flatVel, brakeFriction, cmd.deltaTime) --Error! This function is failing at really tiny Dt.
             flatVel = self:Accelerate(wishDir, maxSpeed, accel, flatVel, cmd.deltaTime)
           
             --Good time to trigger our walk anim
@@ -134,7 +106,7 @@ function Simulation:ProcessCommand(cmd)
     else
         if (onGround ~= nil) then
             --Just standing around
-            flatVel = self.mathUtils:VelocityFriction(flatVel, brakeFriction, cmd.deltaTime)
+            flatVel = MathUtils:VelocityFriction(flatVel, brakeFriction, cmd.deltaTime)
             
             --Enter idle
             self.characterData:PlayAnimation(Enums.Anims.Idle, false)
@@ -236,8 +208,8 @@ function Simulation:ProcessCommand(cmd)
     
     --Do angles
     if (wishDir ~= nil) then
-        self.state.targetAngle = self.mathUtils:PlayerVecToAngle(wishDir)
-        self.state.angle = self.mathUtils:LerpAngle( self.state.angle,  self.state.targetAngle, turnSpeedFrac * cmd.deltaTime)
+        self.state.targetAngle = MathUtils:PlayerVecToAngle(wishDir)
+        self.state.angle = MathUtils:LerpAngle( self.state.angle,  self.state.targetAngle, turnSpeedFrac * cmd.deltaTime)
     end
     
     --Write this to the characterData
@@ -256,10 +228,10 @@ end
 
 function Simulation:DoStepUp(pos, vel, deltaTime)
     
-    local flatVel = self.mathUtils:FlatVec(vel)
+    local flatVel = MathUtils:FlatVec(vel)
 
     --first move upwards as high as we can go
-    local headHit = self.collisionModule:Sweep(pos, pos + Vector3.new(0, self.stepSize, 0))
+    local headHit = CollisionModule:Sweep(pos, pos + Vector3.new(0, self.stepSize, 0))
 
     --Project forwards
     local stepUpNewPos, stepUpNewVel, stepHitSomething = self:ProjectVelocity(headHit.endPos, flatVel, deltaTime)
@@ -267,7 +239,7 @@ function Simulation:DoStepUp(pos, vel, deltaTime)
     --Trace back down
     local traceDownPos = stepUpNewPos
 
-    local hitResult = self.collisionModule:Sweep(
+    local hitResult = CollisionModule:Sweep(
         traceDownPos,
         traceDownPos - Vector3.new(0, self.stepSize, 0)
     )
@@ -301,12 +273,12 @@ end
 
 
 function Simulation:DecayStepUp(deltaTime)
-    self.state.stepUp = self.mathUtils:Friction(self.state.stepUp, 0.05, deltaTime) --higher == slower
+    self.state.stepUp = MathUtils:Friction(self.state.stepUp, 0.05, deltaTime) --higher == slower
 end
 
 
 function Simulation:DoGroundCheck(pos)
-    local results = self.collisionModule:Sweep(pos, pos + Vector3.new(0, -0.1, 0))
+    local results = CollisionModule:Sweep(pos, pos + Vector3.new(0, -0.1, 0))
     
     if (results.fraction < 1) then
         return results 
@@ -354,7 +326,7 @@ function Simulation:ProjectVelocity(startPos, startVel, deltaTime)
         end
         
         --We only operate on a scaled down version of velocity
-        local result = self.collisionModule:Sweep(movePos, movePos + (moveVel * timeLeft))
+        local result = CollisionModule:Sweep(movePos, movePos + (moveVel * timeLeft))
         
         --Update our position
         if (result.fraction > 0) then

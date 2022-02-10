@@ -19,8 +19,41 @@
     },
     "ReplicatedFirst": {
       "$path": "DataModel/ReplicatedFirst.rbxm",
-      "Client": {
-        "$path": "DataModel/ReplicatedFirst/Client"
+      "Packages": {
+        "$className": "Folder",
+        "Chickynoid": {
+          "$className": "Folder",
+          "Assets": {
+            "$className": "Folder",
+            "R15Rig": {
+              "$path": "DataModel/ReplicatedFirst/Packages/Chickynoid/Assets/R15Rig.rbxm"
+            }
+          },
+          "Characters": {
+            "$path": "DataModel/ReplicatedFirst/Packages/Chickynoid/Characters"
+          },
+          "Client": {
+            "$path": "DataModel/ReplicatedFirst/Packages/Chickynoid/Client"
+          },
+          "ClientRuntime": {
+            "$path": "DataModel/ReplicatedFirst/Packages/Chickynoid/ClientRuntime"
+          },
+          "Configuration": {
+            "$path": "DataModel/ReplicatedFirst/Packages/Chickynoid/Configuration"
+          },
+          "Enums": {
+            "$path": "DataModel/ReplicatedFirst/Packages/Chickynoid/Enums"
+          },
+          "Simulation": {
+            "$path": "DataModel/ReplicatedFirst/Packages/Chickynoid/Simulation"
+          },
+          "Types": {
+            "$path": "DataModel/ReplicatedFirst/Packages/Chickynoid/Types"
+          },
+          "Vendor": {
+            "$path": "DataModel/ReplicatedFirst/Packages/Chickynoid/Vendor"
+          }
+        }
       }
     },
     "ReplicatedStorage": {
@@ -28,41 +61,14 @@
       "Packages": {
         "$className": "Folder",
         "Chickynoid": {
-          "$path": "DataModel/ReplicatedStorage/Packages/Chickynoid.rbxm",
-          "Assets": {
-            "$className": "Folder",
-            "R15Rig": {
-              "$path": "DataModel/ReplicatedStorage/Packages/Chickynoid/Assets/R15Rig.rbxm"
-            }
-          },
-          "Client": {
-            "$path": "DataModel/ReplicatedStorage/Packages/Chickynoid/Client"
-          },
-          "DefaultConfigs": {
-            "$path": "DataModel/ReplicatedStorage/Packages/Chickynoid/DefaultConfigs"
-          },
-          "Enums": {
-            "$path": "DataModel/ReplicatedStorage/Packages/Chickynoid/Enums"
-          },
-          "Server": {
-            "$path": "DataModel/ReplicatedStorage/Packages/Chickynoid/Server"
-          },
-          "Simulation": {
-            "$path": "DataModel/ReplicatedStorage/Packages/Chickynoid/Simulation"
-          },
-          "Types": {
-            "$path": "DataModel/ReplicatedStorage/Packages/Chickynoid/Types"
-          },
-          "Vendor": {
-            "$path": "DataModel/ReplicatedStorage/Packages/Chickynoid/Vendor"
-          }
+          "$path": "DataModel/ReplicatedStorage/Packages/Chickynoid.rbxm"
         }
       }
     },
     "ServerScriptService": {
       "$path": "DataModel/ServerScriptService.rbxm",
-      "Server": {
-        "$path": "DataModel/ServerScriptService/Server"
+      "Packages": {
+        "$path": "DataModel/ServerScriptService/Packages"
       }
     },
     "ServerStorage": {

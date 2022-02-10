@@ -6,6 +6,8 @@
     There is only one of these for the local player
 ]=]
 
+local RemoteEvent = game.ReplicatedStorage:WaitForChild("Packages"):WaitForChild("Chickynoid"):WaitForChild("RemoteEvent")
+
 local UserInputService = game:GetService("UserInputService")
 local Players = game:GetService("Players")
 
@@ -18,6 +20,8 @@ local EventType = Enums.EventType
 local Camera = workspace.CurrentCamera
 
 local LocalPlayer = Players.LocalPlayer
+
+--For access to control vectors
 local PlayerModule = LocalPlayer:WaitForChild("PlayerScripts"):WaitForChild("PlayerModule")
 local ControlModule = require(PlayerModule:WaitForChild("ControlModule"))
 
@@ -27,8 +31,7 @@ DebugParts.Parent = workspace
 
 local SKIP_RESIMULATION = true
 local DEBUG_SPHERES = false
-local PRINT_NUM_CASTS = false
-
+ 
 local ClientChickynoid = {}
 ClientChickynoid.__index = ClientChickynoid
 
@@ -39,11 +42,10 @@ ClientChickynoid.__index = ClientChickynoid
     @param position Vector3 -- The position to spawn this character, provided by the server.
     @return ClientChickynoid
 ]=]
-function ClientChickynoid.new(position: Vector3, config: Types.IClientConfig)
+function ClientChickynoid.new(position: Vector3)
     local self = setmetatable({
         
-        simulation = Simulation.new(config.simulationConfig),
-
+        simulation = Simulation.new(),
         predictedCommands = {},
         stateCache = {},
 
@@ -221,13 +223,9 @@ function ClientChickynoid:Heartbeat(dt: number)
     local event = {}
     event.t = EventType.Command
     event.command = cmd
-    script.Parent.Parent.RemoteEvent:FireServer(event)
+    RemoteEvent:FireServer(event)
    
-
-    if PRINT_NUM_CASTS then
-        print("casts", self.simulation.sweepModule.raycastsThisFrame)
-    end
-    
+ 
 end
 
 function ClientChickynoid:SpawnDebugSphere(pos, color)

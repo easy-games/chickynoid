@@ -1,25 +1,18 @@
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
-local Packages = ReplicatedStorage.Packages
 
-local Server = require(Packages.Chickynoid.Server)
-local Enums = require(Packages.Chickynoid.Enums)
-
-Server:SetConfig({
-    simulationConfig = {
-        -- stepSize = 3,
-    },
-})
+local Server = require(game.ServerScriptService.Packages.Chickynoid.Server.Server)
+local Enums = require(game.ReplicatedFirst.Packages.Chickynoid.Enums)
+ 
 
 Server:Setup()
 
 Players.PlayerAdded:Connect(function(player)
     
     
-    local record = Server:AddConnection(player.UserId, player)
-    record.chickynoid = Server:CreateChickynoidAsync(playerRecord)
+    local playerRecord = Server:AddConnection(player.UserId, player)
+    playerRecord.chickynoid = Server:CreateChickynoidAsync(playerRecord)
 end)
 
 Players.PlayerRemoving:Connect(function(player)

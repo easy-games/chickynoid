@@ -5,6 +5,8 @@
     Client namespace for the Chickynoid package.
 ]=]
 
+local RemoteEvent = game.ReplicatedStorage:WaitForChild("Packages"):WaitForChild("Chickynoid"):WaitForChild("RemoteEvent")
+
 local RunService = game:GetService("RunService")
 local Players = game:GetService("Players")
 local BitBuffer = require(script.Parent.Vendor.BitBuffer)
@@ -12,10 +14,8 @@ local BitBuffer = require(script.Parent.Vendor.BitBuffer)
 local ClientChickynoid = require(script.ClientChickynoid)
 local CharacterModel = require(script.CharacterModel)
 local CharacterData = require(script.Parent.Simulation.CharacterData)
-
-local DefaultConfigs = require(script.Parent.DefaultConfigs)
 local Types = require(script.Parent.Types)
-local TableUtil = require(script.Parent.Vendor.TableUtil)
+ 
 
 local Enums = require(script.Parent.Enums)
 local EventType = Enums.EventType
@@ -41,13 +41,6 @@ ChickynoidClient.interpolationBuffer = 20
 
 
 
-local ClientConfig = TableUtil.Copy(DefaultConfigs.DefaultClientConfig, true)
-
-function ChickynoidClient:SetConfig(config: Types.IClientConfig)
-    local newConfig = TableUtil.Reconcile(config, DefaultConfigs.DefaultClientConfig)
-    ClientConfig = newConfig
-    print("Set client config to:", ClientConfig)
-end
 
 --[=[
     Setup default connections for the client-side Chickynoid. This mostly
@@ -116,7 +109,7 @@ function ChickynoidClient:Setup()
     
 
     
-    script.Parent.RemoteEvent.OnClientEvent:Connect(function(event)
+    RemoteEvent.OnClientEvent:Connect(function(event)
         local func = eventHandler[event.t]
         if (func~=nil) then
             func(event)

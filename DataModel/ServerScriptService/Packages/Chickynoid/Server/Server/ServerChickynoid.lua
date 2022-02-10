@@ -6,11 +6,12 @@
     such as teleporting and applying impulses.
 ]=]
 
-local Types = require(script.Parent.Parent.Types)
-local Enums = require(script.Parent.Parent.Enums)
+local path = game.ReplicatedFirst.Packages.Chickynoid
+local Types = require(path.Types)
+local Enums = require(path.Enums)
 local EventType = Enums.EventType
 
-local Simulation = require(script.Parent.Parent.Simulation)
+local Simulation = require(path.Simulation)
 
 
 local ServerChickynoid = {}
@@ -24,7 +25,7 @@ function ServerChickynoid.new(playerRecord, config: Types.IServerConfig)
     local self = setmetatable({
         playerRecord = playerRecord,
 
-        simulation = Simulation.new(config.simulationConfig),
+        simulation = Simulation.new(),
         
         unprocessedCommands = {},
         commandSerial = 0,

@@ -80,7 +80,7 @@ function MakeDebugPlayers()
     
     --Always the same seed
     math.randomseed(1)
-    for counter = 1, 50 do
+    for counter = 1, 20 do
         
         local userId = -10000-counter
         local playerRecord = Server:AddConnection(userId, nil)

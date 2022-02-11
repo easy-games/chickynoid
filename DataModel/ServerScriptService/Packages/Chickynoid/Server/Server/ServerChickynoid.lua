@@ -37,7 +37,7 @@ function ServerChickynoid.new(playerRecord, config: Types.IServerConfig)
         speedCheatThreshhold = 150 * 0.001, --milliseconds
         antiwarpThreshhold = 60 * 0.001, --milliseconds
         
-        bufferedCommandTime = 60 * 0.001, --ms
+        bufferedCommandTime =  20 * 0.001, --ms
         serverFrames = 0,
     }, ServerChickynoid)
     

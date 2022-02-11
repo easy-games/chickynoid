@@ -17,6 +17,7 @@ local Simulation = require(path.Simulation)
 local Types = require(path.Types)
 local Enums = require(path.Enums)
 local EventType = Enums.EventType
+local NetGraph = require(path.Client.Client.NetGraph)
 
 local Camera = workspace.CurrentCamera
 
@@ -51,6 +52,9 @@ function ClientChickynoid.new(position: Vector3)
         stateCache = {},
 
         localFrame = 0,
+        ping = 0,
+        pings = {}, --for average
+    
     }, ClientChickynoid)
 
     self.simulation.state.pos = position
@@ -74,7 +78,6 @@ function ClientChickynoid:MakeCommand(dt: number)
     command.y = 0
     command.z = 0
     command.deltaTime = dt
-    
   
 
     local moveVector = ControlModule:GetMoveVector() :: Vector3
@@ -142,11 +145,17 @@ function ClientChickynoid:HandleNewState(state, lastConfirmed)
             -- Server hasn't processed this yet
             table.insert(remainingCommands, cmd)
         end
+        if (cmd.l == lastConfirmed) then
+            self.ping = (tick() - cmd.tick) * 1000 
+        end
     end
+    
+    
+    
     self.predictedCommands = remainingCommands
 
     local resimulate = true
-
+        
     -- Check to see if we can skip simulation
     if SKIP_RESIMULATION then
         local record = self.stateCache[lastConfirmed]
@@ -169,6 +178,7 @@ function ClientChickynoid:HandleNewState(state, lastConfirmed)
 
     if resimulate == true then
         print("resimulating")
+      
 
         -- Record our old state
         local oldPos = self.simulation.state.pos
@@ -192,8 +202,39 @@ function ClientChickynoid:HandleNewState(state, lastConfirmed)
         local delta = oldPos - self.simulation.state.pos
         if delta.magnitude > 0.2 then
             print("Mispredict:", delta)
+            
         end
     end
+    
+    
+    --Ping graph
+    table.insert(self.pings, self.ping)
+    if (#self.pings > 20) then
+        table.remove(self.pings,1)
+    end
+    local total = 0
+    for _,ping in pairs(self.pings) do
+        total+=ping 
+    end
+    total /= #self.pings
+    
+    NetGraph:Scroll()
+    
+    local color1 = Color3.new(1, 1, 1)
+    local color2 = Color3.new(1, 1, 0)
+    if (resimulate == false) then
+    
+        NetGraph:AddPoint(self.ping * 0.25, color1)
+        NetGraph:AddPoint(total * 0.25, color2)
+    else
+        color1 = Color3.new(0.0156863, 1, 0)
+        color2 = Color3.new(0.231373, 1, 0)
+        NetGraph:AddPoint(self.ping * 0.25, color1)
+        NetGraph:AddBar(total * 0.25, color2)
+    end
+    
+   
+    NetGraph:SetFpsText("Effective Ping: ".. math.floor(total) .."ms")
 end
 
  
@@ -225,8 +266,13 @@ function ClientChickynoid:Heartbeat(dt: number)
     event.t = EventType.Command
     event.command = cmd
     RemoteEvent:FireServer(event)
-   
- 
+    
+    --once we've sent it, add localtime
+    cmd.tick = tick()
+    
+    
+    
+  
 end
 
 function ClientChickynoid:SpawnDebugSphere(pos, color)

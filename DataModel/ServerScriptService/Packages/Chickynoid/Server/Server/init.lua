@@ -114,7 +114,7 @@ end
 ]=]
 function ChickynoidServer:CreateChickynoidAsync(playerRecord)
 
-    local chickynoid = ServerChickynoid.new(playerRecord, ServerConfig)
+    local chickynoid = ServerChickynoid.new(playerRecord)
     playerRecord.chickynoid = chickynoid
     
     return chickynoid
@@ -136,6 +136,8 @@ function ChickynoidServer:Think(deltaTime)
             if (playerRecord.chickynoid.simulation.state.pos.y < -2000) then
                 playerRecord.chickynoid:SpawnChickynoid()
             end
+            
+    
         end
     end    
     
@@ -152,14 +154,14 @@ function ChickynoidServer:Think(deltaTime)
         end
         
         for userId,playerRecord in pairs(self.playerRecords) do
-            --Not for you, bot!
+            
             if (playerRecord.dummy == true) then
                 continue
             end
             
             --Send results of server move
             if (playerRecord.chickynoid ~= nil) then
-                
+
                 local event = {}
                 event.t = EventType.State
                 event.lastConfirmed = playerRecord.chickynoid.lastConfirmedCommand

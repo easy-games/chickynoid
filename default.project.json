@@ -33,7 +33,22 @@
             "$path": "DataModel/ReplicatedFirst/Packages/Chickynoid/Characters"
           },
           "Client": {
-            "$path": "DataModel/ReplicatedFirst/Packages/Chickynoid/Client"
+            "$className": "Folder",
+            "Client": {
+              "$path": "DataModel/ReplicatedFirst/Packages/Chickynoid/Client/Client.rbxm",
+              "CharacterModel": {
+                "$path": "DataModel/ReplicatedFirst/Packages/Chickynoid/Client/Client/CharacterModel"
+              },
+              "ClientChickynoid": {
+                "$path": "DataModel/ReplicatedFirst/Packages/Chickynoid/Client/Client/ClientChickynoid"
+              },
+              "FpsGraph": {
+                "$path": "DataModel/ReplicatedFirst/Packages/Chickynoid/Client/Client/FpsGraph.rbxm"
+              },
+              "NetGraph": {
+                "$path": "DataModel/ReplicatedFirst/Packages/Chickynoid/Client/Client/NetGraph.rbxm"
+              }
+            }
           },
           "ClientScript": {
             "$path": "DataModel/ReplicatedFirst/Packages/Chickynoid/ClientScript"

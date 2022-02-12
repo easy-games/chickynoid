@@ -21,6 +21,10 @@ ChickynoidServer.playerRecords = {}
 ChickynoidServer.serverStepTimer = 0
 ChickynoidServer.serverTotalFrames = 0
 ChickynoidServer.serverTotalTime = 0
+ChickynoidServer.framesPerSecondCounter = 0 --Purely for stats
+ChickynoidServer.framesPerSecondTimer = 0 --Purely for stats
+ChickynoidServer.framesPerSecond = 0 --Purely for stats
+
 ChickynoidServer.startTime = tick()
 
 local SERVER_HZ = 20
@@ -121,7 +125,16 @@ function ChickynoidServer:CreateChickynoidAsync(playerRecord)
 end
 
 function ChickynoidServer:Think(deltaTime)
-
+    
+    
+    self.framesPerSecondCounter += 1
+    self.framesPerSecondTimer += deltaTime
+    if (self.framesPerSecondTimer > 1) then
+        self.framesPerSecondTimer = math.fmod(self.framesPerSecondTimer,1)
+        self.framesPerSecond = self.framesPerSecondCounter
+        self.framesPerSecondCounter = 0
+    end
+    
     --1st stage, pump the commands
     --Many many todos on this!
     for userId,playerRecord in pairs(self.playerRecords) do
@@ -136,8 +149,6 @@ function ChickynoidServer:Think(deltaTime)
             if (playerRecord.chickynoid.simulation.state.pos.y < -2000) then
                 playerRecord.chickynoid:SpawnChickynoid()
             end
-            
-    
         end
     end    
     
@@ -165,8 +176,12 @@ function ChickynoidServer:Think(deltaTime)
                 local event = {}
                 event.t = EventType.State
                 event.lastConfirmed = playerRecord.chickynoid.lastConfirmedCommand
+                event.e = playerRecord.chickynoid.errorState
+                event.s = self.framesPerSecond
                 event.state = playerRecord.chickynoid.simulation:WriteState()
+                
                 playerRecord:SendEventToClient(event)
+                playerRecord.chickynoid.errorState = Enums.NetworkProblemState.None
             end
             
             --Send snapshot

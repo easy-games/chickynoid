@@ -80,7 +80,7 @@ function MakeDebugPlayers()
     
     --Always the same seed
     math.randomseed(1)
-    for counter = 1, 20 do
+    for counter = 1, 99 do
         
         local userId = -10000-counter
         local playerRecord = Server:AddConnection(userId, nil)
@@ -126,7 +126,7 @@ function MakeDebugPlayers()
             end
             
             if (math.random() < 0.01) then
-                playerRecord.waitTime = math.random() * 3                
+                playerRecord.waitTime = math.random() * 5                
             end
             
             playerRecord.frame += 1

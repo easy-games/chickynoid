@@ -78,7 +78,6 @@ function ClientChickynoid:MakeCommand(dt: number)
     command.y = 0
     command.z = 0
     command.deltaTime = dt
-  
 
     local moveVector = ControlModule:GetMoveVector() :: Vector3
     if moveVector.Magnitude > 0 then
@@ -134,7 +133,7 @@ end
     @param state table -- The new state sent by the server.
     @param lastConfirmed number -- The serial number of the last command confirmed by the server.
 ]=]
-function ClientChickynoid:HandleNewState(state, lastConfirmed)
+function ClientChickynoid:HandleNewState(state, lastConfirmed, serverHealthFps, networkProblem)
     self:ClearDebugSpheres()
 
     -- Build a list of the commands the server has not confirmed yet
@@ -224,16 +223,35 @@ function ClientChickynoid:HandleNewState(state, lastConfirmed)
     local color2 = Color3.new(1, 1, 0)
     if (resimulate == false) then
     
-        NetGraph:AddPoint(self.ping * 0.25, color1)
-        NetGraph:AddPoint(total * 0.25, color2)
+        NetGraph:AddPoint(self.ping * 0.25, color1,4)
+        NetGraph:AddPoint(total * 0.25, color2,3)
     else
         color1 = Color3.new(0.0156863, 1, 0)
         color2 = Color3.new(0.231373, 1, 0)
-        NetGraph:AddPoint(self.ping * 0.25, color1)
-        NetGraph:AddBar(total * 0.25, color2)
+        NetGraph:AddPoint(self.ping * 0.25, color1,4)
+        NetGraph:AddBar(total * 0.25, color2,1)
+    end
+       
+    --Server fps
+    if (serverHealthFps < 60) then
+        NetGraph:AddPoint(serverHealthFps, Color3.new(1,0,0),2)
+    else
+        NetGraph:AddPoint(serverHealthFps, Color3.new(0.5,0.0,0.0),2)
     end
     
-   
+    --Blue bar    
+    if (networkProblem == Enums.NetworkProblemState.TooFarBehind) then
+        NetGraph:AddBar(100, Color3.new(0,0,1) ,0)
+    end
+    --Yellow bar    
+    if (networkProblem == Enums.NetworkProblemState.TooFarAhead) then
+        NetGraph:AddBar(100, Color3.new(1,1,0) ,0)
+    end
+    --Orange bar    
+    if (networkProblem == Enums.NetworkProblemState.TooManyCommands) then
+        NetGraph:AddBar(100, Color3.new(1,0.5,0) ,0)
+    end
+    
     NetGraph:SetFpsText("Effective Ping: ".. math.floor(total) .."ms")
 end
 

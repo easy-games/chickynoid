@@ -32,7 +32,8 @@ function ServerChickynoid.new(playerRecord, config: Types.IServerConfig)
         lastConfirmedCommand = nil,
         elapsedTime = 0,
         playerElapsedTime = 0,
-        tooFarAhead = false,
+ 
+        errorState = Enums.NetworkProblemState.None,
         
         speedCheatThreshhold = 150 * 0.001, --milliseconds
         antiwarpThreshhold = 60 * 0.001, --milliseconds
@@ -109,12 +110,13 @@ function ServerChickynoid:Think(dt: number)
     
 
     self.elapsedTime += dt
-   
+  
     --Once a player has connected, monitor their total elapsed time
     --If it falls behind, catch them up!
     if (self.playerElapsedTime > 0 and self.playerRecord.dummy == false) then
         if (self.playerElapsedTime < self.elapsedTime - self.antiwarpThreshhold) then
-            print("Player too far behind", self.playerRecord.name)
+            
+            self.errorState  = Enums.NetworkProblemState.TooFarAhead
             --Generate some commands
             local timeToCover = (self.elapsedTime - self.antiwarpThreshhold) - self.playerElapsedTime
             
@@ -141,7 +143,8 @@ function ServerChickynoid:Think(dt: number)
                 
         maxCommandsPerFrame-=1
         if (maxCommandsPerFrame < 0) then
-            print("Player send too many commands at once:", self.playerRecord.name)
+            --print("Player send too many commands at once:", self.playerRecord.name)
+            self.errorState = Enums.NetworkProblemState.TooManyCommands
             self.playerElapsedTime = self.elapsedTime
             self.unprocessedCommands = {}
             break --Discard all buffered commands
@@ -216,7 +219,8 @@ function ServerChickynoid:HandleClientEvent(event)
                 
                 
                 if (self.playerElapsedTime > self.elapsedTime + self.speedCheatThreshhold) then
-                    print("Player too far ahead", self.playerRecord.name) 
+                    --print("Player too far ahead", self.playerRecord.name) 
+                    self.errorState = Enums.NetworkProblemState.TooFarAhead
                 else
                     self.playerElapsedTime += command.deltaTime
                     command.totalTime = self.elapsedTime 

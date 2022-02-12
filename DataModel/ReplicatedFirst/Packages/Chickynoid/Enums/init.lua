@@ -8,6 +8,13 @@ Enums.EventType = {
     Snapshot = 4,
     WorldState = 5,
 }
+Enums.NetworkProblemState = {
+    None = 0,
+    TooFarBehind = 1,
+    TooFarAhead = 2,
+    TooManyCommands = 3,    
+    
+}
 
 
 Enums.Anims = {

@@ -29,9 +29,6 @@
               "$path": "DataModel/ReplicatedFirst/Packages/Chickynoid/Assets/R15Rig.rbxm"
             }
           },
-          "Characters": {
-            "$path": "DataModel/ReplicatedFirst/Packages/Chickynoid/Characters"
-          },
           "Client": {
             "$className": "Folder",
             "Client": {
@@ -55,6 +52,9 @@
           },
           "Configuration": {
             "$path": "DataModel/ReplicatedFirst/Packages/Chickynoid/Configuration"
+          },
+          "Custom": {
+            "$path": "DataModel/ReplicatedFirst/Packages/Chickynoid/Custom"
           },
           "Enums": {
             "$path": "DataModel/ReplicatedFirst/Packages/Chickynoid/Enums"
@@ -87,7 +87,10 @@
       }
     },
     "ServerStorage": {
-      "$path": "DataModel/ServerStorage.rbxm"
+      "$path": "DataModel/ServerStorage.rbxm",
+      "TagList": {
+        "$path": "DataModel/ServerStorage/TagList.rbxm"
+      }
     },
     "SoundService": {
       "$path": "DataModel/SoundService.rbxm"
@@ -110,10 +113,10 @@
     "Workspace": {
       "$path": "DataModel/Workspace.rbxm",
       "GameArea": {
-        "$path": "DataModel/Workspace/GameArea.rbxm"
-      },
-      "GameArea2": {
-        "$path": "DataModel/Workspace/GameArea2.rbxm"
+        "$path": "DataModel/Workspace/GameArea.rbxm",
+        "GameArea2": {
+          "$path": "DataModel/Workspace/GameArea/GameArea2.rbxm"
+        }
       }
     }
   }

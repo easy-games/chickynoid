@@ -12,6 +12,7 @@ local Enums = require(path.Enums)
 local EventType = Enums.EventType
 
 local Simulation = require(path.Simulation)
+local TrajectoryModule = require(path.Simulation.TrajectoryModule)
 
 
 local ServerChickynoid = {}
@@ -21,7 +22,7 @@ ServerChickynoid.__index = ServerChickynoid
     Constructs a new [ServerChickynoid] and attaches it to the specified player.
     @return ServerChickynoid
 ]=]
-function ServerChickynoid.new(playerRecord, config: Types.IServerConfig)
+function ServerChickynoid.new(playerRecord)
     local self = setmetatable({
         playerRecord = playerRecord,
 
@@ -89,6 +90,7 @@ function ServerChickynoid:GenerateFakeCommand(deltaTime)
     self.commandSerial += 1
     
     self.playerElapsedTime += command.deltaTime
+    command.serverTime = self.elapsedTime --this is wrong
     command.totalTime = self.elapsedTime 
     table.insert(self.unprocessedCommands, command)
 end
@@ -99,7 +101,7 @@ end
 ]=]
 
  
-function ServerChickynoid:Think(dt: number)
+function ServerChickynoid:Think(serverSimulationTime: number, dt: number)
     
     
     --  Anticheat methods
@@ -133,7 +135,8 @@ function ServerChickynoid:Think(dt: number)
     end)
     
     local maxCommandsPerFrame = 15
-            
+    
+     
     for _, command in pairs(self.unprocessedCommands) do
         
         if (command.totalTime > self.elapsedTime - self.bufferedCommandTime) then
@@ -150,7 +153,10 @@ function ServerChickynoid:Think(dt: number)
             break --Discard all buffered commands
         end
         
-                
+       
+        
+        --print("server", command.l, command.serverTime)
+        TrajectoryModule:PositionWorld(command.serverTime, command.deltaTime)
         self.simulation:ProcessCommand(command)
         command.processed = true
         
@@ -180,6 +186,7 @@ end
 function ServerChickynoid:HandleClientEvent(event)
     if event.t == EventType.Command then
         local command = event.command
+        
         if command and typeof(command) == "table" then
             
             --Sanitize
@@ -190,6 +197,9 @@ function ServerChickynoid:HandleClientEvent(event)
                 return
             end
             if (command.z == nil or typeof(command.z) ~= "number" or command.z~=command.z) then
+                return
+            end
+            if (command.serverTime == nil or typeof(command.serverTime) ~= "number" or command.serverTime~=command.serverTime) then
                 return
             end
             if (command.deltaTime == nil or typeof(command.deltaTime) ~= "number" or command.deltaTime~=command.deltaTime) then

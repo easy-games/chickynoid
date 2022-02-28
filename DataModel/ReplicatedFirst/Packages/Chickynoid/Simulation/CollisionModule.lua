@@ -1,8 +1,11 @@
 local module = {}
 
+local CollectionService = game.CollectionService
 
 module.hullRecords = {}
-local SKIN = 0.025 --closest you can get to a wall
+module.dynamicRecords = {}
+
+local SKIN = 0.05 --closest you can get to a wall
 module.planeNum = 0
 module.gridSize = 5
 module.grid = {}
@@ -45,10 +48,10 @@ local boxPlanes ={
 
  
     --4 edges, top
-    { n = Vector3.new( 1,1, 0), p = Vector3.new(0.5,0.5,0) },
+    { n = Vector3.new(  1,1, 0), p = Vector3.new(0.5,0.5,0) },
     { n = Vector3.new( -1,1, 0), p = Vector3.new(-0.5,0.5,0) },
-    { n = Vector3.new( 0,1, 1), p = Vector3.new(0,0.5,0.5) },
-    { n = Vector3.new( 0,1, -1), p = Vector3.new(0,0.5,-0.5) }, 
+    { n = Vector3.new(  0,1, 1), p = Vector3.new(0,0.5,0.5) },
+    { n = Vector3.new(  0,1, -1), p = Vector3.new(0,0.5,-0.5) }, 
     
     --4 edges, bot
     { n = Vector3.new( 1,-1, 0), p = Vector3.new(0.5,-0.5,0) },
@@ -227,7 +230,7 @@ function module:GenerateDebugPlane(pos, normal)
     
 end
 
-function module:GenerateConvexHull(part, expansionSize)
+function module:GenerateConvexHull(part, expansionSize, cf, showDebug)
 
     --returns the 6 planes that make up a hull
     local hull = {}
@@ -235,9 +238,9 @@ function module:GenerateConvexHull(part, expansionSize)
     
     for _,rec in pairs(boxPlanes) do
 
-        local normal = part.CFrame:VectorToWorldSpace(rec.n)
+        local normal =  cf:VectorToWorldSpace(rec.n)
         
-        local pos =  part.CFrame:PointToWorldSpace(part.Size * rec.p)
+        local pos =  cf:PointToWorldSpace(part.Size * rec.p)
      --   local expanded = pos + Vector3.new(axis.x * normal.x, axis.y * normal.y, axis.z * normal.z)
         
 
@@ -269,7 +272,10 @@ function module:GenerateConvexHull(part, expansionSize)
         })
         self.planeNum+=1
         
-        --self:GenerateDebugPlane(expanded, normal)
+        if (showDebug ~= false) then
+            --self:GenerateDebugPlane(expanded, normal)
+        end
+        
     end
     
    
@@ -287,9 +293,25 @@ function module:MakeWorld(folder, playerSize)
             if (value.CanCollide == false) then
                 continue
             end
+            
+            if (CollectionService:HasTag(value, "Dynamic")) then
+                
+                local record = {}
+                record.instance = value
+                record.hull = self:GenerateConvexHull(value, playerSize, value.CFrame )
+                record.currentCFrame = value.CFrame
+                record.instance:GetPropertyChangedSignal("Position"):Connect(function()
+                    record.hull = self:GenerateConvexHull(value, playerSize, value.CFrame, false )
+                end)
+                
+                table.insert(module.dynamicRecords, record)    
+                continue
+            end
+        
+            
             local record = {}
             record.instance = value
-            record.hull = self:GenerateConvexHull(value, playerSize)
+            record.hull = self:GenerateConvexHull(value, playerSize, value.CFrame)
             self:WritePartToHashMap(record.instance, record)
             
             table.insert(module.hullRecords, record)
@@ -362,8 +384,8 @@ function module:CheckBrush(data, hullRecord )
 
     for _,p in pairs(hullRecord.hull) do
 
-        local startDistance = data.startPos:Dot(p.n ) - p.ed
-        local endDistance = data.endPos:Dot(p.n ) - p.ed
+        local startDistance = data.startPos:Dot(p.n) - p.ed
+        local endDistance = data.endPos:Dot(p.n) - p.ed
 
         if (startDistance > 0) then
             startsOut = true
@@ -434,6 +456,10 @@ function module:CheckBrush(data, hullRecord )
 
 end
 
+
+
+
+
 function module:PlaneLineInteresct(normal, distance, V1, V2)
 
     local diff = V2 - V1
@@ -486,6 +512,25 @@ function module:Sweep(startPos, endPos)
             break
         end
     end
+    
+    if (data.fraction >= EPS or data.allSolid == false) then
+        
+        
+        for _,hullRecord in pairs(self.dynamicRecords) do
+            data.checks+=1
+                       
+            self:CheckBrush(data, hullRecord)
+            if (data.allSolid == true) then
+                data.fraction = 0
+                break
+            end
+            if (data.fraction < EPS) then
+                break
+            end
+            
+        end
+    end
+    
  
     if (data.fraction < 1) then
         --Todo: calculate the skin better? - endpos should be nearest point on the plane + skin?

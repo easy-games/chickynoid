@@ -20,12 +20,15 @@ local ChickynoidServer = {}
 ChickynoidServer.playerRecords = {}
 ChickynoidServer.serverStepTimer = 0
 ChickynoidServer.serverTotalFrames = 0
-ChickynoidServer.serverTotalTime = 0
+ChickynoidServer.serverSimulationTime = 0
 ChickynoidServer.framesPerSecondCounter = 0 --Purely for stats
 ChickynoidServer.framesPerSecondTimer = 0 --Purely for stats
 ChickynoidServer.framesPerSecond = 0 --Purely for stats
 
 ChickynoidServer.startTime = tick()
+ChickynoidServer.slots = {}
+ChickynoidServer.slotsCounter = 0
+ChickynoidServer.maxPlayers = 255   --Theoretical max, use a byte for player id
 
 local SERVER_HZ = 20
 
@@ -43,6 +46,19 @@ function ChickynoidServer:Setup()
     
 end
 
+function ChickynoidServer:AssignSlot(playerRecord)
+    for j=1,self.maxPlayers do
+        if (self.slots[j] == nil) then
+            self.slots[j] = playerRecord
+            playerRecord.slot = j
+            return true
+        end
+    end
+    warn("Slot not found!")
+    return false
+    
+end
+
 function ChickynoidServer:AddConnection(userId, player)
     if (self.playerRecords[userId]~= nil) then
         warn("Player was already connected.", userId)
@@ -55,10 +71,13 @@ function ChickynoidServer:AddConnection(userId, player)
 
     playerRecord.userId = userId
     playerRecord.spawned = false
+ 
     
     playerRecord.previousCharacterData = {}
     playerRecord.chickynoid = nil    
     playerRecord.frame = 0
+    
+    self:AssignSlot(playerRecord)
     
     playerRecord.player = player
     if (playerRecord.player ~= nil) then
@@ -76,16 +95,29 @@ function ChickynoidServer:AddConnection(userId, player)
         end
     end
     
-    --Send initial worldstate
-    if (playerRecord.player)  then
-        local event = {}
-        event.t = Enums.EventType.WorldState
-        event.worldState = {}
-        event.worldState.serverHz = SERVER_HZ
-        playerRecord:SendEventToClient(event)   
+    for key,data in pairs(self.playerRecords) do
+        self:SendWorldstate(data)
     end
+    
         
     return playerRecord    
+end
+
+function ChickynoidServer:SendWorldstate(playerRecord)
+    local event = {}
+    event.t = Enums.EventType.WorldState
+    event.worldState = {}
+    event.worldState.players = {}
+    for key,data in pairs(self.playerRecords) do
+        local info = {}
+        info.name = data.name
+        info.userId = data.userId
+        
+        event.worldState.players[data.slot] = info
+    end
+    
+    event.worldState.serverHz = SERVER_HZ
+    playerRecord:SendEventToClient(event)   
 end
 
 function ChickynoidServer:PlayerDisconnected(userId)
@@ -101,6 +133,13 @@ function ChickynoidServer:PlayerDisconnected(userId)
         for key,playerRecord in pairs(self.playerRecords) do
             playerRecord.previousCharacterData[userId] = nil
         end
+        
+        self.slots[playerRecord.slot] = nil
+    end
+    
+    --Tell everyone
+    for key,data in pairs(self.playerRecords) do
+        self:SendWorldstate(data)
     end
 end
 
@@ -135,6 +174,9 @@ function ChickynoidServer:Think(deltaTime)
         self.framesPerSecondCounter = 0
     end
     
+
+    self.serverSimulationTime = tick() - self.startTime
+
     --1st stage, pump the commands
     --Many many todos on this!
     for userId,playerRecord in pairs(self.playerRecords) do
@@ -144,19 +186,22 @@ function ChickynoidServer:Think(deltaTime)
         end
         
         if (playerRecord.chickynoid) then
-            playerRecord.chickynoid:Think(deltaTime)
+
+         
+            playerRecord.chickynoid:Think(self.serverSimulationTime, deltaTime)
             
             if (playerRecord.chickynoid.simulation.state.pos.y < -2000) then
                 playerRecord.chickynoid:SpawnChickynoid()
             end
         end
-    end    
+    end
+
+
     
     -- 2nd stage: Replicate character state to the player
     self.serverStepTimer += deltaTime
-    self.serverTotalFrames += 1
-    self.serverTotalTime = tick() - self.startTime
-    
+    self.serverTotalFrames += 1    
+  
     local fraction =  (1 / SERVER_HZ)
     if self.serverStepTimer > fraction then
         
@@ -178,6 +223,7 @@ function ChickynoidServer:Think(deltaTime)
                 event.lastConfirmed = playerRecord.chickynoid.lastConfirmedCommand
                 event.e = playerRecord.chickynoid.errorState
                 event.s = self.framesPerSecond
+                event.serverTime = self.serverSimulationTime
                 event.state = playerRecord.chickynoid.simulation:WriteState()
                 
                 playerRecord:SendEventToClient(event)
@@ -201,7 +247,7 @@ function ChickynoidServer:Think(deltaTime)
             for otherUserId,otherPlayerRecord in pairs(self.playerRecords) do
                 if (otherUserId ~= userId) then
                     --Todo: delta compress , bitwise compress, etc etc    
-                    bitBuffer.writeSigned(48, otherUserId)
+                    bitBuffer.writeByte(otherPlayerRecord.slot)
                     
                     if (playerRecord.firstSnapshot == nil) then
                         --Make sure the first write is always a full packet
@@ -223,7 +269,7 @@ function ChickynoidServer:Think(deltaTime)
                         
             snapshot.b = bitBuffer.dumpString()
             snapshot.f = self.serverTotalFrames 
-            snapshot.serverTime = self.serverTotalTime
+            snapshot.serverTime = self.serverSimulationTime
             playerRecord:SendEventToClient(snapshot)
         end
        

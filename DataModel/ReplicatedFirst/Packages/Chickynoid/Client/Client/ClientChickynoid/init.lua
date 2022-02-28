@@ -13,9 +13,11 @@ local Players = game:GetService("Players")
 
 local path = game.ReplicatedFirst.Packages.Chickynoid
 local Simulation = require(path.Simulation)
-
+ 
+local TrajectoryModule = require(path.Simulation.TrajectoryModule)
 local Types = require(path.Types)
 local Enums = require(path.Enums)
+
 local EventType = Enums.EventType
 local NetGraph = require(path.Client.Client.NetGraph)
 
@@ -54,7 +56,9 @@ function ClientChickynoid.new(position: Vector3)
         localFrame = 0,
         ping = 0,
         pings = {}, --for average
-    
+        
+        mispredict = Vector3.new(0,0,0),
+       
     }, ClientChickynoid)
 
     self.simulation.state.pos = position
@@ -132,12 +136,15 @@ end
 
     @param state table -- The new state sent by the server.
     @param lastConfirmed number -- The serial number of the last command confirmed by the server.
+    @param serverTime - Time when command was confirmed
 ]=]
-function ClientChickynoid:HandleNewState(state, lastConfirmed, serverHealthFps, networkProblem)
+function ClientChickynoid:HandleNewState(state, lastConfirmed, serverTime, serverHealthFps, networkProblem)
     self:ClearDebugSpheres()
 
     -- Build a list of the commands the server has not confirmed yet
     local remainingCommands = {}
+    
+    
     for _, cmd in pairs(self.predictedCommands) do
         -- event.lastConfirmed = serial number of last confirmed command by server
         if cmd.l > lastConfirmed then
@@ -161,7 +168,7 @@ function ClientChickynoid:HandleNewState(state, lastConfirmed, serverHealthFps, 
         if record then
             -- This is the state we were in, if the server agrees with this, we dont have to resim
             
-            if (record.state.pos - state.pos).magnitude < 0.01 and (record.state.vel - state.vel).magnitude < 0.01 then
+            if (record.state.pos - state.pos).magnitude < 0.05 and (record.state.vel - state.vel).magnitude < 0.1 then
                 resimulate = false
                 -- print("skipped resim")
             end
@@ -176,9 +183,10 @@ function ClientChickynoid:HandleNewState(state, lastConfirmed, serverHealthFps, 
     end
 
     if resimulate == true then
-        print("resimulating")
+        --print("resimulating")
       
-
+        local extrapolatedServerTime = serverTime
+        
         -- Record our old state
         local oldPos = self.simulation.state.pos
 
@@ -191,6 +199,9 @@ function ClientChickynoid:HandleNewState(state, lastConfirmed, serverHealthFps, 
         -- Resimulate all of the commands the server has not confirmed yet
         -- print("winding forward", #remainingCommands, "commands")
         for _, cmd in pairs(remainingCommands) do
+            extrapolatedServerTime += cmd.deltaTime
+            
+            TrajectoryModule:PositionWorld(extrapolatedServerTime, cmd.deltaTime)
             self.simulation:ProcessCommand(cmd)
 
             -- Resimulated positions
@@ -199,13 +210,11 @@ function ClientChickynoid:HandleNewState(state, lastConfirmed, serverHealthFps, 
 
         -- Did we make a misprediction? We can tell if our predicted position isn't the same after reconstructing everything
         local delta = oldPos - self.simulation.state.pos
-        if delta.magnitude > 0.2 then
-            print("Mispredict:", delta)
-            
-        end
+        --Add the offset to mispredict so we can blend it off
+        self.mispredict += delta
     end
     
-    
+ 
     --Ping graph
     table.insert(self.pings, self.ping)
     if (#self.pings > 20) then
@@ -256,17 +265,19 @@ function ClientChickynoid:HandleNewState(state, lastConfirmed, serverHealthFps, 
 end
 
  
-function ClientChickynoid:Heartbeat(dt: number)
+function ClientChickynoid:Heartbeat(serverTime: number, deltaTime: number)
     self.localFrame += 1
 
     -- Read user input
-    local cmd = self:MakeCommand(dt)
+    local cmd = self:MakeCommand(deltaTime)
     table.insert(self.predictedCommands, cmd)
 
     -- Step this frame
+    cmd.serverTime = serverTime
+    
+    TrajectoryModule:PositionWorld(serverTime, deltaTime)
     self.simulation:ProcessCommand(cmd)
- 
- 
+    
     -- Marker for positions added since the last server update
     self:SpawnDebugSphere(self.simulation.state.pos, Color3.fromRGB(44, 140, 39))
 
@@ -287,9 +298,6 @@ function ClientChickynoid:Heartbeat(dt: number)
     
     --once we've sent it, add localtime
     cmd.tick = tick()
-    
-    
-    
   
 end
 

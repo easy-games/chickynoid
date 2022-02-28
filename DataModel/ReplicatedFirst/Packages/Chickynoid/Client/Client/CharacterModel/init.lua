@@ -34,11 +34,12 @@ function CharacterModel.new()
         modelReady = false,
         startingAnimation = Enums.Anims.Idle,
         userId = nil,
+        mispredict = Vector3.new(0,0,0)
         
     }, CharacterModel)
     
     return self
-end
+end 
 
 function CharacterModel:CreateModel(userId)
     
@@ -159,7 +160,7 @@ function CharacterModel:Think(deltaTime, dataRecord)
     end
     
     
-    local newCF = CFrame.new(dataRecord.pos + self.modelOffset + Vector3.new(0,dataRecord.stepUp,0)) * CFrame.fromEulerAnglesXYZ(0,dataRecord.angle,0)
+    local newCF = CFrame.new(dataRecord.pos + self.modelOffset + self.mispredict + Vector3.new(0,dataRecord.stepUp,0)) * CFrame.fromEulerAnglesXYZ(0,dataRecord.angle,0)
     self.model:PivotTo(newCF)
 end
 

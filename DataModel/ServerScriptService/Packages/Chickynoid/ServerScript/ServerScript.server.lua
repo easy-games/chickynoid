@@ -10,11 +10,9 @@ Server:Setup()
 
 Players.PlayerAdded:Connect(function(player)
     
-    
     local playerRecord = Server:AddConnection(player.UserId, player)
     playerRecord.chickynoid = Server:CreateChickynoidAsync(playerRecord)
-    
-    
+        
     --Spawn the gui
     for _,child in pairs(game.StarterGui:GetChildren()) do
         local clone = child:Clone()
@@ -23,8 +21,6 @@ Players.PlayerAdded:Connect(function(player)
         end
         clone.Parent = playerRecord.player.PlayerGui 
     end
-    
-
     
 end)
 
@@ -80,7 +76,7 @@ function MakeDebugPlayers()
     
     --Always the same seed
     math.randomseed(1)
-    for counter = 1, 99 do
+    for counter = 1, 100 do
         
         local userId = -10000-counter
         local playerRecord = Server:AddConnection(userId, nil)
@@ -113,6 +109,7 @@ function MakeDebugPlayers()
             event.command.x = 0
             event.command.y = 0
             event.command.z = 0
+            event.command.serverTime = tick()
             event.command.deltaTime = deltaTime
             
             if (playerRecord.waitTime <=0) then

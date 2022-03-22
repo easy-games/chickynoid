@@ -33,8 +33,6 @@ end)
 
 
 --Step the game along at a rigid 60fps
---This isn't the same technique clients use, because we want clients to have variable (capped!) fps
-local MAX_FPS = 60
 local elapsedTime = 0
 local timeSinceLastThink = 0
 local frameCount = 0
@@ -44,28 +42,16 @@ RunService.Heartbeat:Connect(function(deltaTime)
     
     frameCountTime += deltaTime
     
+    if (elapsedTime > 0.5) then
+        elapsedTime = 0
+    end
+    
     elapsedTime += deltaTime
-    timeSinceLastThink += deltaTime
-    
-    if (elapsedTime < 1/MAX_FPS) then
-        return
+    local frac = 1/60 
+    while (elapsedTime > 0) do
+        elapsedTime -= frac
+        Server:Think(frac)        
     end
-    
-    frameCount+=1
-    if (frameCountTime>1) then
-        --print("FPS:",frameCount)
-        frameCountTime -= 1
-        frameCount = 0        
-    end
-    
-    Server:Think(timeSinceLastThink)
-    timeSinceLastThink = 0
-    
-    --Could replace this with a modf
-    while(elapsedTime > 1/MAX_FPS) do
-        elapsedTime -= 1/MAX_FPS
-    end
-       
 end)
 
 

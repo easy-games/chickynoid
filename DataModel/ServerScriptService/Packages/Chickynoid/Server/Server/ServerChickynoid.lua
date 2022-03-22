@@ -19,7 +19,7 @@ local WeaponModule = require(script.Parent.Weapons)
 local ServerChickynoid = {}
 ServerChickynoid.__index = ServerChickynoid
 
-
+local acceptPlayerDeltaTime = false
 
 
 --[=[
@@ -217,11 +217,12 @@ function ServerChickynoid:HandleClientEvent(event)
             self.commandSerial += 1
          
             --sanitize
-            if (command.deltaTime) then
-                
+            
+            if (acceptPlayerDeltaTime == true) then
+           
                 --Todo: really slow players need to be penalized harder.
-                if (command.deltaTime > 0.2) then
-                    command.deltaTime = 0.2
+                if (command.deltaTime > 0.5) then
+                    command.deltaTime = 0.5
                 end
                 
                 --500fps cap
@@ -229,13 +230,19 @@ function ServerChickynoid:HandleClientEvent(event)
                     command.deltaTime = 1/500
                     --print("Player over 500fps:", self.playerRecord.name)
                 end
+               
+            else
+                command.deltaTime = 1/60
+                
+            end
+            
+            if (command.deltaTime ) then
                 
                 --On the first command, init
                 if (self.playerElapsedTime == 0) then
                     self.playerElapsedTime = self.elapsedTime
                 end
-                
-                
+
                 if (self.playerElapsedTime > self.elapsedTime + self.speedCheatThreshhold) then
                     --print("Player too far ahead", self.playerRecord.name) 
                     self.errorState = Enums.NetworkProblemState.TooFarAhead
@@ -244,8 +251,6 @@ function ServerChickynoid:HandleClientEvent(event)
                     command.totalTime = self.elapsedTime 
                     table.insert(self.unprocessedCommands, command)
                 end
-            else
-                --discard
             end
         end
     end

@@ -280,6 +280,7 @@ function ClientChickynoid:Heartbeat(serverTime: number, deltaTime: number)
 
     -- Read user input
     local cmd = self:MakeCommand(deltaTime)
+    
     table.insert(self.predictedCommands, cmd)
 
     -- Step this frame

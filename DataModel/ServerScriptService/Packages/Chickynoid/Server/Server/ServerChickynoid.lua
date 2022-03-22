@@ -14,9 +14,13 @@ local EventType = Enums.EventType
 local Simulation = require(path.Simulation)
 local TrajectoryModule = require(path.Simulation.TrajectoryModule)
 
+local WeaponModule = require(script.Parent.Weapons)
 
 local ServerChickynoid = {}
 ServerChickynoid.__index = ServerChickynoid
+
+
+
 
 --[=[
     Constructs a new [ServerChickynoid] and attaches it to the specified player.
@@ -85,6 +89,7 @@ function ServerChickynoid:GenerateFakeCommand(deltaTime)
     command.x = 0
     command.y = 0
     command.z = 0
+    command.f = 0
         
     command.serial =self.commandSerial
     self.commandSerial += 1
@@ -101,7 +106,7 @@ end
 ]=]
 
  
-function ServerChickynoid:Think(serverSimulationTime: number, dt: number)
+function ServerChickynoid:Think(server, serverSimulationTime, dt)
     
     
     --  Anticheat methods
@@ -153,12 +158,13 @@ function ServerChickynoid:Think(serverSimulationTime: number, dt: number)
             break --Discard all buffered commands
         end
         
-       
-        
         --print("server", command.l, command.serverTime)
         TrajectoryModule:PositionWorld(command.serverTime, command.deltaTime)
         self.simulation:ProcessCommand(command)
         command.processed = true
+        
+        --Fire weapons!
+        WeaponModule:HandleWeapon(server, self.playerRecord, dt, command)
         
         if (command.l and tonumber(command.l) ~= nil) then
             self.lastConfirmedCommand = command.l
@@ -212,6 +218,8 @@ function ServerChickynoid:HandleClientEvent(event)
          
             --sanitize
             if (command.deltaTime) then
+                
+                --Todo: really slow players need to be penalized harder.
                 if (command.deltaTime > 0.2) then
                     command.deltaTime = 0.2
                 end
@@ -275,5 +283,8 @@ function ServerChickynoid:SpawnChickynoid()
     print("Spawned character and sent event for player:", self.playerRecord.name)
     
 end
+
+
+
 
 return ServerChickynoid

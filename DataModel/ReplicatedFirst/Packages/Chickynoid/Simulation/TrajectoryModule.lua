@@ -6,6 +6,11 @@ local CollectionService = game:GetService("CollectionService")
 
 function module:PositionWorld(serverTime,deltaTime)
     
+    
+    
+    if (true) then
+        return
+    end
     local movers = CollectionService:GetTagged("Dynamic")
     
     for key,value in pairs(movers) do
@@ -22,7 +27,9 @@ end
 
 
 function module:ServerInit()
-    
+    if (true) then
+        return
+    end
     local movers = CollectionService:GetTagged("Dynamic")
     for key,value in pairs(movers) do
         value:SetAttribute("BasePos", value.Position)        

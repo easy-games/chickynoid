@@ -95,17 +95,27 @@ function ClientChickynoid:MakeCommand(dt: number)
     if not UserInputService:GetFocusedTextBox() then
         command.y = UserInputService:IsKeyDown(Enum.KeyCode.Space) and 1 or 0
         
+        command.f = UserInputService:IsKeyDown(Enum.KeyCode.Q) and 1 or 0
+        
+        
+        
         --Cheat #1 - speed cheat!
         if (UserInputService:IsKeyDown(Enum.KeyCode.P)) then
             command.deltaTime *= 3
         end
- 
-
     end
+    
     if (self:GetIsJumping() == true) then
         command.y = 1
     end
- 
+    
+    if (command.f and command.f > 0) then
+        --fire angles
+        command.fa = self:GetAimPoint()
+    end
+    
+    
+    
     local rawMoveVector = self:CalculateRawMoveVector(Vector3.new(command.x, 0, command.z))
     command.x = rawMoveVector.X
     command.z = rawMoveVector.Z
@@ -321,6 +331,22 @@ function ClientChickynoid:ClearDebugSpheres()
     if DEBUG_SPHERES then
         DebugParts:ClearAllChildren()
     end
+end
+
+function ClientChickynoid:GetAimPoint()
+    local mouse = game.Players.LocalPlayer:GetMouse()
+    local ray = game.Workspace.CurrentCamera:ScreenPointToRay(mouse.X, mouse.Y)
+
+    local raycastParams = RaycastParams.new()
+    raycastParams.FilterType = Enum.RaycastFilterType.Whitelist
+    raycastParams.FilterDescendantsInstances = { game.Workspace.GameArea }
+
+    local raycastResults = game.Workspace:Raycast(ray.Origin,ray.Direction * 150, raycastParams)
+    if (raycastResults) then
+        return raycastResults.Position
+    end
+    return ray.Origin + (ray.Direction * 150)
+
 end
 
 return ClientChickynoid

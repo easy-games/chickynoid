@@ -7,6 +7,10 @@ Enums.EventType = {
     State = 3,
     Snapshot = 4,
     WorldState = 5,
+    
+    --Just for test
+    RocketSpawn = 6,
+    RocketDie = 7,
 }
 Enums.NetworkProblemState = {
     None = 0,

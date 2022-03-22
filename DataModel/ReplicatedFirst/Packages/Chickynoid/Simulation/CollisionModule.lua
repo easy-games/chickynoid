@@ -25,12 +25,12 @@ local corners = {
 
 
 local boxPlanes ={
-    { n = Vector3.new(0,1,0), p = Vector3.new(0,0.5,0) },
-    { n = Vector3.new(0,-1,0), p = Vector3.new(0,-0.5,0)},
-    { n = Vector3.new(1,0,0), p = Vector3.new(0.5,0,0)},
-    { n = Vector3.new(-1,0,0), p = Vector3.new(-0.5,0,0)}, 
-    { n = Vector3.new(0,0,1), p = Vector3.new(0,0,0.5)},
-    { n = Vector3.new(0,0,-1), p = Vector3.new(0,0,-0.5)},
+    { n = Vector3.new(0, 1,0), p = Vector3.new(0   , 0.5,0) },
+    { n = Vector3.new(0,-1,0), p = Vector3.new(0   ,-0.5,0)},
+    { n = Vector3.new( 1,0,0), p = Vector3.new( 0.5,0,0)},
+    { n = Vector3.new(-1,0,0), p = Vector3.new(-0.5,0, 0)}, 
+    { n = Vector3.new(0,0, 1), p = Vector3.new(0,0, 0.5)},
+    { n = Vector3.new(0,0,-1), p = Vector3.new(0,0, -0.5)},
 
 --[[
     --4 corners. top
@@ -49,22 +49,22 @@ local boxPlanes ={
  
     --4 edges, top
     { n = Vector3.new(  1,1, 0), p = Vector3.new(0.5,0.5,0) },
-    { n = Vector3.new( -1,1, 0), p = Vector3.new(-0.5,0.5,0) },
+    { n = Vector3.new( -1,1, 0), p = Vector3.new(-0.5,0.5,0)},
     { n = Vector3.new(  0,1, 1), p = Vector3.new(0,0.5,0.5) },
-    { n = Vector3.new(  0,1, -1), p = Vector3.new(0,0.5,-0.5) }, 
+    { n = Vector3.new(  0,1,-1), p = Vector3.new(0,0.5,-0.5)}, 
     
     --4 edges, bot
-    { n = Vector3.new( 1,-1, 0), p = Vector3.new(0.5,-0.5,0) },
+    { n = Vector3.new(  1,-1, 0),  p = Vector3.new(0.5,-0.5,0) },
     { n = Vector3.new( -1,-1, 0), p = Vector3.new(-0.5,-0.5,0) },
-    { n = Vector3.new( 0,-1, 1), p = Vector3.new(0,-0.5,0.5) },
-    { n = Vector3.new( 0,-1, -1), p = Vector3.new(0,-0.5,-0.5) },
+    { n = Vector3.new(  0,-1, 1),  p = Vector3.new(0,-0.5,0.5) },
+    { n = Vector3.new(  0,-1,-1), p = Vector3.new(0,-0.5,-0.5) },
   
     
     --4 edges, side struts
-    { n = Vector3.new( 1,0, 1), p = Vector3.new(0.5,0,0.5) },
-    { n = Vector3.new( 1,0, -1), p = Vector3.new(0.5,0,-0.5) },
-    { n = Vector3.new( -1,0, 1), p = Vector3.new(-0.5,0,0.5) },
-    { n = Vector3.new( -1,0, -1), p = Vector3.new(-0.5,0,-0.5) },    
+    { n = Vector3.new(  1,0, 1),  p = Vector3.new( 0.5,0, 0.5) },
+    { n = Vector3.new(  1,0,-1),  p = Vector3.new( 0.5,0,-0.5) },
+    { n = Vector3.new( -1,0, 1),  p = Vector3.new(-0.5,0, 0.5) },
+    { n = Vector3.new( -1,0,-1),  p = Vector3.new(-0.5,0,-0.5) },    
  
 
 }
@@ -300,9 +300,11 @@ function module:MakeWorld(folder, playerSize)
                 record.instance = value
                 record.hull = self:GenerateConvexHull(value, playerSize, value.CFrame )
                 record.currentCFrame = value.CFrame
-                record.instance:GetPropertyChangedSignal("Position"):Connect(function()
-                    record.hull = self:GenerateConvexHull(value, playerSize, value.CFrame, false )
-                end)
+                function record:Update() 
+                    record.hull = module:GenerateConvexHull(value, playerSize, value.CFrame, false )
+                end
+                
+
                 
                 table.insert(module.dynamicRecords, record)    
                 continue
@@ -542,6 +544,13 @@ function module:Sweep(startPos, endPos)
     return data
 end
  
+game["Run Service"].Stepped:Connect(function(totalTime,deltaTime)
+    
+    for a,record in pairs(module.dynamicRecords) do
+        record:Update()
+    end
+    
+end)
 
 
 

@@ -14,6 +14,7 @@ local ServerChickynoid = require(script.ServerChickynoid)
 local CharacterData = require(path.Simulation.CharacterData)
 local BitBuffer = require(path.Vendor.BitBuffer)
 local RemoteEvent = game.ReplicatedStorage.Packages.Chickynoid.RemoteEvent
+local WeaponsModule = require(script.Weapons)
 
 local ChickynoidServer = {}
 
@@ -27,7 +28,7 @@ ChickynoidServer.framesPerSecond = 0 --Purely for stats
 
 ChickynoidServer.startTime = tick()
 ChickynoidServer.slots = {}
-ChickynoidServer.slotsCounter = 0
+ 
 ChickynoidServer.maxPlayers = 255   --Theoretical max, use a byte for player id
 
 local SERVER_HZ = 20
@@ -94,13 +95,18 @@ function ChickynoidServer:AddConnection(userId, player)
             RemoteEvent:FireClient(playerRecord.player, event)
         end
     end
-    
+
+    --Tell everyone
     for key,data in pairs(self.playerRecords) do
         self:SendWorldstate(data)
     end
     
         
     return playerRecord    
+end
+
+function ChickynoidServer:SendEventToClients(event)
+    RemoteEvent:FireAllClients( event)
 end
 
 function ChickynoidServer:SendWorldstate(playerRecord)
@@ -126,6 +132,10 @@ function ChickynoidServer:PlayerDisconnected(userId)
     
     if (playerRecord) then
         print("Player disconnected")
+        
+        if (playerRecord.chickynoid and playerRecord.chickynoid.hitBox) then
+            playerRecord.chickynoid.hitBox:Destroy()
+        end
         
         self.playerRecords[userId] = nil
         
@@ -159,6 +169,7 @@ function ChickynoidServer:CreateChickynoidAsync(playerRecord)
 
     local chickynoid = ServerChickynoid.new(playerRecord)
     playerRecord.chickynoid = chickynoid
+    chickynoid.playerRecord = playerRecord
     
     return chickynoid
 end
@@ -176,7 +187,11 @@ function ChickynoidServer:Think(deltaTime)
     
 
     self.serverSimulationTime = tick() - self.startTime
-
+    
+    --self.worldRoot = script.PlayerHitboxes
+    self.worldRoot = game.Workspace.DoNotReplicate
+    --self.worldRoot = game.Workspace--.DoNotReplicate
+    
     --1st stage, pump the commands
     --Many many todos on this!
     for userId,playerRecord in pairs(self.playerRecords) do
@@ -188,14 +203,30 @@ function ChickynoidServer:Think(deltaTime)
         if (playerRecord.chickynoid) then
 
          
-            playerRecord.chickynoid:Think(self.serverSimulationTime, deltaTime)
+            playerRecord.chickynoid:Think(self, self.serverSimulationTime, deltaTime)
             
             if (playerRecord.chickynoid.simulation.state.pos.y < -2000) then
                 playerRecord.chickynoid:SpawnChickynoid()
             end
         end
+        
+        --Update their hitbox
+        if (playerRecord.chickynoid.hitBox == nil) then
+            
+            local box = Instance.new("Part")
+            box.Size = Vector3.new(2,5,2)
+            box.Parent = self.worldRoot
+            box.Position = playerRecord.chickynoid.simulation.state.pos
+            box.Anchored = true
+            playerRecord.chickynoid.hitBox = box
+        end
+        playerRecord.chickynoid.hitBox.CFrame = CFrame.new(playerRecord.chickynoid.simulation.state.pos)
+        playerRecord.chickynoid.hitBox.Velocity = playerRecord.chickynoid.simulation.state.vel
+ 
     end
-
+    
+    
+    WeaponsModule:Think(self, deltaTime)    
 
     
     -- 2nd stage: Replicate character state to the player
@@ -263,8 +294,7 @@ function ChickynoidServer:Think(deltaTime)
                     playerRecord.previousCharacterData[otherUserId] = previousRecord
                 end 
             end
-            
-            
+
             playerRecord.firstSnapshot = true
                         
             snapshot.b = bitBuffer.dumpString()

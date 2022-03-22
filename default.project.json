@@ -25,6 +25,9 @@
           "$className": "Folder",
           "Assets": {
             "$className": "Folder",
+            "Effects": {
+              "$path": "DataModel/ReplicatedFirst/Packages/Chickynoid/Assets/Effects.rbxm"
+            },
             "R15Rig": {
               "$path": "DataModel/ReplicatedFirst/Packages/Chickynoid/Assets/R15Rig.rbxm"
             }
@@ -44,7 +47,13 @@
               },
               "NetGraph": {
                 "$path": "DataModel/ReplicatedFirst/Packages/Chickynoid/Client/Client/NetGraph.rbxm"
+              },
+              "WeaponsClient": {
+                "$path": "DataModel/ReplicatedFirst/Packages/Chickynoid/Client/Client/WeaponsClient"
               }
+            },
+            "Effects": {
+              "$path": "DataModel/ReplicatedFirst/Packages/Chickynoid/Client/Effects"
             }
           },
           "ClientScript": {
@@ -116,6 +125,9 @@
         "$path": "DataModel/Workspace/GameArea.rbxm",
         "GameArea2": {
           "$path": "DataModel/Workspace/GameArea/GameArea2.rbxm"
+        },
+        "Physics": {
+          "$path": "DataModel/Workspace/GameArea/Physics.rbxm"
         }
       }
     }

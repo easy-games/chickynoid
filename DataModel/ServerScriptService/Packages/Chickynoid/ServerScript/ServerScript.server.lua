@@ -93,7 +93,7 @@ function MakeDebugPlayers()
         playerRecord.chickynoid = Server:CreateChickynoidAsync(playerRecord)
         table.insert(debugPlayers, playerRecord)
         
-        playerRecord.chickynoid:SetPosition(Vector3.new(math.random(-150,150), 60 ,math.random(-150,150) ) + Vector3.new(-150, 0,0)) 
+        playerRecord.chickynoid:SetPosition(Vector3.new(math.random(-150,150), 4000 ,math.random(-150,150) ) + Vector3.new(-150, 0,0)) 
         
         playerRecord.BotThink = function(deltaTime)
             

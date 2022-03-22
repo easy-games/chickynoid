@@ -33,24 +33,27 @@ end)
 
 
 --Step the game along at a rigid 60fps
-local elapsedTime = 0
-local timeSinceLastThink = 0
-local frameCount = 0
-local frameCountTime = 0
+local accumulatedTime = 0
+
 
 RunService.Heartbeat:Connect(function(deltaTime)
     
-    frameCountTime += deltaTime
     
-    if (elapsedTime > 0.5) then
-        elapsedTime = 0
+    if (accumulatedTime > 0.5) then
+        accumulatedTime = 0
     end
     
-    elapsedTime += deltaTime
+    accumulatedTime += deltaTime
     local frac = 1/60 
-    while (elapsedTime > 0) do
-        elapsedTime -= frac
+    while (accumulatedTime > 0) do
+        accumulatedTime -= frac
         Server:Think(frac)        
+    end
+    
+    --Discard accumulated time if its a tiny fraction
+    local errorSize = 0.001 --1ms
+    if (accumulatedTime > -errorSize) then
+        accumulatedTime = 0
     end
 end)
 

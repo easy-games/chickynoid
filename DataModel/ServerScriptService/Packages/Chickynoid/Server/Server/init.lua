@@ -252,6 +252,7 @@ function ChickynoidServer:Think(deltaTime)
                 local event = {}
                 event.t = EventType.State
                 event.lastConfirmed = playerRecord.chickynoid.lastConfirmedCommand
+              
                 event.e = playerRecord.chickynoid.errorState
                 event.s = self.framesPerSecond
                 event.serverTime = self.serverSimulationTime

@@ -58,6 +58,9 @@ function ClientChickynoid.new(position: Vector3)
         pings = {}, --for average
         
         mispredict = Vector3.new(0,0,0),
+        debug = {
+            processedCommands = 0,
+        }
        
     }, ClientChickynoid)
 
@@ -165,11 +168,11 @@ function ClientChickynoid:HandleNewState(state, lastConfirmed, serverTime, serve
             self.ping = (tick() - cmd.tick) * 1000 
         end
     end
-    
-    
-    
-    self.predictedCommands = remainingCommands
 
+    self.predictedCommands = remainingCommands
+    
+ 
+    
     local resimulate = true
         
     -- Check to see if we can skip simulation
@@ -287,7 +290,9 @@ function ClientChickynoid:Heartbeat(serverTime: number, deltaTime: number)
     cmd.serverTime = serverTime
     
     TrajectoryModule:PositionWorld(serverTime, deltaTime)
+    self.debug.processedCommands+=1
     self.simulation:ProcessCommand(cmd)
+ 
     
     -- Marker for positions added since the last server update
     self:SpawnDebugSphere(self.simulation.state.pos, Color3.fromRGB(44, 140, 39))

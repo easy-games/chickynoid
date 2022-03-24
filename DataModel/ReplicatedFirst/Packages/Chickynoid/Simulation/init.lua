@@ -59,7 +59,6 @@ end
 function Simulation:ProcessCommand(cmd)
  
     debug.profilebegin("Chickynoid Simulation")
-    
  
     --Ground parameters, for stock "Humanoid" recreation
     local maxSpeed = 16                 --Units per second
@@ -99,9 +98,7 @@ function Simulation:ProcessCommand(cmd)
     if (onGround ~= nil and onGround.normal.Y < maxGroundSlope) then
         onGround = nil
     end
-    
-    
-        
+
     
     --Did the player have a movement request?
     local wishDir = nil
@@ -262,7 +259,7 @@ function Simulation:ProcessCommand(cmd)
     
     
     --Do Platform move
-    self:DoPlatformMove(self.lastGround, cmd.deltaTime)
+    --self:DoPlatformMove(self.lastGround, cmd.deltaTime)
     
     --Write this to the characterData
     self.characterData:SetPosition(self.state.pos)  
@@ -270,11 +267,7 @@ function Simulation:ProcessCommand(cmd)
     self.characterData:SetStepUp(self.state.stepUp)    
     self.characterData:SetFlatSpeed(flatVel.Magnitude)
     
-    
-     
-    
     debug.profileend()
-    
 end
 
 

@@ -45,6 +45,12 @@ function ServerChickynoid.new(playerRecord)
         
         bufferedCommandTime =  20 * 0.001, --ms
         serverFrames = 0,
+        
+        debug = {
+            processedCommands = 0,    
+        },
+        
+        
     }, ServerChickynoid)
     
     
@@ -130,6 +136,7 @@ function ServerChickynoid:Think(server, serverSimulationTime, dt)
             while (timeToCover > 0) do
                 timeToCover-= 1/60
                 self:GenerateFakeCommand(1/60)
+                print("FC")
             end
         end
     end
@@ -160,6 +167,9 @@ function ServerChickynoid:Think(server, serverSimulationTime, dt)
         
         --print("server", command.l, command.serverTime)
         TrajectoryModule:PositionWorld(command.serverTime, command.deltaTime)
+        self.debug.processedCommands += 1
+ 
+        
         self.simulation:ProcessCommand(command)
         command.processed = true
         
@@ -233,10 +243,9 @@ function ServerChickynoid:HandleClientEvent(event)
                
             else
                 command.deltaTime = 1/60
-                
             end
             
-            if (command.deltaTime ) then
+            if (command.deltaTime) then
                 
                 --On the first command, init
                 if (self.playerElapsedTime == 0) then

@@ -234,16 +234,13 @@ function module:GenerateConvexHull(part, expansionSize, cf, showDebug)
 
     --returns the 6 planes that make up a hull
     local hull = {}
-    
-    
+
     for _,rec in pairs(boxPlanes) do
 
         local normal =  cf:VectorToWorldSpace(rec.n)
         
         local pos =  cf:PointToWorldSpace(part.Size * rec.p)
-     --   local expanded = pos + Vector3.new(axis.x * normal.x, axis.y * normal.y, axis.z * normal.z)
-        
-
+ 
         local xx,yy,zz 
         if (normal.x < 0) then
             xx=-0.5
@@ -262,14 +259,14 @@ function module:GenerateConvexHull(part, expansionSize, cf, showDebug)
         end
         
         local expanded = pos + Vector3.new(expansionSize.x * xx, expansionSize.y*yy, expansionSize.z*zz)
-
-        
+ 
         table.insert(hull, { 
             n = normal, 
             d = pos:Dot(normal),
             ed = expanded:Dot(normal),  --preexpanded          
             planeNum = self.planeNum
         })
+
         self.planeNum+=1
         
         if (showDebug ~= false) then
@@ -277,12 +274,19 @@ function module:GenerateConvexHull(part, expansionSize, cf, showDebug)
         end
         
     end
-    
-   
 
     return hull
 end
 
+local function Trunc(number)
+    return math.floor(number * 100) / 100     
+end
+
+function module:GenerateSnappedCFrame(instance)
+    --Because roblox cannot guarentee perfect replication of part orientation and positions, we'll take what is replicated and truncate it after a certain level of precision
+    local snappedPosition = Vector3.new(Trunc(instance.Position.x), Trunc(instance.Position.y), Trunc(instance.Position.z))
+    return CFrame.new(snappedPosition) * CFrame.fromOrientation(math.rad(Trunc(instance.Orientation.x)), math.rad(Trunc(instance.Orientation.y)), math.rad(Trunc(instance.Orientation.z))) 
+end
  
 
 function module:MakeWorld(folder, playerSize)
@@ -313,7 +317,7 @@ function module:MakeWorld(folder, playerSize)
             
             local record = {}
             record.instance = value
-            record.hull = self:GenerateConvexHull(value, playerSize, value.CFrame)
+            record.hull = self:GenerateConvexHull(value, playerSize, self:GenerateSnappedCFrame(value))
             self:WritePartToHashMap(record.instance, record)
             
             table.insert(module.hullRecords, record)

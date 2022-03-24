@@ -227,7 +227,7 @@ function Simulation:ProcessCommand(cmd)
     
     -- Do we attempt a stepup?                              (not jumping!)
     if (onGround ~= nil and hitSomething == true and self.state.jump == 0) then
-        stepupResult = self:DoStepUp(self.state.pos, self.state.vel, cmd.deltaTime)
+         stepupResult = self:DoStepUp(self.state.pos, self.state.vel, cmd.deltaTime)
     end
     
     --Choose which one to use, either the original move or the stepup

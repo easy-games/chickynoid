@@ -541,7 +541,14 @@ function module:Sweep(startPos, endPos)
     if (data.fraction < 1) then
         --Todo: calculate the skin better? - endpos should be nearest point on the plane + skin?
         local vec = (endPos-startPos)
-        data.endPos = startPos + (vec * data.fraction ) - (vec.unit * SKIN)
+        local mag = vec.Magnitude
+        if (mag > SKIN) then
+            data.endPos = startPos + (vec * data.fraction ) - (vec.unit * SKIN)            
+        else
+
+            data.endPos = startPos
+        end
+        
     end
     
     debug.profileend()

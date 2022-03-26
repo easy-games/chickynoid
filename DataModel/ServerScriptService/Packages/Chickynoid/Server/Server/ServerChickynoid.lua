@@ -19,9 +19,7 @@ local WeaponModule = require(script.Parent.Weapons)
 local ServerChickynoid = {}
 ServerChickynoid.__index = ServerChickynoid
 
-local acceptPlayerDeltaTime = false
-
-
+ 
 --[=[
     Constructs a new [ServerChickynoid] and attaches it to the specified player.
     @return ServerChickynoid
@@ -69,8 +67,8 @@ function ServerChickynoid.new(playerRecord)
 end
 
 
-function ServerChickynoid:HandleEvent(event)
-    self:HandleClientEvent(event)
+function ServerChickynoid:HandleEvent(server, event)
+    self:HandleClientEvent(server, event)
 end
 
 
@@ -199,13 +197,14 @@ end
     @param event table -- The event sent by the client.
     @private
 ]=]
-function ServerChickynoid:HandleClientEvent(event)
+function ServerChickynoid:HandleClientEvent(server, event)
     if event.t == EventType.Command then
         local command = event.command
         
         if command and typeof(command) == "table" then
             
             --Sanitize
+            --todo: clean this into a function per type
             if (command.x == nil or typeof(command.x) ~= "number" or command.x~=command.x) then
                 return
             end
@@ -228,8 +227,8 @@ function ServerChickynoid:HandleClientEvent(event)
          
             --sanitize
             
-            if (acceptPlayerDeltaTime == true) then
-           
+            if (server.fpsMode == Enums.FpsMode.Uncapped) then
+                
                 --Todo: really slow players need to be penalized harder.
                 if (command.deltaTime > 0.5) then
                     command.deltaTime = 0.5
@@ -241,8 +240,23 @@ function ServerChickynoid:HandleClientEvent(event)
                     --print("Player over 500fps:", self.playerRecord.name)
                 end
                
-            else
+            elseif (server.fpsMode == Enums.FpsMode.Hybrid) then
+                
+                --Players under 30fps are simualted at 30fps                
+                if (command.deltaTime > 1/30) then
+                    command.deltaTime = 1/30
+                end
+
+                --500fps cap
+                if (command.deltaTime < 1/500) then
+                    command.deltaTime = 1/500
+                    --print("Player over 500fps:", self.playerRecord.name)
+                end
+
+            elseif (server.fpsMode == Enums.FpsMode.Fixed60) then
                 command.deltaTime = 1/60
+            else
+                warn("Unhandled FPS mode")
             end
             
             if (command.deltaTime) then

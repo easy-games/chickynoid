@@ -28,10 +28,12 @@ ChickynoidServer.framesPerSecond = 0 --Purely for stats
 
 ChickynoidServer.startTime = tick()
 ChickynoidServer.slots = {}
- 
-ChickynoidServer.maxPlayers = 255   --Theoretical max, use a byte for player id
 
-local SERVER_HZ = 20
+
+--Config
+ChickynoidServer.maxPlayers = 255   --Theoretical max, use a byte for player id
+ChickynoidServer.fpsMode = Enums.FpsMode.Hybrid
+ChickynoidServer.serverHz = 20
 
 function ChickynoidServer:Setup()
     
@@ -40,7 +42,7 @@ function ChickynoidServer:Setup()
         local playerRecord = self:GetPlayerByUserId(player.UserId)
         
         if (playerRecord) then
-            playerRecord.chickynoid:HandleEvent(event)
+            playerRecord.chickynoid:HandleEvent(self, event)
         end
         
     end)
@@ -122,7 +124,10 @@ function ChickynoidServer:SendWorldstate(playerRecord)
         event.worldState.players[data.slot] = info
     end
     
-    event.worldState.serverHz = SERVER_HZ
+    event.worldState.serverHz = self.serverHz
+    event.worldState.fpsMode = self.fpsMode
+    
+    
     playerRecord:SendEventToClient(event)   
 end
 
@@ -233,7 +238,7 @@ function ChickynoidServer:Think(deltaTime)
     self.serverStepTimer += deltaTime
     self.serverTotalFrames += 1    
   
-    local fraction =  (1 / SERVER_HZ)
+    local fraction = (1 / self.serverHz)
     if self.serverStepTimer > fraction then
         
         while (self.serverStepTimer > fraction) do -- -_-'

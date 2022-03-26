@@ -20,13 +20,18 @@ Enums.NetworkProblemState = {
     
 }
 
+Enums.FpsMode = {
+    Uncapped = 0,
+    Hybrid = 1,
+    Fixed60 = 2,
+}
+
 
 Enums.Anims = {
     Idle = 0,
     Run = 1,
     Jump = 2,
     Fall = 3,
-    
 }
 
 return Enums

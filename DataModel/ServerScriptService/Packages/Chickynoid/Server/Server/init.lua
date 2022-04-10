@@ -42,6 +42,8 @@ ChickynoidServer.serverHz = 20
 
 function ChickynoidServer:Setup()
 	
+	self.worldRoot = self:GetDoNotReplicate()
+	
 	Players.PlayerAdded:Connect(function(player)
 		self:PlayerConnected(player)
 	end)
@@ -76,6 +78,8 @@ function ChickynoidServer:Setup()
         end
         
 	end)
+	
+
 end
 
 function ChickynoidServer:PlayerConnected(player)
@@ -268,7 +272,7 @@ function ChickynoidServer:GetDoNotReplicate()
 	
 	local camera =game.Workspace:FindFirstChild("DoNotReplicate")
 	if (camera == nil) then
-		local camera = Instance.new("Camera")
+		camera = Instance.new("Camera")
 		camera.Name = "DoNotReplicate"
 		camera.Parent = game.Workspace
 	end
@@ -291,8 +295,6 @@ function ChickynoidServer:Think(deltaTime)
 
     self.serverSimulationTime = tick() - self.startTime
 
-	
-	self.worldRoot = self:GetDoNotReplicate()
     --self.worldRoot = game.Workspace 
 	
 	CollisionModule:UpdateDynamicParts()

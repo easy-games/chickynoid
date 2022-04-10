@@ -344,7 +344,7 @@ function ServerChickynoid:UpdateServerCollisionBox(server)
 	if (self.hitBox == nil) then
 
 		local box = Instance.new("Part")
-		box.Size = Vector3.new(2.1,5.1,2.1)
+		box.Size = Vector3.new(2.5,5.5,2.5)
 		box.Parent = server.worldRoot
 		box.Position = self.simulation.state.pos
 		box.Anchored = true
@@ -412,7 +412,14 @@ function ServerChickynoid:RobloxPhysicsStep(server, deltaTime)
                     end
                     
                     local mass = value.AssemblyMass
-                    
+					
+					--Push towards the object
+					local mag = vel.Magnitude
+					vel = vel.Unit + dir.Unit
+					vel = (Vector3.new(vel.x, 0, vel.z)).Unit * mag
+					
+					
+					
                     local localVel = value.CFrame:VectorToObjectSpace(vel)
          
                                         

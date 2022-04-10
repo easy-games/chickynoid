@@ -1,13 +1,14 @@
 local module = {}
 
 local CollectionService = game.CollectionService
+local MinkowskiSumInstance = require(script.Parent.MinkowskiSumInstance)
 
 module.hullRecords = {}
 module.dynamicRecords = {}
 
-local SKIN = 0.05 --closest you can get to a wall
+local SKIN_THICKNESS = 0.05 --closest you can get to a wall
 module.planeNum = 0
-module.gridSize = 5
+module.gridSize = 8
 module.grid = {}
 
 local corners = {
@@ -15,63 +16,13 @@ local corners = {
     Vector3.new( 0.5,0.5,-0.5),
     Vector3.new(-0.5,0.5, 0.5),
     Vector3.new(-0.5,0.5,-0.5),
-
     Vector3.new( 0.5,-0.5, 0.5),
     Vector3.new( 0.5,-0.5,-0.5),
     Vector3.new(-0.5,-0.5, 0.5),
     Vector3.new(-0.5,-0.5,-0.5),
-
 }
 
-
-local boxPlanes ={
-    { n = Vector3.new(0, 1,0), p = Vector3.new(0   , 0.5,0) },
-    { n = Vector3.new(0,-1,0), p = Vector3.new(0   ,-0.5,0)},
-    { n = Vector3.new( 1,0,0), p = Vector3.new( 0.5,0,0)},
-    { n = Vector3.new(-1,0,0), p = Vector3.new(-0.5,0, 0)}, 
-    { n = Vector3.new(0,0, 1), p = Vector3.new(0,0, 0.5)},
-    { n = Vector3.new(0,0,-1), p = Vector3.new(0,0, -0.5)},
-
---[[
-    --4 corners. top
-    { n = Vector3.new( 1,1, 1), p = Vector3.new(0.5,0.5,0.5) },
-    { n = Vector3.new( 1,1,-1), p = Vector3.new(0.5,0.5,-0.5) },
-    { n = Vector3.new(-1,1, 1), p = Vector3.new(-0.5,0.5,0.5) },
-    { n = Vector3.new(-1,1,-1), p = Vector3.new(-0.5,0.5,-0.5) }, 
-
-    --4 corners. bot
-    { n = Vector3.new( 1,-1, 1), p = Vector3.new(0.5,-0.5,0.5) },
-    { n = Vector3.new( 1,-1,-1), p = Vector3.new(0.5,-0.5,-0.5) },
-    { n = Vector3.new(-1,-1, 1), p = Vector3.new(-0.5,-0.5,0.5) },
-    { n = Vector3.new(-1,-1,-1), p = Vector3.new(-0.5,-0.5,-0.5) },
-]]--
-
  
-    --4 edges, top
-    { n = Vector3.new(  1,1, 0), p = Vector3.new(0.5,0.5,0) },
-    { n = Vector3.new( -1,1, 0), p = Vector3.new(-0.5,0.5,0)},
-    { n = Vector3.new(  0,1, 1), p = Vector3.new(0,0.5,0.5) },
-    { n = Vector3.new(  0,1,-1), p = Vector3.new(0,0.5,-0.5)}, 
-    
-    --4 edges, bot
-    { n = Vector3.new(  1,-1, 0),  p = Vector3.new(0.5,-0.5,0) },
-    { n = Vector3.new( -1,-1, 0), p = Vector3.new(-0.5,-0.5,0) },
-    { n = Vector3.new(  0,-1, 1),  p = Vector3.new(0,-0.5,0.5) },
-    { n = Vector3.new(  0,-1,-1), p = Vector3.new(0,-0.5,-0.5) },
-  
-    
-    --4 edges, side struts
-    { n = Vector3.new(  1,0, 1),  p = Vector3.new( 0.5,0, 0.5) },
-    { n = Vector3.new(  1,0,-1),  p = Vector3.new( 0.5,0,-0.5) },
-    { n = Vector3.new( -1,0, 1),  p = Vector3.new(-0.5,0, 0.5) },
-    { n = Vector3.new( -1,0,-1),  p = Vector3.new(-0.5,0,-0.5) },    
- 
-
-}
-
-for key,value in pairs(boxPlanes )do
-    value.n = value.n.Unit
-end
 
 function module:FetchCell(x,y,z)
 
@@ -168,9 +119,36 @@ function module:WritePartToHashMap(instance, hullRecord)
     
 end
 
+function module:RemovePartFromHashMap(instance)
+	local minx,miny,minz, maxx, maxy, maxz = self:FindAABB(instance)
+
+	for x = math.floor(minx / self.gridSize), math.floor(maxx/self.gridSize)+1 do
+		for z = math.floor(minz / self.gridSize), math.floor(maxz/self.gridSize)+1 do
+			for y = math.floor(miny / self.gridSize), math.floor(maxy/self.gridSize)+1 do
+
+				local cell = self:FetchCell(x,y,z)
+				if (cell) then
+					cell[instance] = nil
+				end
+			end
+		end
+	end
+end
+
+
+function module:FetchHullsForPoint(point)
+    local cell = self:FetchCell(math.floor(point.x/self.gridSize),math.floor(point.y/self.gridSize),math.floor(point.z/self.gridSize))
+    local hullRecords = {}
+    if (cell) then
+        for key,hull in pairs(cell) do
+            hullRecords[hull] = hull
+        end
+    end
+    return hullRecords
+end
+
+
 function module:FetchHullsForBox(min, max)
-    
-    
     
     local minx = min.x
     local miny = min.y
@@ -213,69 +191,12 @@ function module:FetchHullsForBox(min, max)
     return hullRecords
 end
 
-
-function module:GenerateDebugPlane(pos, normal)
-    
-    local instance = Instance.new("Part")
-    instance.Transparency = 0.9
-    instance.Size = Vector3.new(3,3,0.0001)
-    instance.CFrame = CFrame.new(pos, pos + normal)
-    instance.Parent = game.Workspace
-    instance.Color= Color3.new(0.3,1,0.3)
-    instance.Anchored = true
-    instance.CanCollide = false
-    instance.CanQuery = false
-    instance.CanTouch = false
-    
-    
-end
-
-function module:GenerateConvexHull(part, expansionSize, cf, showDebug)
-
-    --returns the 6 planes that make up a hull
-    local hull = {}
-
-    for _,rec in pairs(boxPlanes) do
-
-        local normal =  cf:VectorToWorldSpace(rec.n)
-        
-        local pos =  cf:PointToWorldSpace(part.Size * rec.p)
  
-        local xx,yy,zz 
-        if (normal.x < 0) then
-            xx=-0.5
-        else
-            xx=0.5
-        end
-        if (normal.y < 0) then
-            yy=-0.5
-        else
-            yy=0.5
-        end
-        if (normal.z < 0) then
-            zz=-0.5
-        else
-            zz=0.5
-        end
-        
-        local expanded = pos + Vector3.new(expansionSize.x * xx, expansionSize.y*yy, expansionSize.z*zz)
- 
-        table.insert(hull, { 
-            n = normal, 
-            d = pos:Dot(normal),
-            ed = expanded:Dot(normal),  --preexpanded          
-            planeNum = self.planeNum
-        })
-
-        self.planeNum+=1
-        
-        if (showDebug ~= false) then
-            --self:GenerateDebugPlane(expanded, normal)
-        end
-        
-    end
-
-    return hull
+function module:GenerateConvexHullAccurate(part, expansionSize, cframe )
+	
+	local hull, counter = MinkowskiSumInstance:GetPlanesForInstance(part, expansionSize, cframe, self.planeNum)
+	self.planeNum = counter
+	return hull
 end
 
 local function Trunc(number)
@@ -287,43 +208,62 @@ function module:GenerateSnappedCFrame(instance)
     local snappedPosition = Vector3.new(Trunc(instance.Position.x), Trunc(instance.Position.y), Trunc(instance.Position.z))
     return CFrame.new(snappedPosition) * CFrame.fromOrientation(math.rad(Trunc(instance.Orientation.x)), math.rad(Trunc(instance.Orientation.y)), math.rad(Trunc(instance.Orientation.z))) 
 end
- 
+
+function module:ProcessCollisionOnInstance(instance, playerSize)
+	if (instance:IsA("BasePart")) then
+		if (instance.CanCollide == false) then
+			return
+		end
+
+		if (CollectionService:HasTag(instance, "Dynamic")) then
+
+			local record = {}
+			record.instance = instance
+			record.hull = self:GenerateConvexHullAccurate(instance, playerSize, instance.CFrame)
+			record.currentCFrame = instance.CFrame
+			
+			
+			function record:Update()
+				if ((record.currentCFrame.Position - instance.CFrame.Position).magnitude < 0.00001)and(record.currentCFrame.LookVector:Dot(instance.CFrame.LookVector) > 0.999) then
+					return
+				end
+				
+				record.hull = module:GenerateConvexHullAccurate(instance, playerSize, instance.CFrame)
+				record.currentCFrame = instance.CFrame
+			end
+
+			table.insert(module.dynamicRecords, record)
+			
+		 
+			return
+		end
+
+		local record = {}
+		record.instance = instance
+		record.hull = self:GenerateConvexHullAccurate(instance, playerSize, self:GenerateSnappedCFrame(instance))
+		self:WritePartToHashMap(record.instance, record)
+
+		module.hullRecords[instance] = record
+	end
+end
 
 function module:MakeWorld(folder, playerSize)
     self.hulls = {}
-    for key,value in pairs(folder:GetDescendants()) do
-        if (value:IsA("BasePart")) then
-            
-            if (value.CanCollide == false) then
-                continue
-            end
-            
-            if (CollectionService:HasTag(value, "Dynamic")) then
-                
-                local record = {}
-                record.instance = value
-                record.hull = self:GenerateConvexHull(value, playerSize, value.CFrame )
-                record.currentCFrame = value.CFrame
-                function record:Update() 
-                    record.hull = module:GenerateConvexHull(value, playerSize, value.CFrame, false )
-                end
-                
-
-                
-                table.insert(module.dynamicRecords, record)    
-                continue
-            end
-        
-            
-            local record = {}
-            record.instance = value
-            record.hull = self:GenerateConvexHull(value, playerSize, self:GenerateSnappedCFrame(value))
-            self:WritePartToHashMap(record.instance, record)
-            
-            table.insert(module.hullRecords, record)
-        end
+    for key,instance in pairs(folder:GetDescendants()) do
+		self:ProcessCollisionOnInstance(instance, playerSize)
     end
+	
+	folder.DescendantAdded:Connect(function(instance)
+		self:ProcessCollisionOnInstance(instance, playerSize)
+	end)
 
+	folder.DescendantRemoving:Connect(function(instance)
+		local record = module.hullRecords[instance]
+		
+		if (record) then
+			self:RemovePartFromHashMap(instance)
+		end
+	end)
 end
 
 
@@ -341,7 +281,7 @@ function module:SimpleRayTest(a, b, hull)
     for _,p in pairs(hull) do
 
         local denom = p.n:Dot(d)
-        local dist = p.d - (p.n:Dot(a))
+        local dist = p.ed - (p.n:Dot(a))
 
         --Test if segment runs parallel to the plane
         if (denom == 0) then 
@@ -379,7 +319,37 @@ function module:SimpleRayTest(a, b, hull)
 
 end
 
-local EPS = 0.00001
+
+function module:CheckBrushPoint(data, hullRecord )
+
+    local startFraction = -1.0
+    local endFraction = 1.0
+    local startsOut = false
+    local endsOut = false
+    local lastPlane = nil
+
+    for _,p in pairs(hullRecord.hull) do
+
+        local startDistance = data.startPos:Dot(p.n) - p.ed
+
+        if (startDistance > 0) then
+            startsOut = true
+            break
+        end
+    end
+
+    if (startsOut == false) then
+        data.startSolid = true
+        data.allSolid = true
+        return
+    end
+
+    data.hullRecord = hullRecord
+
+end
+
+
+ 
 function module:CheckBrush(data, hullRecord )
 
     local startFraction = -1.0
@@ -401,7 +371,7 @@ function module:CheckBrush(data, hullRecord )
         end
 
         -- make sure the trace isn't completely on one side of the brush
-        if (startDistance > 0 and (endDistance >= EPS or endDistance >= startDistance)) then
+        if (startDistance > 0 and (endDistance >= SKIN_THICKNESS or endDistance >= startDistance)) then
             return   --both are in front of the plane, its outside of this brush
         end
         if (startDistance <= 0 and endDistance <= 0) then
@@ -411,25 +381,25 @@ function module:CheckBrush(data, hullRecord )
 
         if (startDistance > endDistance) then
             --  line is entering into the brush
-            local fraction = (startDistance - EPS) / (startDistance - endDistance)
+            local fraction = (startDistance - SKIN_THICKNESS) / (startDistance - endDistance)
             if (fraction < 0) then
                 fraction = 0
             end
             if (fraction > startFraction) then
                 startFraction = fraction
                 lastPlane = p
-                
+
             end
         else
             --line is leaving the brush
-            local fraction = (startDistance + EPS) / (startDistance - endDistance)
+            local fraction = (startDistance + SKIN_THICKNESS) / (startDistance - endDistance)
             if (fraction > 1) then
                 fraction = 1
-             
+
             end
             if (fraction < endFraction) then
                 endFraction = fraction
-                
+
             end
         end
     end
@@ -441,7 +411,7 @@ function module:CheckBrush(data, hullRecord )
             data.allSolid = true
             return
         end
-      
+
     end
 
     --Update the output fraction
@@ -454,7 +424,7 @@ function module:CheckBrush(data, hullRecord )
             end
             data.fraction = startFraction
             data.normal = lastPlane.n
-            data.planeD = lastPlane.d
+            data.planeD = lastPlane.ed
             data.planeNum = lastPlane.planeNum
             data.hullRecord = hullRecord
         end
@@ -464,9 +434,7 @@ end
 
 
 
-
-
-function module:PlaneLineInteresct(normal, distance, V1, V2)
+function module:PlaneLineIntersect(normal, distance, V1, V2)
 
     local diff = V2 - V1
     local denominator = normal:Dot(diff)
@@ -514,12 +482,12 @@ function module:Sweep(startPos, endPos)
             data.fraction = 0
             break
         end
-        if (data.fraction < EPS) then
+        if (data.fraction < SKIN_THICKNESS) then
             break
         end
     end
     
-    if (data.fraction >= EPS or data.allSolid == false) then
+    if (data.fraction >= SKIN_THICKNESS or data.allSolid == false) then
         
         
         for _,hullRecord in pairs(self.dynamicRecords) do
@@ -530,7 +498,7 @@ function module:Sweep(startPos, endPos)
                 data.fraction = 0
                 break
             end
-            if (data.fraction < EPS) then
+            if (data.fraction < SKIN_THICKNESS) then
                 break
             end
             
@@ -539,31 +507,59 @@ function module:Sweep(startPos, endPos)
     
  
     if (data.fraction < 1) then
-        --Todo: calculate the skin better? - endpos should be nearest point on the plane + skin?
-        local vec = (endPos-startPos)
-        local mag = vec.Magnitude
-        if (mag > SKIN) then
-            data.endPos = startPos + (vec * data.fraction ) - (vec.unit * SKIN)            
-        else
 
-            data.endPos = startPos
-        end
-        
+        local vec = (endPos - startPos)
+        data.endPos = startPos + (vec * data.fraction)
     end
     
     debug.profileend()
     return data
 end
- 
-game["Run Service"].Stepped:Connect(function(totalTime,deltaTime)
-    
-    for a,record in pairs(module.dynamicRecords) do
-        record:Update()
+
+
+function module:BoxTest(pos)
+
+
+    local data = {}
+    data.startPos = pos
+    data.endPos = pos
+    data.fraction = 1
+    data.startSolid = false
+    data.allSolid = false
+    data.planeNum = 0
+    data.planeD = 0 
+    data.normal = Vector3.new(0,1,0)
+    data.checks = 0
+    data.hullRecord = nil
+
+
+    debug.profilebegin("PointTest")
+    --calc bounds of sweep
+    local hullRecords = self:FetchHullsForPoint(pos)
+
+
+    for _,hullRecord in pairs(hullRecords) do
+
+        data.checks+=1
+        self:CheckBrushPoint(data, hullRecord)
+        if (data.allSolid == true) then
+            data.fraction = 0
+            break
+        end
+       
     end
-    
-end)
+ 
+    debug.profileend()
+    return data
+end
+ 
 
-
-
+--Call this before you try and simulate
+function module:UpdateDynamicParts()
+	for key,record in pairs(self.dynamicRecords) do
+		record:Update()		
+	end
+	
+end
 
 return module

@@ -5,6 +5,9 @@
     Server namespace for the Chickynoid package.
 ]=]
 
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+
 local path = game.ReplicatedFirst.Packages.Chickynoid
 
 local Types = require(path.Types)
@@ -14,7 +17,8 @@ local ServerChickynoid = require(script.ServerChickynoid)
 local CharacterData = require(path.Simulation.CharacterData)
 local BitBuffer = require(path.Vendor.BitBuffer)
 local RemoteEvent = game.ReplicatedStorage.Packages.Chickynoid.RemoteEvent
-local WeaponsModule = require(script.Weapons)
+local WeaponsModule = require(script.WeaponsServer)
+local CollisionModule = require(path.Simulation.CollisionModule)
 
 local ChickynoidServer = {}
 
@@ -25,10 +29,11 @@ ChickynoidServer.serverSimulationTime = 0
 ChickynoidServer.framesPerSecondCounter = 0 --Purely for stats
 ChickynoidServer.framesPerSecondTimer = 0 --Purely for stats
 ChickynoidServer.framesPerSecond = 0 --Purely for stats
+ChickynoidServer.accumulatedTime = 0 --fps
 
 ChickynoidServer.startTime = tick()
 ChickynoidServer.slots = {}
-
+ChickynoidServer.collisionRootFolder = nil
 
 --Config
 ChickynoidServer.maxPlayers = 255   --Theoretical max, use a byte for player id
@@ -36,8 +41,33 @@ ChickynoidServer.fpsMode = Enums.FpsMode.Hybrid
 ChickynoidServer.serverHz = 20
 
 function ChickynoidServer:Setup()
-    
-    RemoteEvent.OnServerEvent:Connect(function(player: Player, event)
+	
+	Players.PlayerAdded:Connect(function(player)
+		self:PlayerConnected(player)
+	end)
+	
+	--If there are any players already connected, push them through the connection function
+	for key,player in pairs(game.Players:GetPlayers()) do
+		self:PlayerConnected(player)
+	end
+	
+
+	Players.PlayerRemoving:Connect(function(player)
+		self:PlayerDisconnected(player.UserId)
+	end)
+
+
+	RunService.Heartbeat:Connect(function(deltaTime)
+		self:RobloxHeartbeat(deltaTime)
+	end)
+
+
+	RunService.Stepped:Connect(function(totalTime,deltaTime)
+		self:RobloxPhysicsStep(deltaTime)
+	end)
+	
+	
+	RemoteEvent.OnServerEvent:Connect(function(player: Player, event)
         
         local playerRecord = self:GetPlayerByUserId(player.UserId)
         
@@ -45,8 +75,23 @@ function ChickynoidServer:Setup()
             playerRecord.chickynoid:HandleEvent(self, event)
         end
         
-    end)
-    
+	end)
+end
+
+function ChickynoidServer:PlayerConnected(player)
+	
+	local playerRecord = self:AddConnection(player.UserId, player)
+	playerRecord.chickynoid = self:CreateChickynoidAsync(playerRecord)
+
+	--Spawn the gui (move this to server?)
+	for _,child in pairs(game.StarterGui:GetChildren()) do
+		local clone = child:Clone()
+		if (clone:IsA("ScreenGui")) then
+			clone.ResetOnSpawn = false
+		end
+		clone.Parent = playerRecord.player.PlayerGui 
+	end
+	
 end
 
 function ChickynoidServer:AssignSlot(playerRecord)
@@ -68,14 +113,12 @@ function ChickynoidServer:AddConnection(userId, player)
         self:PlayerDisconnected(userId)
     end
     
-    
     local playerRecord = {}
     self.playerRecords[userId] = playerRecord
 
     playerRecord.userId = userId
     playerRecord.spawned = false
  
-    
     playerRecord.previousCharacterData = {}
     playerRecord.chickynoid = nil    
     playerRecord.frame = 0
@@ -97,13 +140,26 @@ function ChickynoidServer:AddConnection(userId, player)
             RemoteEvent:FireClient(playerRecord.player, event)
         end
     end
-
+	
+	function playerRecord:SendCollisionData()
+		
+		local event = {}
+		event.t = Enums.EventType.CollisionData
+		if (ChickynoidServer.collisionRootFolder ~= nil) then
+			event.data = ChickynoidServer.collisionRootFolder
+		end
+		self:SendEventToClient(event)
+	end
+	
     --Tell everyone
-    for key,data in pairs(self.playerRecords) do
-        self:SendWorldstate(data)
+    for key,playerRecord in pairs(self.playerRecords) do
+		self:SendWorldstate(playerRecord)
     end
-    
-        
+	
+	for key,playerRecord in pairs(self.playerRecords) do
+		playerRecord:SendCollisionData()
+	end
+
     return playerRecord    
 end
 
@@ -126,8 +182,7 @@ function ChickynoidServer:SendWorldstate(playerRecord)
     
     event.worldState.serverHz = self.serverHz
     event.worldState.fpsMode = self.fpsMode
-    
-    
+        
     playerRecord:SendEventToClient(event)   
 end
 
@@ -138,8 +193,8 @@ function ChickynoidServer:PlayerDisconnected(userId)
     if (playerRecord) then
         print("Player disconnected")
         
-        if (playerRecord.chickynoid and playerRecord.chickynoid.hitBox) then
-            playerRecord.chickynoid.hitBox:Destroy()
+        if (playerRecord.chickynoid) then
+            playerRecord.chickynoid:DestroyRobloxParts()
         end
         
         self.playerRecords[userId] = nil
@@ -179,6 +234,49 @@ function ChickynoidServer:CreateChickynoidAsync(playerRecord)
     return chickynoid
 end
 
+function ChickynoidServer:RobloxHeartbeat(deltaTime)
+
+    if (self.accumulatedTime > 0.5) then
+        self.accumulatedTime = 0
+    end
+
+    self.accumulatedTime += deltaTime
+    local frac = 1/60 
+    while (self.accumulatedTime > 0) do
+        self.accumulatedTime -= frac
+        self:Think(frac)        
+    end
+
+    --Discard accumulated time if its a tiny fraction
+    local errorSize = 0.001 --1ms
+    if (self.accumulatedTime > -errorSize) then
+        self.accumulatedTime = 0
+    end
+end
+
+
+function ChickynoidServer:RobloxPhysicsStep(deltaTime)
+    for userId,playerRecord in pairs(self.playerRecords) do
+
+        if (playerRecord.chickynoid) then
+            playerRecord.chickynoid:RobloxPhysicsStep(self, deltaTime)    
+        end
+    end
+end
+
+function ChickynoidServer:GetDoNotReplicate()
+	
+	local camera =game.Workspace:FindFirstChild("DoNotReplicate")
+	if (camera == nil) then
+		local camera = Instance.new("Camera")
+		camera.Name = "DoNotReplicate"
+		camera.Parent = game.Workspace
+	end
+	return camera
+
+end
+
+
 function ChickynoidServer:Think(deltaTime)
     
     
@@ -192,13 +290,14 @@ function ChickynoidServer:Think(deltaTime)
     
 
     self.serverSimulationTime = tick() - self.startTime
-    
-    --self.worldRoot = script.PlayerHitboxes
-    self.worldRoot = game.Workspace.DoNotReplicate
-    --self.worldRoot = game.Workspace--.DoNotReplicate
-    
+
+	
+	self.worldRoot = self:GetDoNotReplicate()
+    --self.worldRoot = game.Workspace 
+	
+	CollisionModule:UpdateDynamicParts()
+	
     --1st stage, pump the commands
-    --Many many todos on this!
     for userId,playerRecord in pairs(self.playerRecords) do
         
         if (playerRecord.dummy == true) then
@@ -214,23 +313,13 @@ function ChickynoidServer:Think(deltaTime)
                 playerRecord.chickynoid:SpawnChickynoid()
             end
         end
-        
-        --Update their hitbox
-        if (playerRecord.chickynoid.hitBox == nil) then
-            
-            local box = Instance.new("Part")
-            box.Size = Vector3.new(2,5,2)
-            box.Parent = self.worldRoot
-            box.Position = playerRecord.chickynoid.simulation.state.pos
-            box.Anchored = true
-            playerRecord.chickynoid.hitBox = box
-        end
-        playerRecord.chickynoid.hitBox.CFrame = CFrame.new(playerRecord.chickynoid.simulation.state.pos)
-        playerRecord.chickynoid.hitBox.Velocity = playerRecord.chickynoid.simulation.state.vel
- 
     end
     
-    
+    for userId,playerRecord in pairs(self.playerRecords) do
+        if (playerRecord.chickynoid) then
+            playerRecord.chickynoid:PostThink(self)
+        end
+    end
     WeaponsModule:Think(self, deltaTime)    
 
     
@@ -310,8 +399,20 @@ function ChickynoidServer:Think(deltaTime)
         end
        
     end
-    
-    
+   
+end
+
+function ChickynoidServer:RecreateCollisions(rootFolder)
+	
+	local playerSize = Vector3.new(2,5,2)
+	
+	self.collisionRootFolder = rootFolder
+	CollisionModule:MakeWorld(self.collisionRootFolder, playerSize)
+			
+	for key,playerRecord in pairs(self.playerRecords) do
+		playerRecord:SendCollisionData()
+	end
+	
 end
 
 return ChickynoidServer

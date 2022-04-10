@@ -13,9 +13,6 @@ local CharacterData = require(script.CharacterData)
 local MathUtils = require(script.MathUtils)
 local Enums = require(script.Parent.Enums)
 
---This is currently baked into the collision system.
-local playerSize = Vector3.new(2,5,2)
-
 
 function Simulation.new()
     local self = setmetatable({}, Simulation)
@@ -42,10 +39,7 @@ function Simulation.new()
     self.stepSize = 2.1
     self.lastGround = nil --Used for platform stand on servers only
     
-    --THIS DOES NOT GO HERE LOL
-    if (#CollisionModule.hullRecords == 0) then
-        CollisionModule:MakeWorld(game.Workspace.GameArea, playerSize )
-    end
+    
 
     
     return self
@@ -87,7 +81,8 @@ function Simulation:ProcessCommand(cmd)
     --Regarding Humanoid: Best guess is real humanoids are manipulating position+velocity at the same time via critically dampened springs
     --                    This means they don't really have the concept of acceleration
     --                    So best approx is just jacking accel and friction through the roof!
-    
+	
+	
     --Check ground
     local onGround = nil
     self.lastGround = nil
@@ -365,7 +360,10 @@ function Simulation:ProjectVelocity(startPos, startVel, deltaTime)
     local timeLeft = deltaTime 
       
     for bumps = 0, 3 do
-   
+        
+        local oldVel = moveVel
+        local oldPos = movePos
+        
         if moveVel.magnitude < 0.001 then
             --done
             break
@@ -404,14 +402,26 @@ function Simulation:ProjectVelocity(startPos, startVel, deltaTime)
         --Hit!
         timeLeft -= (timeLeft * result.fraction)
         
+        
         if (planes[result.planeNum] == nil) then
             
             planes[result.planeNum] = true
+   
             --Deflect the velocity and keep going
             moveVel = self:ClipVelocity(moveVel, result.normal, 1.0)
+        else
+            --We hit the same plane twice, push off it a bit
+            movePos += result.normal * 0.01
+            moveVel += result.normal 
+            break
         end
+        
     end
+    
+    
 
+    
+    
     return movePos, moveVel, hitSomething
 end
 

@@ -6,7 +6,8 @@ Enums.EventType = {
     Command = 2,
     State = 3,
     Snapshot = 4,
-    WorldState = 5,
+	WorldState = 5,
+	CollisionData = 6,
     
     --Just for test
     RocketSpawn = 6,

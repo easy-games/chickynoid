@@ -13,7 +13,8 @@ local Players = game:GetService("Players")
 
 local path = game.ReplicatedFirst.Packages.Chickynoid
 local Simulation = require(path.Simulation)
- 
+local CollisionModule = require(path.Simulation.CollisionModule)
+
 local TrajectoryModule = require(path.Simulation.TrajectoryModule)
 local Types = require(path.Types)
 local Enums = require(path.Enums)
@@ -28,6 +29,7 @@ local LocalPlayer = Players.LocalPlayer
 --For access to control vectors
 local PlayerModule = LocalPlayer:WaitForChild("PlayerScripts"):WaitForChild("PlayerModule")
 local ControlModule = require(PlayerModule:WaitForChild("ControlModule"))
+
 
 local DebugParts = Instance.new("Folder")
 DebugParts.Name = "DebugParts"
@@ -208,7 +210,8 @@ function ClientChickynoid:HandleNewState(state, lastConfirmed, serverTime, serve
 
         -- Marker for where the server said we were
         self:SpawnDebugSphere(self.simulation.state.pos, Color3.fromRGB(255, 170, 0))
-
+		
+		CollisionModule:UpdateDynamicParts()
         -- Resimulate all of the commands the server has not confirmed yet
         -- print("winding forward", #remainingCommands, "commands")
         for _, cmd in pairs(remainingCommands) do
@@ -289,7 +292,9 @@ function ClientChickynoid:Heartbeat(serverTime: number, deltaTime: number)
     -- Step this frame
     cmd.serverTime = serverTime
     
-    TrajectoryModule:PositionWorld(serverTime, deltaTime)
+	TrajectoryModule:PositionWorld(serverTime, deltaTime)
+	CollisionModule:UpdateDynamicParts()
+	
     self.debug.processedCommands+=1
     self.simulation:ProcessCommand(cmd)
  

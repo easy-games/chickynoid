@@ -28,7 +28,7 @@ function module:HandleWeapon(server, playerRecord, deltaTime, command)
         
         if (command.f  and command.f > 0) then
             --Fire!
-            playerRecord.currentWeapon.cooldown =  playerRecord.currentWeapon.cooldownDuration
+            playerRecord.currentWeapon.cooldown = playerRecord.currentWeapon.cooldownDuration
             
             local rocket = {}
             

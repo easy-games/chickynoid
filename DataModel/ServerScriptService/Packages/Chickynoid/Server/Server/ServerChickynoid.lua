@@ -12,9 +12,10 @@ local Enums = require(path.Enums)
 local EventType = Enums.EventType
 
 local Simulation = require(path.Simulation)
+local MathUtils = require(path.Simulation.MathUtils)
 local TrajectoryModule = require(path.Simulation.TrajectoryModule)
 
-local WeaponModule = require(script.Parent.Weapons)
+local WeaponModule = require(script.Parent.WeaponsServer)
 
 local ServerChickynoid = {}
 ServerChickynoid.__index = ServerChickynoid
@@ -39,7 +40,7 @@ function ServerChickynoid.new(playerRecord)
         errorState = Enums.NetworkProblemState.None,
         
         speedCheatThreshhold = 150 * 0.001, --milliseconds
-        antiwarpThreshhold = 60 * 0.001, --milliseconds
+        antiwarpThreshhold = 150 * 0.001, --milliseconds  (was 60)
         
         bufferedCommandTime =  20 * 0.001, --ms
         serverFrames = 0,
@@ -66,6 +67,27 @@ function ServerChickynoid.new(playerRecord)
     return self
 end
 
+function ServerChickynoid:DestroyRobloxParts()
+    
+    
+    if (self.pushPart) then
+        self.pushPart:Destroy()
+        self.pushPart = nil
+    end
+    
+    if (self.hitBox) then
+        self.hitBox:Destroy()
+        self.hitBox = nil
+    end
+    
+    for _,record in pairs(self.pushes) do
+        
+        record.attachment:Destroy()
+        record.pusher:Destroy()
+    end
+    self.pushes = {}
+        
+end
 
 function ServerChickynoid:HandleEvent(server, event)
     self:HandleClientEvent(server, event)
@@ -110,7 +132,7 @@ end
 ]=]
 
  
-function ServerChickynoid:Think(server, serverSimulationTime, dt)
+function ServerChickynoid:Think(server, serverSimulationTime, deltaTime)
     
     
     --  Anticheat methods
@@ -120,7 +142,7 @@ function ServerChickynoid:Think(server, serverSimulationTime, dt)
     --  We only allow 15 commands per server tick (ratio of 5:1) if the user somehow has more than 15 commands that are legitimately needing processing, we discard them all
     
 
-    self.elapsedTime += dt
+    self.elapsedTime += deltaTime
   
     --Once a player has connected, monitor their total elapsed time
     --If it falls behind, catch them up!
@@ -134,7 +156,7 @@ function ServerChickynoid:Think(server, serverSimulationTime, dt)
             while (timeToCover > 0) do
                 timeToCover-= 1/60
                 self:GenerateFakeCommand(1/60)
-                print("FC")
+                
             end
         end
     end
@@ -172,7 +194,7 @@ function ServerChickynoid:Think(server, serverSimulationTime, dt)
         command.processed = true
         
         --Fire weapons!
-        WeaponModule:HandleWeapon(server, self.playerRecord, dt, command)
+        WeaponModule:HandleWeapon(server, self.playerRecord, command.deltaTime, command)
         
         if (command.l and tonumber(command.l) ~= nil) then
             self.lastConfirmedCommand = command.l
@@ -312,7 +334,130 @@ function ServerChickynoid:SpawnChickynoid()
     
 end
 
+function ServerChickynoid:PostThink(server)
+    
+    self:UpdateServerCollisionBox(server)
+end
 
+function ServerChickynoid:UpdateServerCollisionBox(server)
+	--Update their hitbox - this is used for raycasts on the server against the player
+	if (self.hitBox == nil) then
 
+		local box = Instance.new("Part")
+		box.Size = Vector3.new(2.1,5.1,2.1)
+		box.Parent = server.worldRoot
+		box.Position = self.simulation.state.pos
+		box.Anchored = true
+		box.CanTouch = true
+		box.CanCollide = true
+		box.CanQuery = true
+		self.hitBox = box
+	end
+	self.hitBox.CFrame = CFrame.new(self.simulation.state.pos)
+	self.hitBox.Velocity = self.simulation.state.vel
+end
+
+function ServerChickynoid:RobloxPhysicsStep(server, deltaTime)
+	
+	self:UpdateServerCollisionBox(server)
+ 
+    --Check to see what  we're touching, and push them.
+    if (self.pushPart == nil) then
+        local box = Instance.new("Part")
+        box.Size = Vector3.new(5,5,5)
+        box.Parent = nil--server.worldRoot
+        box.Position = self.simulation.state.pos
+        box.Anchored = true
+        self.pushPart = box
+    end
+    
+    local vel = self.simulation.state.vel
+    
+    --clear the previous frames velocity objects    
+    if (self.pushes == nil) then
+        self.pushes = {}
+    end
+    
+    
+    for _,record in pairs(self.pushes) do
+        
+        record.frames -= 1
+        if (record.frames <= 0) then
+            record.pusher.MaxForce =0            
+            --table.remove(self.pushes,counter)
+            --print("destroy")
+        else
+            record.pusher.MaxForce = 1000
+        end
+          
+    end
+ 
+    
+    if (vel.Magnitude > 0.001) then
+       
+        self.pushPart.CFrame = CFrame.new(self.simulation.state.pos)
+        local list = game.Workspace:GetPartsInPart(self.pushPart)
+
+        if (#list > 0) then
+            for _,value in pairs(list) do
+                if (value.Anchored == false) then
+                                                           
+                    
+                    --Lets do a dotproduct to see if we want this push
+                    local dir = value.Position - self.simulation.state.pos
+                    local dot = dir:Dot(self.simulation.state.vel)
+                   
+                    if (dot < 0.2) then
+                        continue
+                    end
+                    
+                    local mass = value.AssemblyMass
+                    
+                    local localVel = value.CFrame:VectorToObjectSpace(vel)
+         
+                                        
+                    --value:ApplyImpulseAtPosition(self.pushPart.Position, vel)
+                    
+                    local found = false
+                    for key,record in pairs(self.pushes) do
+                        if (record.part == value) then
+                            found = true
+                            --recycle existing pusher
+                            record.attachment.WorldPosition = self.pushPart.Position
+                            record.pusher.VectorVelocity = vel
+                            record.frames = 3                            
+                        end
+                    end
+                    if (found == true) then
+                        continue
+                    end
+                                   
+                    local pusher = Instance.new("LinearVelocity")
+                    pusher.Parent = value
+                    pusher.VectorVelocity = vel
+                    pusher.VelocityConstraintMode = Enum.VelocityConstraintMode.Vector
+                    pusher.RelativeTo = Enum.ActuatorRelativeTo.Attachment0
+                    
+                    local attachment = Instance.new("Attachment")
+                    attachment.Parent = value
+                    attachment.WorldPosition = self.pushPart.Position
+                    pusher.Parent = attachment
+                    pusher.Attachment0 = attachment
+                    
+                    --Create a record
+                    local record = {}
+                    record.pusher = pusher
+                    record.attachment = attachment
+                    record.frames = 3
+                    record.part = value
+                    
+                    table.insert(self.pushes,record)
+                     
+                end
+            end
+        end
+    end
+    
+end
 
 return ServerChickynoid

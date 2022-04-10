@@ -2,6 +2,9 @@ local module = {}
 
 module.root = game.ReplicatedFirst.Packages.Chickynoid.Assets.Effects
 module.particles = {}
+
+
+--Ultra simple effects module.
 function module:SpawnEffect(name, pos)
     
     local src = module.root:FindFirstChild(name,true)

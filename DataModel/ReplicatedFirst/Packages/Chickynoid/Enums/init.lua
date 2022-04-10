@@ -10,8 +10,8 @@ Enums.EventType = {
 	CollisionData = 6,
     
     --Just for test
-    RocketSpawn = 6,
-    RocketDie = 7,
+    RocketSpawn = 7,
+    RocketDie = 8,
 }
 Enums.NetworkProblemState = {
     None = 0,

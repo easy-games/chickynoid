@@ -342,9 +342,11 @@ end
 function ServerChickynoid:UpdateServerCollisionBox(server)
 	--Update their hitbox - this is used for raycasts on the server against the player
 	if (self.hitBox == nil) then
-
+		
+		--This box is also used to stop physics props from intersecting the player. Doesn't always work!
+		--But if a player does get stuck, they should just be able to move away from it
 		local box = Instance.new("Part")
-		box.Size = Vector3.new(2.5,5.5,2.5)
+		box.Size = Vector3.new(2,5,2)
 		box.Parent = server.worldRoot
 		box.Position = self.simulation.state.pos
 		box.Anchored = true
@@ -371,7 +373,7 @@ function ServerChickynoid:RobloxPhysicsStep(server, deltaTime)
         self.pushPart = box
     end
     
-    local vel = self.simulation.state.vel
+	local vel = Vector3.new(self.simulation.state.pushDir.x,0,self.simulation.state.pushDir.y) * self.simulation.constants.pushSpeed
     
     --clear the previous frames velocity objects    
     if (self.pushes == nil) then
@@ -404,7 +406,8 @@ function ServerChickynoid:RobloxPhysicsStep(server, deltaTime)
                                                            
                     
                     --Lets do a dotproduct to see if we want this push
-                    local dir = value.Position - self.simulation.state.pos
+					local dir = value.Position - self.simulation.state.pos
+					
                     local dot = dir:Dot(self.simulation.state.vel)
                    
                     if (dot < 0.2) then

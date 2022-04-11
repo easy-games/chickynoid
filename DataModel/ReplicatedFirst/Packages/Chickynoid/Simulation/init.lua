@@ -20,7 +20,9 @@ function Simulation.new()
     self.state = {}
      
     self.state.pos = Vector3.new(0, 5, 0)
-    self.state.vel = Vector3.new(0, 0, 0)
+	self.state.vel = Vector3.new(0, 0, 0)
+	self.state.pushDir = Vector2.new(0, 0)
+	
     self.state.jump = 0
     self.state.angle = 0
     self.state.targetAngle = 0
@@ -33,15 +35,41 @@ function Simulation.new()
     --players feet height - height goes from -2.5 to +2.5
     --So any point below this number is considered the players feet
     --the distance between middle and feetHeight is "ledge"
-    self.feetHeight = -1.9
+    
 
     -- How big an object we can step over
-    self.stepSize = 2.1
+    
     self.lastGround = nil --Used for platform stand on servers only
     
-    
+	
+	self.constants = {}
 
-    
+	self.constants.maxSpeed = 16                 --Units per second
+	self.constants.airSpeed = 16                 --Units per second
+	self.constants.accel =  10                    --Units per second per second 
+	self.constants.airAccel = 10                  --Uses a different function than ground accel! 
+	self.constants.jumpPunch = 35                --Raw velocity, just barely enough to climb on a 7 unit tall block
+	self.constants.turnSpeedFrac = 10            --seems about right? Very fast.
+	self.constants.runFriction = 0.01            --friction applied after max speed
+	self.constants.brakeFriction = 0.03          --Lower is brake harder, dont use 0
+	self.constants.maxGroundSlope = 0.55         --about 45o
+	self.constants.jumpThrustPower = 300          --If you keep holding jump, how much extra vel per second is there?  (turn this off for no variable height jumps)
+	self.constants.jumpThrustDecay = 0.25          --Smaller is faster
+	self.constants.pushSpeed = 10
+	self.constants.stepSize = 2.1
+
+    --[[ 
+     --These parameters give you a pretty-close-to-stock feeling humanoid
+     self.constants.maxSpeed = 16                 --Units per second
+     self.constants.airSpeed = 16                 --Units per second
+     self.constants.accel =  40                   --Units per second per second 
+     self.constants.airAccel = 10                 --Uses a different function than ground accel! 
+     self.constants.jumpPunch = 75                --Raw velocity, just barely enough to climb on a 7 unit tall block
+     self.constants.turnSpeedFrac = 10            --seems about right? Very fast.
+     self.constants.brakeFriction = 0.02          --Lower is brake harder, dont use 0
+     self.constants.maxGroundSlope = 0.55         --about 45o
+    ]]--
+	
     return self
 end
 
@@ -54,35 +82,6 @@ function Simulation:ProcessCommand(cmd)
  
     debug.profilebegin("Chickynoid Simulation")
  
-    --Ground parameters, for stock "Humanoid" recreation
-    local maxSpeed = 16                 --Units per second
-    local airSpeed = 16                 --Units per second
-    local accel =  10                    --Units per second per second 
-    local airAccel = 10                  --Uses a different function than ground accel! 
-    local jumpPunch = 35                --Raw velocity, just barely enough to climb on a 7 unit tall block
-    local turnSpeedFrac = 10            --seems about right? Very fast.
-    local runFriction = 0.01            --friction applied after max speed
-    local brakeFriction = 0.03          --Lower is brake harder, dont use 0
-    local maxGroundSlope = 0.55         --about 45o
-    local jumpThrustPower = 300          --If you keep holding jump, how much extra vel per second is there?  (turn this off for no variable height jumps)
-    local jumpThrustDecay = 0.25          --Smaller is faster
-    
-    --[[
-    local maxSpeed = 16                 --Units per second
-    local airSpeed = 16                 --Units per second
-    local accel =  40                   --Units per second per second 
-    local airAccel = 10                 --Uses a different function than ground accel! 
-    local jumpPunch = 75                --Raw velocity, just barely enough to climb on a 7 unit tall block
-    local turnSpeedFrac = 10            --seems about right? Very fast.
-    local brakeFriction = 0.02          --Lower is brake harder, dont use 0
-    local maxGroundSlope = 0.55         --about 45o
-    ]]--
-    
-    --Regarding Humanoid: Best guess is real humanoids are manipulating position+velocity at the same time via critically dampened springs
-    --                    This means they don't really have the concept of acceleration
-    --                    So best approx is just jacking accel and friction through the roof!
-	
-	
     --Check ground
     local onGround = nil
     self.lastGround = nil
@@ -90,17 +89,19 @@ function Simulation:ProcessCommand(cmd)
     
     
     --If the player is on too steep a slope, its not ground
-    if (onGround ~= nil and onGround.normal.Y < maxGroundSlope) then
+    if (onGround ~= nil and onGround.normal.Y < self.constants.maxGroundSlope) then
         onGround = nil
     end
 
     
     --Did the player have a movement request?
     local wishDir = nil
-
     if (cmd.x ~= 0 or cmd.z ~= 0) then
-        wishDir = Vector3.new(cmd.x, 0, cmd.z).Unit
-    end
+		wishDir = Vector3.new(cmd.x, 0, cmd.z).Unit
+		self.state.pushDir = Vector2.new(cmd.x, cmd.z)
+	else
+		self.state.pushDir = Vector2.new(0,0)	
+	end
     
     --Create flat velocity to operate our input command on
     --In theory this should be relative to the ground plane instead...
@@ -113,19 +114,19 @@ function Simulation:ProcessCommand(cmd)
             --Moving along the ground under player input
             
                                    
-            flatVel = self:GroundAccelerate(wishDir, maxSpeed, accel, flatVel ,cmd.deltaTime)
+			flatVel = self:GroundAccelerate(wishDir, self.constants.maxSpeed, self.constants.accel, flatVel ,cmd.deltaTime)
          
             --Good time to trigger our walk anim
             self.characterData:PlayAnimation(Enums.Anims.Run, false)
         else
             --Moving through the air under player control
-            flatVel = self:Accelerate(wishDir, airSpeed, airAccel, flatVel, cmd.deltaTime)
+			flatVel = self:Accelerate(wishDir, self.constants.airSpeed, self.constants.airAccel, flatVel, cmd.deltaTime)
         end
       
     else
         if (onGround ~= nil) then
             --Just standing around
-            flatVel = MathUtils:VelocityFriction(flatVel, brakeFriction, cmd.deltaTime)
+			flatVel = MathUtils:VelocityFriction(flatVel, self.constants.brakeFriction, cmd.deltaTime)
             
             --Enter idle
             self.characterData:PlayAnimation(Enums.Anims.Idle, false)
@@ -150,9 +151,9 @@ function Simulation:ProcessCommand(cmd)
     if (onGround ~= nil) then
         --jump!
         if (cmd.y > 0 and self.state.jump <= 0) then
-            self.state.vel = Vector3.new(self.state.vel.x, jumpPunch, self.state.vel.z)
+			self.state.vel = Vector3.new(self.state.vel.x, self.constants.jumpPunch, self.state.vel.z)
             self.state.jump = 0.2 --jumping has a cooldown (think jumping up a staircase)
-            self.state.jumpThrust = jumpThrustPower
+			self.state.jumpThrust = self.constants.jumpThrustPower
             self.characterData:PlayAnimation(Enums.Anims.Jump, true, 0.2)
         end
   
@@ -190,7 +191,7 @@ function Simulation:ProcessCommand(cmd)
         if (cmd.y > 0)  then
             if (self.state.jumpThrust > 0) then
                 self.state.vel += Vector3.new(0, self.state.jumpThrust * cmd.deltaTime, 0)
-                self.state.jumpThrust = MathUtils:Friction(self.state.jumpThrust, jumpThrustDecay, cmd.deltaTime)
+				self.state.jumpThrust = MathUtils:Friction(self.state.jumpThrust, self.constants.jumpThrustDecay, cmd.deltaTime)
             end
             if (self.state.jumpThrust < 0.001) then
                 self.state.jumpThrust = 0
@@ -249,9 +250,11 @@ function Simulation:ProcessCommand(cmd)
     --Do angles
     if (wishDir ~= nil) then
         self.state.targetAngle = MathUtils:PlayerVecToAngle(wishDir)
-        self.state.angle = MathUtils:LerpAngle( self.state.angle,  self.state.targetAngle, turnSpeedFrac * cmd.deltaTime)
+		self.state.angle = MathUtils:LerpAngle( self.state.angle,  self.state.targetAngle, self.constants.turnSpeedFrac * cmd.deltaTime)
     end
-    
+	
+
+	
     
     --Do Platform move
     --self:DoPlatformMove(self.lastGround, cmd.deltaTime)
@@ -261,7 +264,9 @@ function Simulation:ProcessCommand(cmd)
     self.characterData:SetAngle(self.state.angle)
     self.characterData:SetStepUp(self.state.stepUp)    
     self.characterData:SetFlatSpeed(flatVel.Magnitude)
-    
+	
+	
+	
     debug.profileend()
 end
 
@@ -274,7 +279,7 @@ function Simulation:DoStepUp(pos, vel, deltaTime)
     local flatVel = MathUtils:FlatVec(vel)
 
     --first move upwards as high as we can go
-    local headHit = CollisionModule:Sweep(pos, pos + Vector3.new(0, self.stepSize, 0))
+    local headHit = CollisionModule:Sweep(pos, pos + Vector3.new(0, self.constants.stepSize, 0))
 
     --Project forwards
     local stepUpNewPos, stepUpNewVel, stepHitSomething = self:ProjectVelocity(headHit.endPos, flatVel, deltaTime)
@@ -284,7 +289,7 @@ function Simulation:DoStepUp(pos, vel, deltaTime)
 
     local hitResult = CollisionModule:Sweep(
         traceDownPos,
-        traceDownPos - Vector3.new(0, self.stepSize, 0)
+		traceDownPos - Vector3.new(0, self.constants.stepSize, 0)
     )
 
     stepUpNewPos = hitResult.endPos

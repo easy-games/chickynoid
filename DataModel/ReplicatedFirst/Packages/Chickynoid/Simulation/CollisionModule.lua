@@ -349,7 +349,7 @@ function module:CheckBrushPoint(data, hullRecord )
 end
 
 
- 
+--Checks a brush, but doesn't handle it well if the start point is inside a brush
 function module:CheckBrush(data, hullRecord )
 
     local startFraction = -1.0
@@ -433,6 +433,110 @@ function module:CheckBrush(data, hullRecord )
 end
 
 
+--Checks a brush, but is smart enough to ignore the brush entirely if the start point is inside but the ray is "exiting" or "exited"
+function module:CheckBrushNoStuck(data, hullRecord)
+
+	local startFraction = -1.0
+	local endFraction = 1.0
+	local startsOut = false
+	local endsOut = false
+	local lastPlane = nil
+	
+	local nearestStart = -math.huge
+	local nearestEnd = -math.huge
+
+	for _,p in pairs(hullRecord.hull) do
+
+		local startDistance = data.startPos:Dot(p.n) - p.ed
+		local endDistance = data.endPos:Dot(p.n) - p.ed
+
+		if (startDistance > 0) then
+			startsOut = true
+		end
+		
+		if (endDistance > 0) then
+			endsOut = true
+		end
+
+		-- make sure the trace isn't completely on one side of the brush
+		if (startDistance > 0 and (endDistance >= SKIN_THICKNESS or endDistance >= startDistance)) then
+			return   --both are in front of the plane, its outside of this brush
+		end
+				
+		--Record the distance to this plane
+		nearestStart = math.max(nearestStart, startDistance)
+		nearestEnd = math.max(nearestEnd, endDistance)
+				
+		if (startDistance <= 0 and endDistance <= 0) then
+			--both are behind this plane, it will get clipped by another one
+			continue
+		end
+
+		if (startDistance > endDistance) then
+			--  line is entering into the brush
+			local fraction = (startDistance - SKIN_THICKNESS) / (startDistance - endDistance)
+			if (fraction < 0) then
+				fraction = 0
+			end
+			if (fraction > startFraction) then
+				startFraction = fraction
+				lastPlane = p
+			end
+		else
+			
+			--line is leaving the brush
+			local fraction = (startDistance + SKIN_THICKNESS) / (startDistance - endDistance)
+			if (fraction > 1) then
+				fraction = 1
+			end
+			if (fraction < endFraction) then
+				endFraction = fraction
+			end
+		end
+	end
+	
+	
+	--Point started inside this brush
+	if (startsOut == false) then
+		data.startSolid = true
+		
+		
+		--We might be both start-and-end solid
+		--If thats the case, we want to pretend we never saw this brush if we are moving "out" 
+		--This is either: we exited - or -
+		--                the end point is nearer any plane than the start point is
+		if (endsOut == false and nearestEnd < nearestStart) then
+			--Allsolid
+			data.allSolid = true
+			return
+		end
+		
+		--Not stuck! We should pretend we never touched this brush
+		data.startSolid = false
+		return --Ignore this brush
+	end
+	
+	
+
+	--Update the output fraction
+	if (startFraction < endFraction) then
+
+		if (startFraction > -1 and startFraction < data.fraction) then
+
+			if (startFraction < 0) then
+				startFraction = 0
+			end
+			data.fraction = startFraction
+			data.normal = lastPlane.n
+			data.planeD = lastPlane.ed
+			data.planeNum = lastPlane.planeNum
+			data.hullRecord = hullRecord
+		end
+	end
+
+end
+
+
 
 function module:PlaneLineIntersect(normal, distance, V1, V2)
 
@@ -477,7 +581,7 @@ function module:Sweep(startPos, endPos)
     for _,hullRecord in pairs(hullRecords) do
         
         data.checks+=1
-        self:CheckBrush(data, hullRecord)
+		self:CheckBrushNoStuck(data, hullRecord)
         if (data.allSolid == true) then
             data.fraction = 0
             break
@@ -493,7 +597,7 @@ function module:Sweep(startPos, endPos)
         for _,hullRecord in pairs(self.dynamicRecords) do
             data.checks+=1
                        
-            self:CheckBrush(data, hullRecord)
+			self:CheckBrushNoStuck(data, hullRecord)
             if (data.allSolid == true) then
                 data.fraction = 0
                 break

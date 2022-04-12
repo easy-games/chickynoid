@@ -55,7 +55,7 @@ function Simulation.new()
 	self.constants.maxGroundSlope = 0.55         --about 45o
 	self.constants.jumpThrustPower = 300          --If you keep holding jump, how much extra vel per second is there?  (turn this off for no variable height jumps)
 	self.constants.jumpThrustDecay = 0.25          --Smaller is faster
-	self.constants.pushSpeed = 10
+	self.constants.pushSpeed = 16					--set this lower than maxspeed if you want stuff to feel heavy
 	self.constants.stepSize = 2.1
 
     --[[ 
@@ -277,9 +277,11 @@ end
 function Simulation:DoStepUp(pos, vel, deltaTime)
     
     local flatVel = MathUtils:FlatVec(vel)
-
-    --first move upwards as high as we can go
-    local headHit = CollisionModule:Sweep(pos, pos + Vector3.new(0, self.constants.stepSize, 0))
+	
+	local stepVec =  Vector3.new(0, self.constants.stepSize, 0)
+	--first move upwards as high as we can go
+	
+	local headHit = CollisionModule:Sweep(pos, pos + stepVec)
 
     --Project forwards
     local stepUpNewPos, stepUpNewVel, stepHitSomething = self:ProjectVelocity(headHit.endPos, flatVel, deltaTime)
@@ -287,20 +289,28 @@ function Simulation:DoStepUp(pos, vel, deltaTime)
     --Trace back down
     local traceDownPos = stepUpNewPos
 
-    local hitResult = CollisionModule:Sweep(
-        traceDownPos,
-		traceDownPos - Vector3.new(0, self.constants.stepSize, 0)
-    )
+    local hitResult = CollisionModule:Sweep(traceDownPos, traceDownPos - stepVec)
 
     stepUpNewPos = hitResult.endPos
 
     --See if we're mostly on the ground after this? otherwise rewind it
     local ground = self:DoGroundCheck(stepUpNewPos)
-
-    if (ground ~= nil) then
-
-        local step = self.state.pos.y - stepUpNewPos.y
-        
+	
+	--Slope check
+	if (ground ~= nil) then
+		if (ground.normal.Y < self.constants.maxGroundSlope or ground.startSolid == true) then
+			return nil
+		end
+	end
+	
+	
+	if (ground ~= nil) then
+		local step = self.state.pos.y - stepUpNewPos.y
+			
+		if (math.abs(step)<0.01) then
+			return nil
+		end
+		 
         local result = {
             stepUp = step,
             pos = stepUpNewPos,
@@ -327,9 +337,13 @@ end
 
 function Simulation:DoGroundCheck(pos)
     local results = CollisionModule:Sweep(pos + Vector3.new(0, 0.1, 0), pos + Vector3.new(0, -0.1, 0))
-    
-    if (results.allSolid == true or results.startSolid == true) then
-        return nil
+	
+	
+	if (results.allSolid == true or results.startSolid == true) then
+		--We're stuck, pretend we're in the air
+		
+		results.fraction = 1
+        return results
     end
     
     if (results.fraction < 1) then
@@ -422,10 +436,6 @@ function Simulation:ProjectVelocity(startPos, startVel, deltaTime)
         end
         
     end
-    
-    
-
-    
     
     return movePos, moveVel, hitSomething
 end

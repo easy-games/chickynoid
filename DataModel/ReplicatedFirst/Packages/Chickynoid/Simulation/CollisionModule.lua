@@ -8,8 +8,10 @@ module.dynamicRecords = {}
 
 local SKIN_THICKNESS = 0.05 --closest you can get to a wall
 module.planeNum = 0
-module.gridSize = 8
+module.gridSize = 4
 module.grid = {}
+
+local debugParts = false
 
 local corners = {
     Vector3.new( 0.5,0.5, 0.5),
@@ -65,9 +67,9 @@ function module:CreateAndFetchCell(x,y,z)
     return gy
 end
 
-
+	
 function module:FindAABB(part)
-    local orientation = part.CFrame
+    local orientation = part.CFrame	
     local size = part.Size
     
     local minx = math.huge
@@ -101,6 +103,60 @@ function module:FindAABB(part)
     end
     return minx, miny, minz, maxx, maxy, maxz
     
+end
+
+
+function module:FindPointsAABB(points)
+	 
+
+	local minx = math.huge
+	local miny = math.huge
+	local minz = math.huge
+	local maxx = -math.huge
+	local maxy = -math.huge
+	local maxz = -math.huge
+
+	for _,vec in pairs(points) do
+		 
+		if (vec.x <minx) then 
+			minx = vec.x
+		end
+		if (vec.y < miny) then 
+			miny = vec.y
+		end
+		if (vec.z < minz) then 
+			minz = vec.z
+		end
+		if (vec.x > maxx) then 
+			maxx = vec.x
+		end
+		if (vec.y > maxy) then 
+			maxy = vec.y
+		end
+		if (vec.z > maxz) then 
+			maxz = vec.z
+		end
+
+	end
+	return minx, miny, minz, maxx, maxy, maxz
+
+end
+
+
+function module:WritePointsToHashMap(hullRecord)
+
+	local minx, miny,minz, maxx, maxy, maxz = self:FindPointsAABB(hullRecord.points)
+
+	for x = math.floor(minx / self.gridSize), math.floor(maxx/self.gridSize)+1 do
+		for z = math.floor(minz / self.gridSize), math.floor(maxz/self.gridSize)+1 do
+			for y = math.floor(miny / self.gridSize), math.floor(maxy/self.gridSize)+1 do
+
+				local cell = self:CreateAndFetchCell(x,y,z)
+				cell[hullRecord] = hullRecord
+			end
+		end
+	end
+
 end
 
 function module:WritePartToHashMap(instance, hullRecord)
@@ -194,7 +250,12 @@ end
  
 function module:GenerateConvexHullAccurate(part, expansionSize, cframe )
 	
-	local hull, counter = MinkowskiSumInstance:GetPlanesForInstance(part, expansionSize, cframe, self.planeNum)
+	local debugRoot = nil
+	if (debugParts == true and game["Run Service"]:IsClient()) then
+		debugRoot = game.Workspace.Terrain	
+	end
+	
+	local hull, counter = MinkowskiSumInstance:GetPlanesForInstance(part, expansionSize, cframe, self.planeNum, debugRoot)
 	self.planeNum = counter
 	return hull
 end
@@ -264,6 +325,8 @@ function module:MakeWorld(folder, playerSize)
 			self:RemovePartFromHashMap(instance)
 		end
 	end)
+	
+	--self:ProcessTerrain(playerSize)
 end
 
 
@@ -590,7 +653,8 @@ function module:Sweep(startPos, endPos)
             break
         end
     end
-    
+	
+ 	--Collide with dynamic objects
     if (data.fraction >= SKIN_THICKNESS or data.allSolid == false) then
         
         
@@ -607,8 +671,8 @@ function module:Sweep(startPos, endPos)
             end
             
         end
-    end
-    
+	end
+ 
  
     if (data.fraction < 1) then
 
@@ -641,7 +705,6 @@ function module:BoxTest(pos)
     --calc bounds of sweep
     local hullRecords = self:FetchHullsForPoint(pos)
 
-
     for _,hullRecord in pairs(hullRecords) do
 
         data.checks+=1
@@ -661,7 +724,200 @@ end
 --Call this before you try and simulate
 function module:UpdateDynamicParts()
 	for key,record in pairs(self.dynamicRecords) do
-		record:Update()		
+		if (record.Update) then
+			record:Update()
+		end
+	end
+	
+end
+
+
+function module:TerrainSolid(content, x,y,z)
+	
+	if (content[x][y][z] < 1) then
+		return false
+	end
+	
+	if (x-1 > 0 and	content[x-1][y][z] < 1) then 
+		return false
+	end
+	if (y-1 > 0 and	content[x][y-1][z] < 1) then 
+		return false
+	end
+	if (z-1 > 0 and	content[x][y][z-1] < 1) then 
+		return false
+	end
+	if (x+1 < content.Size.x and content[x+1][y][z] < 1) then 
+		return false
+	end
+	if (y+1 < content.Size.y and content[x][y+1][z] < 1) then 
+		return false
+	end
+	if (z+1 < content.Size.z and content[x][y][z+1] < 1) then 
+		return false
+	end
+
+	return true
+	
+end
+
+local function lerp(a,b,frac)
+	
+	return (a*(1-frac)) + (b*(frac))
+end
+
+function module:GetOccupancyBilinear(occ, localx,localy,localz)
+	
+	local x = math.floor(localx)
+	local y = math.floor(localy)
+	local z = math.floor(localz)
+	
+	if (x >= occ.Size.x-1 or y >= occ.Size.y-1 or z >= occ.Size.z-1) then
+		return occ[x][y][z]
+	end
+	
+	
+	--    botface
+	--
+	--     c -----fx---cd--- d		
+	--                  |
+	--                  |
+	--                  |
+	--                  |        
+	--                  fy        ^
+	--                  |         |
+	--     a -----fx---ab---- b   |
+	--                            |
+	--     (xaxis)---->           (zaxis)
+	
+	
+	
+	local fx = localx - x
+	local fy = localy - y
+	local fz = localz - z
+		
+	--Bot face samples
+	local a_bot = occ[x+0][y+0][z+0]
+	local b_bot = occ[x+1][y+0][z+0]
+	local c_bot = occ[x+0][y+0][z+1]
+	local d_bot = occ[x+1][y+0][z+1]
+		
+	--Top face samples
+	local a_top = occ[x+0][y+1][z+0]
+	local b_top = occ[x+1][y+1][z+0]
+	local c_top = occ[x+0][y+1][z+1]
+	local d_top = occ[x+1][y+1][z+1]
+
+	--Bot face lerped
+	local ab_bot = lerp(a_bot, b_bot, fx)
+	local cd_bot = lerp(c_bot, d_bot, fx)
+	local botFace = lerp(ab_bot, cd_bot, fz)
+	
+	--Top face lerped
+	local ab_top = lerp(a_top, b_top, fx)
+	local cd_top = lerp(c_top, d_top, fx)
+	local topFace = lerp(ab_top, cd_top, fz)
+	
+	--Between bot and top face
+	return lerp(botFace, topFace, fy)  
+	
+end
+
+function module:ProcessTerrain(playerSize)
+	
+	
+	if (game["Run Service"]:IsClient() == true or true) then
+		
+		coroutine.wrap(function()
+			print("Starting terrain")
+			--Experimental
+			local part = game.Workspace.Terrain:FindFirstChild("TerrainBounds")
+			
+			local mins = Vector3.new(math.huge,math.huge,math.huge)
+			local maxs = -Vector3.new(math.huge,math.huge,math.huge)
+			
+			for key,point in pairs(corners) do
+				local p = part.CFrame:PointToWorldSpace(part.size* point)
+				
+				mins = Vector3.new(math.min(p.x, mins.x), math.min(p.y, mins.y), math.min(p.z, mins.z))
+				maxs = Vector3.new(math.max(p.x, maxs.x), math.max(p.y, maxs.y), math.max(p.z, maxs.z))
+			end
+			
+			
+			local region = Region3.new(mins,maxs)
+			region:ExpandToGrid(4)
+			local voxels,occs = game.Workspace.Terrain:ReadVoxels(region, 4)
+			local size = voxels.Size
+			
+			local snappedMins = region.CFrame:PointToWorldSpace(-region.Size*0.5) 
+			snappedMins = Vector3.new(math.round(snappedMins.x/4)*4,math.round(snappedMins.y/4)*4,math.round(snappedMins.z/4)*4) + Vector3.new(2,2,2) 
+			
+			local partCounter = 0
+			local resolution = 0.25
+						
+			
+			for x = 1, size.x-1 do
+				for y = 1, size.y-1 do
+					for z = 1, size.z-1 do
+						
+						if (self:TerrainEmptyAir(voxels,x,y,z) == false) then
+						--continue
+						end
+						local points = {}
+						
+						for fx=0,1,resolution do
+							for fy=0,1,resolution do
+								for fz = 0,1, resolution do
+									local occupancy = self:GetOccupancyBilinear(occs,x+fx,y+fy,z+fz)
+									if (occupancy > 0.15) then
+										table.insert(points,snappedMins+ Vector3.new(x+fx,y+fy,z+fz) * 4) --4 is terrain voxel size
+									end
+								end
+							end
+						end
+						
+						if (debugParts == true) then
+							for key,point in pairs(points) do
+								
+								local part = Instance.new("Part")
+								part.Position = point
+								part.Anchored = true
+								part.CanCollide = false
+								
+								part.Size = Vector3.new(0.1,0.1,0.1)
+								part.Shape = Enum.PartType.Ball
+								part.Parent = game.Workspace
+								part.Color = Color3.new(0,1,1)
+							end
+						end
+						
+						
+						if (#points >= 4) then
+							print("Processing: ",#points)
+							local record = {}
+							record.instance = game.Workspace.Terrain
+							
+							local hull, counter = MinkowskiSumInstance:GetPlanesForPointsExpanded(points, playerSize, self.planeNum)
+							record.hull = hull
+							record.points = points
+							record.planeNum = counter
+													
+							self:WritePointsToHashMap(record)
+
+							module.hullRecords[ game.Workspace.Terrain] = record
+							partCounter += 1
+						end
+						
+
+					end
+									
+				end
+				wait()	
+				
+			end
+			
+			print("Terrain parts added:", partCounter)
+		end)()
 	end
 	
 end

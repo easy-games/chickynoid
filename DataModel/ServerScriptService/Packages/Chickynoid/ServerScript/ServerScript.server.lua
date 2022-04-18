@@ -13,7 +13,11 @@ if (validInstall == true) then
 	
 	--Make some bots! Actually, make lots of bots!
 	local Bots = require(game.ServerScriptService.Packages.Chickynoid.Server.Bots)
-	--Bots:MakeBots(Server, 100)
+	
+	local numBots = script:GetAttribute("bots")
+	if (numBots ~= nil) then
+		Bots:MakeBots(Server, numBots)
+	end
 end
 
 

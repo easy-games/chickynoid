@@ -97,6 +97,9 @@
     },
     "ServerStorage": {
       "$path": "DataModel/ServerStorage.rbxm",
+      "Plugins": {
+        "$path": "DataModel/ServerStorage/Plugins"
+      },
       "TagList": {
         "$path": "DataModel/ServerStorage/TagList.rbxm"
       }

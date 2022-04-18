@@ -156,13 +156,13 @@ function ChickynoidServer:AddConnection(userId, player)
 	end
 	
     --Tell everyone
-    for key,playerRecord in pairs(self.playerRecords) do
-		self:SendWorldstate(playerRecord)
+    for key,record in pairs(self.playerRecords) do
+		self:SendWorldstate(record)
     end
 	
-	for key,playerRecord in pairs(self.playerRecords) do
-		playerRecord:SendCollisionData()
-	end
+	 
+	playerRecord:SendCollisionData()
+	 
 
     return playerRecord    
 end

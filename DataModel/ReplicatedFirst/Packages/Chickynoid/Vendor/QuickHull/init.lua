@@ -82,7 +82,7 @@ end
 
 -- class
 
-local EPSILON = 2e-52
+local EPSILON = 0.0001
 
 local MERGE_NON_CONVEX_WRT_LARGER_FACE = 1
 local MERGE_NON_CONVEX = 2
@@ -294,7 +294,11 @@ function quick_hull:createInitialSimplex()
 			end
 		end
 	end
-
+	
+	if (v2 == nil) then
+		return
+	end
+	
 	local normal = getPlaneNormal(v0.point, v1.point, v2.point)
 	local distPO = v0.point:Dot(normal)
 	maxDistance = 0
@@ -307,6 +311,10 @@ function quick_hull:createInitialSimplex()
 				v3 = vertex
 			end
 		end
+	end
+	
+	if (v3 == nil) then
+		return
 	end
 
 	local faces = {}

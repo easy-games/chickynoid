@@ -79,14 +79,15 @@ function ServerChickynoid:DestroyRobloxParts()
         self.hitBox:Destroy()
         self.hitBox = nil
     end
-    
-    for _,record in pairs(self.pushes) do
-        
-        record.attachment:Destroy()
-        record.pusher:Destroy()
-    end
-    self.pushes = {}
-        
+	
+	if (self.pushes ~= nil) then
+	    for _,record in pairs(self.pushes) do
+	        
+	        record.attachment:Destroy()
+	        record.pusher:Destroy()
+	    end
+	    self.pushes = {}
+	end    
 end
 
 function ServerChickynoid:HandleEvent(server, event)
@@ -362,112 +363,114 @@ end
 function ServerChickynoid:RobloxPhysicsStep(server, deltaTime)
 	
 	self:UpdateServerCollisionBox(server)
- 
-    --Check to see what  we're touching, and push them.
-    if (self.pushPart == nil) then
-        local box = Instance.new("Part")
-        box.Size = Vector3.new(5,5,5)
-        box.Parent = nil--server.worldRoot
-        box.Position = self.simulation.state.pos
-        box.Anchored = true
-        self.pushPart = box
-    end
-    
-	local vel = Vector3.new(self.simulation.state.pushDir.x,0,self.simulation.state.pushDir.y) * self.simulation.constants.pushSpeed
-    
-    --clear the previous frames velocity objects    
-    if (self.pushes == nil) then
-        self.pushes = {}
-    end
-    
-    
-    for _,record in pairs(self.pushes) do
-        
-        record.frames -= 1
-        if (record.frames <= 0) then
-            record.pusher.MaxForce =0            
-            --table.remove(self.pushes,counter)
-            --print("destroy")
-        else
-            record.pusher.MaxForce = 1000
-        end
-          
-    end
- 
-    
-    if (vel.Magnitude > 0.001) then
-       
-        self.pushPart.CFrame = CFrame.new(self.simulation.state.pos)
-        local list = game.Workspace:GetPartsInPart(self.pushPart)
+	
+	local push = true
+	if (push == true) then
+	    --Check to see what  we're touching, and push them.
+	    if (self.pushPart == nil) then
+	        local box = Instance.new("Part")
+	        box.Size = Vector3.new(5,5,5)
+	        box.Parent = nil--server.worldRoot
+	        box.Position = self.simulation.state.pos
+	        box.Anchored = true
+	        self.pushPart = box
+	    end
+	    
+		local vel = Vector3.new(self.simulation.state.pushDir.x,0,self.simulation.state.pushDir.y) * self.simulation.constants.pushSpeed
+	    
+	    --clear the previous frames velocity objects    
+	    if (self.pushes == nil) then
+	        self.pushes = {}
+	    end
+	    
+	    
+	    for _,record in pairs(self.pushes) do
+	        
+	        record.frames -= 1
+	        if (record.frames <= 0) then
+	            record.pusher.MaxForce =0            
+	            --table.remove(self.pushes,counter)
+	            --print("destroy")
+	        else
+	            record.pusher.MaxForce = 1000
+	        end
+	          
+	    end
+	 
+	    
+	    if (vel.Magnitude > 0.001) then
+	       
+	        self.pushPart.CFrame = CFrame.new(self.simulation.state.pos)
+	        local list = game.Workspace:GetPartsInPart(self.pushPart)
 
-        if (#list > 0) then
-            for _,value in pairs(list) do
-                if (value.Anchored == false) then
-                                                           
-                    
-                    --Lets do a dotproduct to see if we want this push
-					local dir = value.Position - self.simulation.state.pos
-					
-                    local dot = dir:Dot(self.simulation.state.vel)
-                   
-                    if (dot < 0.2) then
-                        continue
-                    end
-                    
-                    local mass = value.AssemblyMass
-					
-					--Push towards the object
-					local mag = vel.Magnitude
-					vel = vel.Unit + dir.Unit
-					vel = (Vector3.new(vel.x, 0, vel.z)).Unit * mag
-					
-					
-					
-                    local localVel = value.CFrame:VectorToObjectSpace(vel)
-         
-                                        
-                    --value:ApplyImpulseAtPosition(self.pushPart.Position, vel)
-                    
-                    local found = false
-                    for key,record in pairs(self.pushes) do
-                        if (record.part == value) then
-                            found = true
-                            --recycle existing pusher
-                            record.attachment.WorldPosition = self.pushPart.Position
-                            record.pusher.VectorVelocity = vel
-                            record.frames = 3                            
-                        end
-                    end
-                    if (found == true) then
-                        continue
-                    end
-                                   
-                    local pusher = Instance.new("LinearVelocity")
-                    pusher.Parent = value
-                    pusher.VectorVelocity = vel
-                    pusher.VelocityConstraintMode = Enum.VelocityConstraintMode.Vector
-                    pusher.RelativeTo = Enum.ActuatorRelativeTo.Attachment0
-                    
-                    local attachment = Instance.new("Attachment")
-                    attachment.Parent = value
-                    attachment.WorldPosition = self.pushPart.Position
-                    pusher.Parent = attachment
-                    pusher.Attachment0 = attachment
-                    
-                    --Create a record
-                    local record = {}
-                    record.pusher = pusher
-                    record.attachment = attachment
-                    record.frames = 3
-                    record.part = value
-                    
-                    table.insert(self.pushes,record)
-                     
-                end
-            end
-        end
-    end
-    
+	        if (#list > 0) then
+	            for _,value in pairs(list) do
+	                if (value.Anchored == false) then
+	                                                           
+	                    
+	                    --Lets do a dotproduct to see if we want this push
+						local dir = value.Position - self.simulation.state.pos
+						
+	                    local dot = dir:Dot(self.simulation.state.vel)
+	                   
+	                    if (dot < 0.2) then
+	                        continue
+	                    end
+	                    
+	                    local mass = value.AssemblyMass
+						
+						--Push towards the object
+						local mag = vel.Magnitude
+						vel = vel.Unit + dir.Unit
+						vel = (Vector3.new(vel.x, 0, vel.z)).Unit * mag
+						
+						
+						
+	                    local localVel = value.CFrame:VectorToObjectSpace(vel)
+	         
+	                                        
+	                    --value:ApplyImpulseAtPosition(self.pushPart.Position, vel)
+	                    
+	                    local found = false
+	                    for key,record in pairs(self.pushes) do
+	                        if (record.part == value) then
+	                            found = true
+	                            --recycle existing pusher
+	                            record.attachment.WorldPosition = self.pushPart.Position
+	                            record.pusher.VectorVelocity = vel
+	                            record.frames = 3                            
+	                        end
+	                    end
+	                    if (found == true) then
+	                        continue
+	                    end
+	                                   
+	                    local pusher = Instance.new("LinearVelocity")
+	                    pusher.Parent = value
+	                    pusher.VectorVelocity = vel
+	                    pusher.VelocityConstraintMode = Enum.VelocityConstraintMode.Vector
+	                    pusher.RelativeTo = Enum.ActuatorRelativeTo.Attachment0
+	                    
+	                    local attachment = Instance.new("Attachment")
+	                    attachment.Parent = value
+	                    attachment.WorldPosition = self.pushPart.Position
+	                    pusher.Parent = attachment
+	                    pusher.Attachment0 = attachment
+	                    
+	                    --Create a record
+	                    local record = {}
+	                    record.pusher = pusher
+	                    record.attachment = attachment
+	                    record.frames = 3
+	                    record.part = value
+	                    
+	                    table.insert(self.pushes,record)
+	                     
+	                end
+	            end
+	        end
+	    end
+	end
 end
 
 return ServerChickynoid

@@ -56,7 +56,7 @@ function Simulation.new()
 	self.constants.jumpThrustPower = 300          --If you keep holding jump, how much extra vel per second is there?  (turn this off for no variable height jumps)
 	self.constants.jumpThrustDecay = 0.25          --Smaller is faster
 	self.constants.pushSpeed = 16					--set this lower than maxspeed if you want stuff to feel heavy
-	self.constants.stepSize = 2.1
+	self.constants.stepSize = 2.2
 
     --[[ 
      --These parameters give you a pretty-close-to-stock feeling humanoid

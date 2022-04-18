@@ -2,7 +2,7 @@ local Triangle = {}
 
 
 local ref = Instance.new('WedgePart') 
-ref.Color         = Color3.fromRGB(200, 200, 200)
+ref.Color         = Color3.fromRGB(200, 255, 200)
 ref.Material      = Enum.Material.SmoothPlastic
 ref.Reflectance   = 0
 ref.Transparency  = 0

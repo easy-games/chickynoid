@@ -139,8 +139,9 @@ function CharacterModel:Think(deltaTime, dataRecord)
 
     --Flag that something has changed
     if (self.animCounter ~= dataRecord.animCounter) then
-        self.animCounter = dataRecord.animCounter
-        self:PlayAnimation(dataRecord.animNum, true)
+		self.animCounter = dataRecord.animCounter
+
+		self:PlayAnimation(dataRecord.animNum, true)
     end
     
     if (self.playingTrackNum == Enums.Anims.Run) then

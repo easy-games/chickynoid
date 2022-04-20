@@ -212,6 +212,10 @@ function ClientChickynoid:HandleNewState(state, lastConfirmed, serverTime, serve
         self:SpawnDebugSphere(self.simulation.state.pos, Color3.fromRGB(255, 170, 0))
 		
 		CollisionModule:UpdateDynamicParts()
+		
+		
+		self.simulation.characterData:SetIsResimulating(true)
+		
         -- Resimulate all of the commands the server has not confirmed yet
         -- print("winding forward", #remainingCommands, "commands")
         for _, cmd in pairs(remainingCommands) do
@@ -223,7 +227,9 @@ function ClientChickynoid:HandleNewState(state, lastConfirmed, serverTime, serve
             -- Resimulated positions
             self:SpawnDebugSphere(self.simulation.state.pos, Color3.fromRGB(255, 255, 0))
         end
-
+		
+		self.simulation.characterData:SetIsResimulating(false)
+		
         -- Did we make a misprediction? We can tell if our predicted position isn't the same after reconstructing everything
         local delta = oldPos - self.simulation.state.pos
         --Add the offset to mispredict so we can blend it off
@@ -251,10 +257,12 @@ function ClientChickynoid:HandleNewState(state, lastConfirmed, serverTime, serve
         NetGraph:AddPoint(self.ping * 0.25, color1,4)
         NetGraph:AddPoint(total * 0.25, color2,3)
     else
-        color1 = Color3.new(0.0156863, 1, 0)
-        color2 = Color3.new(0.231373, 1, 0)
-        NetGraph:AddPoint(self.ping * 0.25, color1,4)
-        NetGraph:AddBar(total * 0.25, color2,1)
+      
+       
+		NetGraph:AddPoint(self.ping * 0.25, color1,4)
+		local tint = Color3.new(0.5,1,0.5)
+		NetGraph:AddPoint(total * 0.25, tint,3)
+		NetGraph:AddBar(10 * 0.25, tint, 1)
     end
        
     --Server fps

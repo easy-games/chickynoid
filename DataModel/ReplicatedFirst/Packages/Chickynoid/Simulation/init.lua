@@ -92,7 +92,9 @@ function Simulation:ProcessCommand(cmd)
     if (onGround ~= nil and onGround.normal.Y < self.constants.maxGroundSlope) then
         onGround = nil
     end
-
+	
+	--Mark if we were onground at the start of the frame
+	local startedOnGround = onGround
     
     --Did the player have a movement request?
     local wishDir = nil
@@ -172,10 +174,8 @@ function Simulation:ProcessCommand(cmd)
             --For platform standing
             if (self.state.jump == 0) then
                 self.lastGround = onGround
-                
             end
-            
-        end
+		end
     end
     
 
@@ -218,24 +218,33 @@ function Simulation:ProcessCommand(cmd)
  
     
     --Sweep the player through the world, once flat along the ground, and once "step up'd"
-    local stepupResult = nil
+	local stepUpResult = nil
     local walkNewPos, walkNewVel, hitSomething = self:ProjectVelocity(self.state.pos, self.state.vel, cmd.deltaTime  )
     
     -- Do we attempt a stepup?                              (not jumping!)
     if (onGround ~= nil and hitSomething == true and self.state.jump == 0) then
-         stepupResult = self:DoStepUp(self.state.pos, self.state.vel, cmd.deltaTime)
+		stepUpResult = self:DoStepUp(self.state.pos, self.state.vel, cmd.deltaTime)
     end
     
     --Choose which one to use, either the original move or the stepup
-    if (stepupResult ~= nil) then
-        self.state.stepUp = stepupResult.stepUp
-        self.state.pos = stepupResult.pos
-        self.state.vel = stepupResult.vel
+	if (stepUpResult ~= nil) then
+		self.state.stepUp = stepUpResult.stepUp
+		self.state.pos = stepUpResult.pos
+		self.state.vel = stepUpResult.vel
     else
         self.state.pos = walkNewPos
         self.state.vel = walkNewVel
     end
-    
+	
+	--Do stepDown
+	if (startedOnGround ~= nil and self.state.jump == 0) then
+		local stepDownResult = self:DoStepDown(self.state.pos)
+		if (stepDownResult ~= nil) then
+			self.state.stepUp = stepDownResult.stepDown
+			self.state.pos = stepDownResult.pos
+ 		end	
+	end
+	
     
     --Input/Movement is done, do the update of timers and write out values
     
@@ -252,10 +261,7 @@ function Simulation:ProcessCommand(cmd)
         self.state.targetAngle = MathUtils:PlayerVecToAngle(wishDir)
 		self.state.angle = MathUtils:LerpAngle( self.state.angle,  self.state.targetAngle, self.constants.turnSpeedFrac * cmd.deltaTime)
     end
-	
 
-	
-    
     --Do Platform move
     --self:DoPlatformMove(self.lastGround, cmd.deltaTime)
     
@@ -264,9 +270,7 @@ function Simulation:ProcessCommand(cmd)
     self.characterData:SetAngle(self.state.angle)
     self.characterData:SetStepUp(self.state.stepUp)    
     self.characterData:SetFlatSpeed(flatVel.Magnitude)
-	
-	
-	
+
     debug.profileend()
 end
 
@@ -288,9 +292,8 @@ function Simulation:DoStepUp(pos, vel, deltaTime)
 
     --Trace back down
     local traceDownPos = stepUpNewPos
-
     local hitResult = CollisionModule:Sweep(traceDownPos, traceDownPos - stepVec)
-
+	
     stepUpNewPos = hitResult.endPos
 
     --See if we're mostly on the ground after this? otherwise rewind it
@@ -305,14 +308,9 @@ function Simulation:DoStepUp(pos, vel, deltaTime)
 	
 	
 	if (ground ~= nil) then
-		local step = self.state.pos.y - stepUpNewPos.y
-			
-		if (math.abs(step)<0.01) then
-			return nil
-		end
-		 
+ 		 
         local result = {
-            stepUp = step,
+			stepUp = self.state.pos.y - stepUpNewPos.y,
             pos = stepUpNewPos,
             vel = stepUpNewVel
         }
@@ -322,6 +320,28 @@ function Simulation:DoStepUp(pos, vel, deltaTime)
     return nil
 end
 
+
+--Magic to stick to the ground instead of falling on every stair
+function Simulation:DoStepDown(pos)
+
+	local stepVec =  Vector3.new(0, self.constants.stepSize, 0)
+	local hitResult = CollisionModule:Sweep(pos, pos - stepVec)
+	
+	if (hitResult.startSolid == false and hitResult.fraction < 1 and hitResult.normal.Y >= self.constants.maxGroundSlope) then
+		local delta = pos.y - hitResult.endPos.y
+		
+		if (delta > 0.001) then
+			local result = {
+				
+				pos = hitResult.endPos,
+				stepDown = delta
+			}
+			return result
+		end
+	end
+	
+	return nil
+end
 
 function Simulation:Destroy()
     if self.debugModel then

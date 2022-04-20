@@ -51,7 +51,9 @@ local function CompareFloat16(a,b)
     return a==b
 end
 
-
+function CharacterData:SetIsResimulating(bool)
+	self.isResimulating = bool
+end
 
 function CharacterData:ModuleSetup()
     
@@ -95,7 +97,8 @@ function CharacterData.new()
         
         --Be extremely careful about having any kind of persistant nonserialized data!
         --If in doubt, stick it in the serialized!
-        animationExclusiveTime = 0,
+		animationExclusiveTime = 0,
+		isResimulating = false,
         
     }, CharacterData)
     
@@ -123,11 +126,18 @@ end
 
 
 function CharacterData:PlayAnimation(animNum, forceRestart, exclusiveTime )
-    
+	
+	--Dont change animations during resim
+	if (self.isResimulating == true) then
+		return
+	end
+	
+	--If we're in an exclusive window of having an animation play, ignore this request
     if (tick() < self.animationExclusiveTime and forceRestart == false) then
         return
     end
-        
+	
+	--Restart this anim, or its a different anim than we're currently playing	
     if (forceRestart == true or animNum ~= self.serialized.animNum) then
         self.serialized.animCounter += 1
         if (self.serialized.animCounter > 255) then
@@ -138,7 +148,6 @@ function CharacterData:PlayAnimation(animNum, forceRestart, exclusiveTime )
     if (exclusiveTime ~= nil and exclusiveTime > 0) then
         self.animationExclusiveTime = tick() + exclusiveTime
     end
-    
  
     self.serialized.animNum = animNum
 end

@@ -143,13 +143,20 @@ function CharacterModel:Think(deltaTime, dataRecord)
 
 		self:PlayAnimation(dataRecord.animNum, true)
     end
-    
-    if (self.playingTrackNum == Enums.Anims.Run) then
+ 
+	if (self.playingTrackNum == Enums.Anims.Run or self.playingTrackNum == Enums.Anims.Walk) then
         
         local vel = dataRecord.flatSpeed
         local playbackSpeed = (vel / 16)   --Todo: Persistant player stats
         self.playingTrack:AdjustSpeed(playbackSpeed)
-    end
+	end
+	
+	if (self.playingTrackNum == Enums.Anims.Push) then
+
+		local vel = 14
+		local playbackSpeed = (vel / 16)   --Todo: Persistant player stats
+		self.playingTrack:AdjustSpeed(playbackSpeed)
+	end
     
     if (self.model.Humanoid.Health <= 0) then
         --its dead! Really this should never happen

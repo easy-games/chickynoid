@@ -397,7 +397,6 @@ function ServerChickynoid:RobloxPhysicsStep(server, deltaTime)
 	          
 	    end
 	 
-	    
 	    if (vel.Magnitude > 0.001) then
 	       
 	        self.pushPart.CFrame = CFrame.new(self.simulation.state.pos)
@@ -416,7 +415,11 @@ function ServerChickynoid:RobloxPhysicsStep(server, deltaTime)
 	                    if (dot < 0.2) then
 	                        continue
 	                    end
-	                    
+						
+						--We are pushing
+						--Typically you wouldn't ever *ever* write to state like this, but pushing comes from roblox directly so we don't have any choice here
+						self.simulation.state.pushing = 0.5
+						
 	                    local mass = value.AssemblyMass
 						
 						--Push towards the object

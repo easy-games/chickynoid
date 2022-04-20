@@ -28,7 +28,8 @@ function Simulation.new()
     self.state.targetAngle = 0
     self.state.stepUp = 0
     self.state.inAir = 0
-    self.state.jumpThrust = 0
+	self.state.jumpThrust = 0
+	self.state.pushing = 0	--External flag comes from server (ungh >_<')
     
     self.characterData = CharacterData.new()
     
@@ -86,7 +87,8 @@ function Simulation:ProcessCommand(cmd)
     local onGround = nil
     self.lastGround = nil
     onGround = self:DoGroundCheck(self.state.pos)
-    
+	
+	
     
     --If the player is on too steep a slope, its not ground
     if (onGround ~= nil and onGround.normal.Y < self.constants.maxGroundSlope) then
@@ -118,8 +120,12 @@ function Simulation:ProcessCommand(cmd)
                                    
 			flatVel = self:GroundAccelerate(wishDir, self.constants.maxSpeed, self.constants.accel, flatVel ,cmd.deltaTime)
          
-            --Good time to trigger our walk anim
-            self.characterData:PlayAnimation(Enums.Anims.Run, false)
+			--Good time to trigger our walk anim
+			if (self.state.pushing > 0) then
+				self.characterData:PlayAnimation(Enums.Anims.Push, false)
+			else
+				self.characterData:PlayAnimation(Enums.Anims.Walk, false)
+			end
         else
             --Moving through the air under player control
 			flatVel = self:Accelerate(wishDir, self.constants.airSpeed, self.constants.airAccel, flatVel, cmd.deltaTime)
@@ -260,7 +266,11 @@ function Simulation:ProcessCommand(cmd)
     if (wishDir ~= nil) then
         self.state.targetAngle = MathUtils:PlayerVecToAngle(wishDir)
 		self.state.angle = MathUtils:LerpAngle( self.state.angle,  self.state.targetAngle, self.constants.turnSpeedFrac * cmd.deltaTime)
-    end
+	end
+	
+	--Do pushing animation timer
+	self:DoPushingTimer(cmd)
+	
 
     --Do Platform move
     --self:DoPlatformMove(self.lastGround, cmd.deltaTime)
@@ -562,6 +572,20 @@ function Simulation:DoPlatformMove(lastGround, deltaTime)
         end
     end
     
+end
+
+function Simulation:DoPushingTimer(cmd)
+	
+	if (game["Run Service"]:IsClient()) then
+		return
+	end
+	
+	if (self.state.pushing > 0) then
+		self.state.pushing -= cmd.deltaTime
+		if (self.state.pushing < 0) then
+			self.state.pushing = 0
+		end
+	end
 end
 
 

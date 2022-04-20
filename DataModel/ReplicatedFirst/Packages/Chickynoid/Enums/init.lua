@@ -30,9 +30,11 @@ Enums.FpsMode = {
 
 Enums.Anims = {
     Idle = 0,
-    Run = 1,
-    Jump = 2,
-    Fall = 3,
+	Walk = 1,	
+	Run = 2,
+	Push = 3,
+    Jump = 4,
+    Fall = 5,
 }
 
 return Enums

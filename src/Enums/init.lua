@@ -1,43 +1,40 @@
-local Root = script.Parent
-local EnumList = require(Root.Parent.EnumList)
-
 local Enums = {}
 
-Enums.EventType = EnumList.new("EventType", {
-    "ChickynoidAdded",
-    "ChickynoidRemoving",
-    "Command",
-    "State",
-    "Snapshot",
-    "WorldState",
-    "CollisionData",
-    "ResetConnection",
+Enums.EventType = {
+    ChickynoidAdded = 0,
+    ChickynoidRemoving = 1,
+    Command = 2,
+    State = 3,
+    Snapshot = 4,
+    WorldState = 5,
+    CollisionData = 6,
+    ResetConnection = 7,
 
     --Just for test
-    "RocketSpawn",
-    "RocketDie",
-})
+    RocketSpawn = 8,
+    RocketDie = 9,
+}
 
-Enums.NetworkProblemState = EnumList.new("NetworkProblemState", {
-    "None",
-    "TooFarBehind",
-    "TooFarAhead",
-    "TooManyCommands",
-})
+Enums.NetworkProblemState = {
+    None = 0,
+    TooFarBehind = 1,
+    TooFarAhead = 2,
+    TooManyCommands = 3,
+}
 
-Enums.FpsMode = EnumList.new("FpsMode", {
-    "Uncapped",
-    "Hybrid",
-    "Fixed60",
-})
+Enums.FpsMode = {
+    Uncapped = 0,
+    Hybrid = 1,
+    Fixed60 = 2,
+}
 
-Enums.Anims = EnumList.new("Animations", {
-    "Idle",
-    "Walk",
-    "Run",
-    "Push",
-    "Jump",
-    "Fall",
-})
+Enums.Anims = {
+    Idle = 0,
+    Walk = 1,
+    Run = 2,
+    Push = 3,
+    Jump = 4,
+    Fall = 5,
+}
 
 return Enums

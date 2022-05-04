@@ -1,0 +1,7 @@
+{
+	"name": "chickynoid",
+	"tree": {
+		"$className": "DataModel",
+		"$path": "src"
+	}
+}

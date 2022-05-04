@@ -1,10 +1,48 @@
 {
-  "name": "chickynoid",
+  "name": "example",
   "tree": {
     "$className": "DataModel",
-	"$path": "Packages",
-	"Chickynoid": {
-		"$path": "src"
+	"Workspace": {
+		"$className": "Workspace",
+		"$path": "example/workspace"
+	},
+	"ReplicatedStorage": {
+		"$className": "ReplicatedStorage",
+		"Packages": {
+			"$path": "Packages",
+			"Chickynoid": {
+				"$path": "src"
+			}
+		}
+	},
+	"ServerScriptService": {
+		"$className": "ServerScriptService",
+		"$path": "example/server"
+	},
+	"StarterPlayer": {
+		"$className": "StarterPlayer",
+		"StarterPlayerScripts": {
+			"$className": "StarterPlayerScripts",
+			"$path": "example/client"
+		}
+	},
+	"Lighting": {
+		"$className": "Lighting",
+		"$path": "example/lighting",
+		"$properties": {
+			"Brightness": 3,
+			"EnvironmentDiffuseScale": 1,
+			"EnvironmentSpecularScale": 1,
+			"GlobalShadows": true,
+			"ShadowSoftness": 1,
+			"Technology": "ShadowMap"
+		}
+	},
+	"Players": {
+		"$className": "Players",
+		"$properties": {
+			"CharacterAutoLoads": false
+		}
 	}
   }
 }

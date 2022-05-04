@@ -7,4 +7,3 @@ realm = "shared"
 [dependencies]
 BitBuffer = "dekkonot/bitbuffer@1.1.1"
 TableUtil = "sleitnick/table-util@1.1.4"
-EnumList = "sleitnick/enum-list@2.0.0"

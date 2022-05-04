@@ -10,12 +10,7 @@ dependencies = []
 [[package]]
 name = "easy-games/chickynoid"
 version = "0.1.0"
-dependencies = [["BitBuffer", "dekkonot/bitbuffer@1.1.1"], ["EnumList", "sleitnick/enum-list@2.0.0"], ["TableUtil", "sleitnick/table-util@1.1.4"]]
-
-[[package]]
-name = "sleitnick/enum-list"
-version = "2.0.0"
-dependencies = []
+dependencies = [["BitBuffer", "dekkonot/bitbuffer@1.1.1"], ["TableUtil", "sleitnick/table-util@1.1.4"]]
 
 [[package]]
 name = "sleitnick/table-util"

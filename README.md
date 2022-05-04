@@ -4,26 +4,26 @@ A server-authoritative networking character controller for Roblox.
 
 Maintained and written by MrChickenRocket and Brooke.
 
-A relatively recent build can usually be found here:
+A demo place of Chickynoid can be found here, or under the `example/` directory:
 
 https://www.roblox.com/games/8289135181/Chickynoid
 
 
 
-**Massive Work In Progress**
+### **Massive Work In Progress**
 
 Fair warning, this is not ready for production in it's current form.
 Feel free to have a look at it and see how it does what it does, though!
 
 
-**Thankyous!**
+### Thankyous!
 
-Special thanks to https://easy.gg/ who are currently sponsoring Chickynoids development! 
+Special thanks to https://easy.gg/ who are currently sponsoring Chickynoid's development! 
 
 
 ## 
 
-**What is it?**
+## What is it?
 
 Chickynoid is intended to be a hard replacement for roblox "humanoid" based characters.
 It consists of the chickynoid character controller simulation, a character 'renderer', and a replication framework on the client and server for managing player connections and network replication. 
@@ -32,7 +32,7 @@ Because of how invasive it is and how it works, it's never going to be a drag-an
 
 
 
-**What does it do?**
+## What does it do?
 
 Chickynoid heavily borrows from the same principles that games like quake, cod, overwatch, and other first person shooters use to prevent fly hacking, teleporting, and other "typical" character hacks that roblox is typically vulnerable to.
 
@@ -41,8 +41,7 @@ It implements a full character controller, character physics, replication, and w
 It implements "rollback" style networking on the client, so if the server disagrees about the results of your input, the client corrects to where it should be based on the remaining unconfirmed input.
 
 
-
-**What are the benefits**
+## What are the benefits
 
 Players can't move cheat with this. At all*
 The version of the chickynoid on the server is ground-truth, so its perfect for doing server-side checks for touching triggers and other gameplay uses that humanoid isn't good at.
@@ -52,7 +51,7 @@ Turn speed, braking, max speed, "step up size" and acceleration are much easier 
  * That's the hope anyway. We'll see what happens...
 
 
-**What are the drawbacks?**
+## What are the drawbacks?
 
 The collision module is limited to parts right now and totally custom. It's designed for making rapid short-distance traces for player movement in a world made out of parts, and not much else.
 
@@ -60,17 +59,12 @@ This doesn't replace even a significant subset of what humanoids currently do. I
 
 Your character is a box, not a nice physically accurate mess like roblox uses.
 
+## Whats *todo*?
 
-
-## **Whats todo**
-
-Buffer underrun detection "Antiwarp" (so technically freezing your character is still possible right now)
-
-Delta time validation (so technically speed cheating is still possible right now)
-
-More tweaks to character rendering (hip height)
-
-Handling player death, resetting, teleporting.
+- ~~Buffer underrun detection "Antiwarp" (so technically freezing your character is still possible right now)~~
+- ~~Delta time validation (so technically speed cheating is still possible right now)~~
+- ~~More tweaks to character rendering (hip height)~~
+- ~~Handling player death, resetting, teleporting.~~
 
 
 ## How does it do it?
@@ -92,7 +86,7 @@ If the client disagrees, this is called a mispredict, and forces a resimulation 
 
 We completely eliminate clipping/geometry hacks, teleport hacks, and fly hacks.
 
-This _mostly_ eliminates lag hacks (freeze your window) and speed hacks.
+This _almost entirely_ eliminates lag hacks (freeze your window) and speed hacks.
 
 We make a good effort to detect speed and lag hacks by watching the stream of incoming commands and looking for problems. A speed hack tries to tell the server to simulate more time than has actually passed, which we can detect and prevent. 
 

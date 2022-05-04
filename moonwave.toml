@@ -7,6 +7,23 @@ gitSourceBranch = "main"
 onBrokenLinks = "throw"
 onBrokenMarkdownLinks = "warn"
 
+[[navbar.items]]
+href = "https://www.roblox.com/games/8289135181"
+label = "Example Game"
+position = "right"
+
 [home]
 enabled = true
 includeReadme = true
+
+[[home.features]]
+title = "Goodbye Move Cheats"
+description = "Players can't move cheat with this. At all* The version of the Chickynoid on the server is ground-truth, so its perfect for doing server-side checks for touching triggers and other gameplay uses that Humanoid's aren't so good at."
+
+[[home.features]]
+title = "Customizable"
+description = "Turn speed, braking, max speed, 'step up size', and acceleration are much easier to tune than with Humanoids. You have direct control over all character physics."
+
+[[home.features]]
+title = "Straightforward"
+description = "Beyond the added complexity of server authority, the Chickynoid player controller code is fairly straightforward, and is more akin to a typical first person shooter player controller and so slides along walls and up/down stairs in a generally pleasing way."

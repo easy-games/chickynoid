@@ -8,18 +8,16 @@ A demo place of Chickynoid can be found here, or under the `example/` directory:
 
 https://www.roblox.com/games/8289135181/Chickynoid
 
-
-
-### **Massive Work In Progress**
+### ___Massive Work In Progress___
 
 Fair warning, this is not ready for production in it's current form.
 Feel free to have a look at it and see how it does what it does, though!
 
+<!--moonwave-hide-before-this-line-->
 
 ### Thankyous!
 
 Special thanks to https://easy.gg/ who are currently sponsoring Chickynoid's development! 
-
 
 ## 
 

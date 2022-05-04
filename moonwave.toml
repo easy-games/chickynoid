@@ -1,0 +1,12 @@
+title = "Chickynoid"
+tagline = "A server-authoritative networking character controller for Roblox."
+
+gitSourceBranch = "main"
+
+[docusaurus]
+onBrokenLinks = "throw"
+onBrokenMarkdownLinks = "warn"
+
+[home]
+enabled = true
+includeReadme = true

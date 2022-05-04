@@ -168,19 +168,21 @@ function Simulation:ProcessCommand(cmd)
         --Check jumpPads
         if (onGround.hullRecord) then
             local instance = onGround.hullRecord.instance
-            
-            local vec3 = instance:GetAttribute("launch")
-            if (vec3) then
-                local dir = instance.CFrame:VectorToWorldSpace(vec3)
-                self.state.vel = dir 
-                self.state.jump = 0.2
-                self.characterData:PlayAnimation(Enums.Anims.Jump, true, 0.2)
-            end
-            
-            --For platform standing
-            if (self.state.jump == 0) then
-                self.lastGround = onGround
-            end
+			
+			if (instance) then
+	            local vec3 = instance:GetAttribute("launch")
+	            if (vec3) then
+	                local dir = instance.CFrame:VectorToWorldSpace(vec3)
+	                self.state.vel = dir 
+	                self.state.jump = 0.2
+	                self.characterData:PlayAnimation(Enums.Anims.Jump, true, 0.2)
+	            end
+	            
+	            --For platform standing
+	            if (self.state.jump == 0) then
+	                self.lastGround = onGround
+				end
+			end
 		end
     end
     
@@ -243,12 +245,14 @@ function Simulation:ProcessCommand(cmd)
     end
 	
 	--Do stepDown
-	if (startedOnGround ~= nil and self.state.jump == 0) then
-		local stepDownResult = self:DoStepDown(self.state.pos)
-		if (stepDownResult ~= nil) then
-			self.state.stepUp = stepDownResult.stepDown
-			self.state.pos = stepDownResult.pos
- 		end	
+	if (false) then
+		if (startedOnGround ~= nil and self.state.jump == 0) then
+			local stepDownResult = self:DoStepDown(self.state.pos)
+			if (stepDownResult ~= nil) then
+				self.state.stepUp = stepDownResult.stepDown
+				self.state.pos = stepDownResult.pos
+	 		end	
+		end
 	end
 	
     

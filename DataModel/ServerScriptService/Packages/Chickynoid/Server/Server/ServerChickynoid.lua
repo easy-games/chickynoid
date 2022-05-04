@@ -221,7 +221,12 @@ end
     @private
 ]=]
 function ServerChickynoid:HandleClientEvent(server, event)
-    if event.t == EventType.Command then
+	
+	
+	
+
+	
+	if event.t == EventType.Command then
         local command = event.command
         
         if command and typeof(command) == "table" then

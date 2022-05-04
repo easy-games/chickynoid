@@ -8,11 +8,13 @@ Enums.EventType = {
     Snapshot = 4,
 	WorldState = 5,
 	CollisionData = 6,
+	ResetConnection = 7,
     
     --Just for test
-    RocketSpawn = 7,
-    RocketDie = 8,
+    RocketSpawn = 8,
+    RocketDie = 9,
 }
+
 Enums.NetworkProblemState = {
     None = 0,
     TooFarBehind = 1,

@@ -107,7 +107,19 @@ function ClientChickynoid:MakeCommand(dt: number)
         --Cheat #1 - speed cheat!
         if (UserInputService:IsKeyDown(Enum.KeyCode.P)) then
             command.deltaTime *= 3
-        end
+		end
+		
+
+		--Cheat #2 - suspend!
+		if (UserInputService:IsKeyDown(Enum.KeyCode.L)) then
+			local function test(f)
+				return f
+			end
+			for j=1,2000000 do
+				local a = j * 12
+				test(a)
+			end
+		end
     end
     
     if (self:GetIsJumping() == true) then
@@ -172,8 +184,6 @@ function ClientChickynoid:HandleNewState(state, lastConfirmed, serverTime, serve
     end
 
     self.predictedCommands = remainingCommands
-    
- 
     
     local resimulate = true
         
@@ -288,6 +298,14 @@ function ClientChickynoid:HandleNewState(state, lastConfirmed, serverTime, serve
     NetGraph:SetFpsText("Effective Ping: ".. math.floor(total) .."ms")
 end
 
+function ClientChickynoid:IsConnectionBad()
+	
+	if (#self.pings > 10 and self.ping > 1000) then
+		return true
+	end
+	
+	return false
+end
  
 function ClientChickynoid:Heartbeat(serverTime: number, deltaTime: number)
     self.localFrame += 1

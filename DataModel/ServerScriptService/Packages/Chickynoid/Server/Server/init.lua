@@ -73,10 +73,17 @@ function ChickynoidServer:Setup()
         
         local playerRecord = self:GetPlayerByUserId(player.UserId)
         
-        if (playerRecord) then
+		if (playerRecord) then
+
+			if (event.t == EventType.ResetConnection) then
+				
+				print("Player requested a network reset")
+				playerRecord:ResetConnection()
+				return
+			end
+						
             playerRecord.chickynoid:HandleEvent(self, event)
         end
-        
 	end)
 	
 
@@ -116,7 +123,8 @@ function ChickynoidServer:AddConnection(userId, player)
         warn("Player was already connected.", userId)
         self:PlayerDisconnected(userId)
     end
-    
+	
+	--Create the players server connection record
     local playerRecord = {}
     self.playerRecords[userId] = playerRecord
 
@@ -125,7 +133,9 @@ function ChickynoidServer:AddConnection(userId, player)
  
     playerRecord.previousCharacterData = {}
     playerRecord.chickynoid = nil    
-    playerRecord.frame = 0
+	playerRecord.frame = 0
+	playerRecord.firstSnapshot = false
+ 
     
     self:AssignSlot(playerRecord)
     
@@ -155,13 +165,19 @@ function ChickynoidServer:AddConnection(userId, player)
 		self:SendEventToClient(event)
 	end
 	
+	function playerRecord:ResetConnection()
+		self:SendCollisionData()
+		self.firstSnapshot = false
+	end
+	
+	
     --Tell everyone
     for key,record in pairs(self.playerRecords) do
 		self:SendWorldstate(record)
     end
 	
 	 
-	playerRecord:SendCollisionData()
+	playerRecord:ResetConnection()
 	 
 
     return playerRecord    
@@ -377,7 +393,7 @@ function ChickynoidServer:Think(deltaTime)
                     --Todo: delta compress , bitwise compress, etc etc    
                     bitBuffer.writeByte(otherPlayerRecord.slot)
                     
-                    if (playerRecord.firstSnapshot == nil) then
+                    if (playerRecord.firstSnapshot == false) then
                         --Make sure the first write is always a full packet
                         otherPlayerRecord.chickynoid.simulation.characterData:SerializeToBitBuffer(nil, bitBuffer)
                     else
@@ -392,8 +408,14 @@ function ChickynoidServer:Think(deltaTime)
                 end 
             end
 
-            playerRecord.firstSnapshot = true
-                        
+            
+			
+			snapshot.full = false
+			if (playerRecord.firstSnapshot == false) then
+				snapshot.full = true
+				playerRecord.firstSnapshot = true
+			end
+			
             snapshot.b = bitBuffer.dumpString()
             snapshot.f = self.serverTotalFrames 
             snapshot.serverTime = self.serverSimulationTime
@@ -403,6 +425,8 @@ function ChickynoidServer:Think(deltaTime)
     end
    
 end
+
+
 
 function ChickynoidServer:RecreateCollisions(rootFolder)
 	

@@ -1,15 +1,18 @@
-local module = {}
+module = {}
 
 local CollectionService = game.CollectionService
 local MinkowskiSumInstance = require(script.Parent.MinkowskiSumInstance)
+local TerrainModule = require(script.Parent.TerrainCollision)
 
 module.hullRecords = {}
 module.dynamicRecords = {}
 
 local SKIN_THICKNESS = 0.05 --closest you can get to a wall
 module.planeNum = 0
-module.gridSize = 4
+module.gridSize = 8
 module.grid = {}
+
+module.expansionSize = Vector3.new(2,5,2)
 
 local debugParts = false
 
@@ -28,10 +31,7 @@ local corners = {
 
 function module:FetchCell(x,y,z)
 
-    local x = math.floor(x / self.gridSize)
-    local y = math.floor(y / self.gridSize)
-    local z = math.floor(z / self.gridSize)
-    
+ 
     --store in x,z,y order 
     local gx = self.grid[x] 
     if (gx == nil) then
@@ -45,10 +45,7 @@ function module:FetchCell(x,y,z)
 end
 
 function module:CreateAndFetchCell(x,y,z)
-    local x = math.floor(x / self.gridSize)
-    local y = math.floor(y / self.gridSize)
-    local z = math.floor(z / self.gridSize)
-    
+ 
     local gx = self.grid[x] 
     if (gx == nil) then
         gx = {}
@@ -143,13 +140,13 @@ function module:FindPointsAABB(points)
 end
 
 
-function module:WritePointsToHashMap(hullRecord)
+function module:WritePointsToHashMap(hullRecord, points)
 
-	local minx, miny,minz, maxx, maxy, maxz = self:FindPointsAABB(hullRecord.points)
+	local minx, miny,minz, maxx, maxy, maxz = self:FindPointsAABB(points)
 
-	for x = math.floor(minx / self.gridSize), math.floor(maxx/self.gridSize)+1 do
-		for z = math.floor(minz / self.gridSize), math.floor(maxz/self.gridSize)+1 do
-			for y = math.floor(miny / self.gridSize), math.floor(maxy/self.gridSize)+1 do
+	for x = math.floor(minx / self.gridSize), math.ceil(maxx/self.gridSize)-1 do
+		for z = math.floor(minz / self.gridSize), math.ceil(maxz/self.gridSize)-1 do
+			for y = math.floor(miny / self.gridSize), math.ceil(maxy/self.gridSize)-1 do
 
 				local cell = self:CreateAndFetchCell(x,y,z)
 				cell[hullRecord] = hullRecord
@@ -163,24 +160,35 @@ function module:WritePartToHashMap(instance, hullRecord)
     
     local minx,miny,minz, maxx, maxy, maxz = self:FindAABB(instance)
     
-    for x = math.floor(minx / self.gridSize), math.floor(maxx/self.gridSize)+1 do
-        for z = math.floor(minz / self.gridSize), math.floor(maxz/self.gridSize)+1 do
-            for y = math.floor(miny / self.gridSize), math.floor(maxy/self.gridSize)+1 do
+	for x = math.floor(minx / self.gridSize), math.ceil(maxx/self.gridSize)-1 do
+		for z = math.floor(minz / self.gridSize), math.ceil(maxz/self.gridSize)-1 do
+			for y = math.floor(miny / self.gridSize), math.ceil(maxy/self.gridSize)-1 do
                 
                 local cell = self:CreateAndFetchCell(x,y,z)
                 cell[instance] = hullRecord
             end
         end
     end
-    
+	
+	--[[
+	if (game["Run Service"]:IsClient() and instance:GetAttribute("showdebug")) then
+		for x = math.floor(minx / self.gridSize), math.ceil(maxx/self.gridSize)-1 do
+			for z = math.floor(minz / self.gridSize), math.ceil(maxz/self.gridSize)-1 do
+				for y = math.floor(miny / self.gridSize), math.ceil(maxy/self.gridSize)-1 do
+
+					self:SpawnDebugGridBox(x,y,z, Color3.new(math.random(),1,1))
+				end
+			end
+		end
+	end]]--
 end
 
 function module:RemovePartFromHashMap(instance)
 	local minx,miny,minz, maxx, maxy, maxz = self:FindAABB(instance)
 
-	for x = math.floor(minx / self.gridSize), math.floor(maxx/self.gridSize)+1 do
-		for z = math.floor(minz / self.gridSize), math.floor(maxz/self.gridSize)+1 do
-			for y = math.floor(miny / self.gridSize), math.floor(maxy/self.gridSize)+1 do
+	for x = math.floor(minx / self.gridSize), math.ceil(maxx/self.gridSize)-1 do
+		for z = math.floor(minz / self.gridSize), math.ceil(maxz/self.gridSize)-1 do
+			for y = math.floor(miny / self.gridSize), math.ceil(maxy/self.gridSize)-1 do
 
 				local cell = self:FetchCell(x,y,z)
 				if (cell) then
@@ -229,18 +237,27 @@ function module:FetchHullsForBox(min, max)
         maxz = t
     end
     
-    local hullRecords = {}
-    for x = math.floor(minx / self.gridSize), math.floor(maxx/self.gridSize)+1 do
-        for z = math.floor(minz / self.gridSize), math.floor(maxz/self.gridSize)+1 do
-            for y = math.floor(miny / self.gridSize), math.floor(maxy/self.gridSize)+1 do
-
+	local hullRecords = {}
+	
+	--Expanded by 1, so objects right on borders will be in the appropriate query 
+    for x = math.floor(minx / self.gridSize)-1, math.ceil(maxx/self.gridSize) do
+		for z = math.floor(minz / self.gridSize)-1, math.ceil(maxz/self.gridSize) do
+			for y = math.floor(miny / self.gridSize)-1, math.ceil(maxy/self.gridSize) do
+				
                 local cell = self:FetchCell(x,y,z)
                 if (cell) then
                     
                     for key,hull in pairs(cell) do
                         hullRecords[hull] = hull
                     end
-                end
+				end
+				
+				local terrainHull = TerrainModule:FetchCell(x,y,z)
+				if (terrainHull) then
+					for key,hull in pairs(terrainHull) do
+						hullRecords[hull] = hull
+					end
+				end				
             end
         end
     end
@@ -308,25 +325,18 @@ function module:ProcessCollisionOnInstance(instance, playerSize)
 	end
 end
 
-function module:MakeWorld(folder, playerSize)
-    self.hulls = {}
-    for key,instance in pairs(folder:GetDescendants()) do
-		self:ProcessCollisionOnInstance(instance, playerSize)
-    end
-	
-	folder.DescendantAdded:Connect(function(instance)
-		self:ProcessCollisionOnInstance(instance, playerSize)
-	end)
 
-	folder.DescendantRemoving:Connect(function(instance)
-		local record = module.hullRecords[instance]
-		
-		if (record) then
-			self:RemovePartFromHashMap(instance)
-		end
-	end)
-	
-	--self:ProcessTerrain(playerSize)
+function module:SpawnDebugGridBox(x,y,z, color)
+
+	local instance = Instance.new("Part")
+	instance.Size = Vector3.new(self.gridSize,self.gridSize,self.gridSize)
+	instance.Position = (Vector3.new(x,y,z)*self.gridSize) +(Vector3.new(self.gridSize,self.gridSize,self.gridSize)*0.5)
+	instance.Transparency = 0.75
+	instance.Color = color
+	instance.Parent = game.Workspace
+	instance.Anchored = true
+	instance.TopSurface = Enum.SurfaceType.Smooth
+	instance.BottomSurface = Enum.SurfaceType.Smooth
 end
 
 
@@ -713,7 +723,6 @@ function module:BoxTest(pos)
             data.fraction = 0
             break
         end
-       
     end
  
     debug.profileend()
@@ -732,194 +741,40 @@ function module:UpdateDynamicParts()
 end
 
 
-function module:TerrainSolid(content, x,y,z)
-	
-	if (content[x][y][z] < 1) then
-		return false
-	end
-	
-	if (x-1 > 0 and	content[x-1][y][z] < 1) then 
-		return false
-	end
-	if (y-1 > 0 and	content[x][y-1][z] < 1) then 
-		return false
-	end
-	if (z-1 > 0 and	content[x][y][z-1] < 1) then 
-		return false
-	end
-	if (x+1 < content.Size.x and content[x+1][y][z] < 1) then 
-		return false
-	end
-	if (y+1 < content.Size.y and content[x][y+1][z] < 1) then 
-		return false
-	end
-	if (z+1 < content.Size.z and content[x][y][z+1] < 1) then 
-		return false
+function module:MakeWorld(folder, playerSize)
+
+	self.expansionSize = playerSize
+	self.hulls = {}
+	TerrainModule:Setup(self.gridSize, playerSize)
+
+	for key,instance in pairs(folder:GetDescendants()) do
+		self:ProcessCollisionOnInstance(instance, playerSize)
 	end
 
-	return true
-	
-end
+	folder.DescendantAdded:Connect(function(instance)
+		self:ProcessCollisionOnInstance(instance, playerSize)
+	end)
 
-local function lerp(a,b,frac)
-	
-	return (a*(1-frac)) + (b*(frac))
-end
+	folder.DescendantRemoving:Connect(function(instance)
+		local record = module.hullRecords[instance]
 
-function module:GetOccupancyBilinear(occ, localx,localy,localz)
-	
-	local x = math.floor(localx)
-	local y = math.floor(localy)
-	local z = math.floor(localz)
-	
-	if (x >= occ.Size.x-1 or y >= occ.Size.y-1 or z >= occ.Size.z-1) then
-		return occ[x][y][z]
-	end
-	
-	
-	--    botface
-	--
-	--     c -----fx---cd--- d		
-	--                  |
-	--                  |
-	--                  |
-	--                  |        
-	--                  fy        ^
-	--                  |         |
-	--     a -----fx---ab---- b   |
-	--                            |
-	--     (xaxis)---->           (zaxis)
-	
-	
-	
-	local fx = localx - x
-	local fy = localy - y
-	local fz = localz - z
-		
-	--Bot face samples
-	local a_bot = occ[x+0][y+0][z+0]
-	local b_bot = occ[x+1][y+0][z+0]
-	local c_bot = occ[x+0][y+0][z+1]
-	local d_bot = occ[x+1][y+0][z+1]
-		
-	--Top face samples
-	local a_top = occ[x+0][y+1][z+0]
-	local b_top = occ[x+1][y+1][z+0]
-	local c_top = occ[x+0][y+1][z+1]
-	local d_top = occ[x+1][y+1][z+1]
-
-	--Bot face lerped
-	local ab_bot = lerp(a_bot, b_bot, fx)
-	local cd_bot = lerp(c_bot, d_bot, fx)
-	local botFace = lerp(ab_bot, cd_bot, fz)
-	
-	--Top face lerped
-	local ab_top = lerp(a_top, b_top, fx)
-	local cd_top = lerp(c_top, d_top, fx)
-	local topFace = lerp(ab_top, cd_top, fz)
-	
-	--Between bot and top face
-	return lerp(botFace, topFace, fy)  
-	
-end
-
-function module:ProcessTerrain(playerSize)
-	
-	
-	if (game["Run Service"]:IsClient() == true or true) then
-		
-		coroutine.wrap(function()
-			print("Starting terrain")
-			--Experimental
-			local part = game.Workspace.Terrain:FindFirstChild("TerrainBounds")
-			
-			local mins = Vector3.new(math.huge,math.huge,math.huge)
-			local maxs = -Vector3.new(math.huge,math.huge,math.huge)
-			
-			for key,point in pairs(corners) do
-				local p = part.CFrame:PointToWorldSpace(part.size* point)
-				
-				mins = Vector3.new(math.min(p.x, mins.x), math.min(p.y, mins.y), math.min(p.z, mins.z))
-				maxs = Vector3.new(math.max(p.x, maxs.x), math.max(p.y, maxs.y), math.max(p.z, maxs.z))
-			end
-			
-			
-			local region = Region3.new(mins,maxs)
-			region:ExpandToGrid(4)
-			local voxels,occs = game.Workspace.Terrain:ReadVoxels(region, 4)
-			local size = voxels.Size
-			
-			local snappedMins = region.CFrame:PointToWorldSpace(-region.Size*0.5) 
-			snappedMins = Vector3.new(math.round(snappedMins.x/4)*4,math.round(snappedMins.y/4)*4,math.round(snappedMins.z/4)*4) + Vector3.new(2,2,2) 
-			
-			local partCounter = 0
-			local resolution = 0.25
-						
-			
-			for x = 1, size.x-1 do
-				for y = 1, size.y-1 do
-					for z = 1, size.z-1 do
-						
-						if (self:TerrainEmptyAir(voxels,x,y,z) == false) then
-						--continue
-						end
-						local points = {}
-						
-						for fx=0,1,resolution do
-							for fy=0,1,resolution do
-								for fz = 0,1, resolution do
-									local occupancy = self:GetOccupancyBilinear(occs,x+fx,y+fy,z+fz)
-									if (occupancy > 0.15) then
-										table.insert(points,snappedMins+ Vector3.new(x+fx,y+fy,z+fz) * 4) --4 is terrain voxel size
-									end
-								end
-							end
-						end
-						
-						if (debugParts == true) then
-							for key,point in pairs(points) do
-								
-								local part = Instance.new("Part")
-								part.Position = point
-								part.Anchored = true
-								part.CanCollide = false
-								
-								part.Size = Vector3.new(0.1,0.1,0.1)
-								part.Shape = Enum.PartType.Ball
-								part.Parent = game.Workspace
-								part.Color = Color3.new(0,1,1)
-							end
-						end
-						
-						
-						if (#points >= 4) then
-							print("Processing: ",#points)
-							local record = {}
-							record.instance = game.Workspace.Terrain
-							
-							local hull, counter = MinkowskiSumInstance:GetPlanesForPointsExpanded(points, playerSize, self.planeNum)
-							record.hull = hull
-							record.points = points
-							record.planeNum = counter
-													
-							self:WritePointsToHashMap(record)
-
-							module.hullRecords[ game.Workspace.Terrain] = record
-							partCounter += 1
-						end
-						
-
-					end
-									
+		if (record) then
+			self:RemovePartFromHashMap(instance)
+		end
+	end)
+	--[[
+	if (game["Run Service"]:IsClient()) then
+		for x,row in pairs(self.grid) do
+			print("X is ",x)
+			for z,col in pairs(row) do
+				for y,depth in pairs(col) do
+					
+					self:SpawnDebugGridBox(x,y,z, Color3.new(0.5,math.random(),0.5))
 				end
-				wait()	
-				
 			end
-			
-			print("Terrain parts added:", partCounter)
-		end)()
+		end
 	end
-	
+	]]--
 end
 
 return module

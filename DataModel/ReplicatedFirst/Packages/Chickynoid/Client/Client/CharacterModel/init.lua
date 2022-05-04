@@ -22,6 +22,7 @@ function CharacterModel:ModuleSetup()
 end
 
 
+
 function CharacterModel.new()
 
     local self = setmetatable({
@@ -58,9 +59,12 @@ function CharacterModel:CreateModel(userId)
         
         if (self.model) then
             
-            if (userId ~= nil and string.sub(self.userId,1,1) ~= "-" ) then
-                local description = game.Players:GetHumanoidDescriptionFromUserId(self.userId)
-                self.model.Humanoid:ApplyDescription(description)
+			if (userId ~= nil and string.sub(self.userId,1,1) ~= "-" ) then
+				pcall(function()
+	                local description = game.Players:GetHumanoidDescriptionFromUserId(self.userId)
+					self.model.Humanoid:ApplyDescription(description)
+				end)
+				
                 
                 local hip = (self.model.HumanoidRootPart.Size.y * 0.5) + self.model.Humanoid.hipHeight
                 self.modelOffset = Vector3.new(0,hip-2.5,0)

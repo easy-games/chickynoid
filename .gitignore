@@ -2,4 +2,5 @@ build/
 Packages/
 node_modules/
 
+.DS_Store
 **.lock

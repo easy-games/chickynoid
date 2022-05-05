@@ -1,5 +1,5 @@
+/** @client */
 export namespace ChickynoidClient {
-	/** @client */
 	export interface ClientConfig {
 		/** If you're slower than this, your step will be broken up. */
 		fpsMin: number;
@@ -16,8 +16,6 @@ export namespace ChickynoidClient {
 	/**
 	 * Creates connections so that Chickynoid can run on the client. Specifically, it connects to relevant networking and
 	 * RunService events.
-	 *
-	 * @client
 	 */
 	export function Setup(): void;
 }

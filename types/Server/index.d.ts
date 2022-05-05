@@ -1,5 +1,5 @@
+/** @server */
 export namespace ChickynoidServer {
-	/** @client */
 	export interface ServerConfig {
 		/** Theoretical max, use a byte for player id */
 		maxPlayers: number;
@@ -15,10 +15,8 @@ export namespace ChickynoidServer {
 
 	export let config: ServerConfig;
 
-	/**
-	 * Creates connections so that Chickynoid can run on the server.
-	 *
-	 * @client
-	 */
+	/** Creates connections so that Chickynoid can run on the server. */
 	export function Setup(): void;
+
+	export function RecreateCollisions(root: Instance): void;
 }

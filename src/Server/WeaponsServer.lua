@@ -70,7 +70,7 @@ function module:Think(server, _)
         --Trace a line
         local params = RaycastParams.new()
         params.FilterType = Enum.RaycastFilterType.Whitelist
-        params.FilterDescendantsInstances = { workspace }
+        params.FilterDescendantsInstances = { workspace:FindFirstChild("GameArea"), workspace.Terrain }
         local results = game.Workspace:Raycast(oldPos, rocket.pos - oldPos, params)
         if results ~= nil then
             timePassed = 1000 --Boom

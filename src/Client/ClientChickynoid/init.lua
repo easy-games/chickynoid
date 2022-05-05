@@ -65,7 +65,7 @@ function ClientChickynoid.new(position: Vector3)
     }, ClientChickynoid)
 
     self.simulation.state.pos = position
-    self.simulation.whiteList = { workspace }
+    self.simulation.whiteList = { workspace:FindFirstChild("GameArea"), workspace.Terrain }
 
     self:HandleLocalPlayer()
 
@@ -359,7 +359,7 @@ function ClientChickynoid:GetAimPoint()
 
     local raycastParams = RaycastParams.new()
     raycastParams.FilterType = Enum.RaycastFilterType.Whitelist
-    raycastParams.FilterDescendantsInstances = { workspace }
+    raycastParams.FilterDescendantsInstances = { workspace:FindFirstChild("GameArea"), workspace.Terrain }
 
     local raycastResults = game.Workspace:Raycast(ray.Origin, ray.Direction * 150, raycastParams)
     if raycastResults then

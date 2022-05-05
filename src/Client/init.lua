@@ -272,7 +272,9 @@ function ChickynoidClient:DoFpsCount(deltaTime)
 end
 
 --[=[
-	Use this instead of raw tick()
+	Use this instead of raw tick().
+	
+	@private
 	@return number
 ]=]
 function ChickynoidClient:LocalTick()

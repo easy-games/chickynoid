@@ -20,8 +20,9 @@ local ServerChickynoid = {}
 ServerChickynoid.__index = ServerChickynoid
 
 --[=[
-    Constructs a new [ServerChickynoid] and attaches it to the specified player.
-    @return ServerChickynoid
+	Constructs a new [ServerChickynoid] and attaches it to the specified player.
+	@param playerRecord any -- The player record.
+	@return ServerChickynoid
 ]=]
 function ServerChickynoid.new(playerRecord)
     local self = setmetatable({
@@ -116,10 +117,13 @@ function ServerChickynoid:GenerateFakeCommand(deltaTime)
 end
 
 --[=[
-    Steps the simulation forward by one frame. This loop handles the simulation
-    and replication timings.
-]=]
+	Steps the simulation forward by one frame. This loop handles the simulation
+	and replication timings.
 
+	@param server any -- The server.
+	@param _serverSimulationTime number -- The server simulation time.
+	@param deltaTime number -- The DT.
+]=]
 function ServerChickynoid:Think(server, _serverSimulationTime, deltaTime)
     --  Anticheat methods
     --  We keep X ms of commands unprocessed, so that if players stop sending upstream, we have some commands to keep going with
@@ -192,10 +196,11 @@ function ServerChickynoid:Think(server, _serverSimulationTime, deltaTime)
 end
 
 --[=[
-    Callback for handling all events from the client.
+	Callback for handling all events from the client.
 
-    @param event table -- The event sent by the client.
-    @private
+	@param server any -- The server.
+	@param event table -- The event sent by the client.
+	@private
 ]=]
 function ServerChickynoid:HandleClientEvent(server, event)
     if event.t == EventType.Command then

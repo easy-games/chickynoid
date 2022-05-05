@@ -12,6 +12,18 @@ href = "https://www.roblox.com/games/8289135181"
 label = "Example Game"
 position = "right"
 
+[[classOrder]]
+section = "Client"
+classes = ["ChickynoidClient", "ClientChickynoid", "CharacterModel"]
+
+[[classOrder]]
+section = "Server"
+classes = ["ChickynoidServer", "ServerChickynoid"]
+
+[[classOrder]]
+section = "Common"
+classes = ["Simulation", "Types"]
+
 [home]
 enabled = true
 includeReadme = true

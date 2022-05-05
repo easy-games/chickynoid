@@ -226,7 +226,7 @@ end
 --[=[
     Spawns a new Chickynoid for the specified player.
 
-    @param player Player -- The player to spawn this Chickynoid for.
+    @param playerRecord any -- The player to spawn this Chickynoid for.
     @return ServerCharacter -- New chickynoid instance made for this player.
 ]=]
 function ChickynoidServer:CreateChickynoidAsync(playerRecord)

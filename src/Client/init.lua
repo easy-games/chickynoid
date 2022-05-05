@@ -39,9 +39,6 @@ ChickynoidClient.startTime = tick()
 ChickynoidClient.characters = {}
 ChickynoidClient.localFrame = 0
 ChickynoidClient.worldState = nil
-ChickynoidClient.fpsMax = 144 --Think carefully about changing this! Every extra frame clients make, puts load on the server
-ChickynoidClient.fpsIsCapped = true --Dynamically sets to true if your fps is fpsMax + 5
-ChickynoidClient.fpsMin = 25 --If you're slower than this, your step will be broken up
 
 ChickynoidClient.cappedElapsedTime = 0 --
 ChickynoidClient.timeSinceLastThink = 0
@@ -52,9 +49,8 @@ ChickynoidClient.stateCounter = 0 --Num states coming in
 
 ChickynoidClient.accumulatedTime = 0
 
-ChickynoidClient.useSubFrameInterpolation = false
+ChickynoidClient.fpsIsCapped = true
 ChickynoidClient.prevLocalCharacterData = nil
-ChickynoidClient.showDebugMovement = true
 
 --This flag can be set to true if we detect we're in a network death spiral, and are going to go quiet for a while
 ChickynoidClient.awaitingFullSnapshot = true
@@ -66,6 +62,29 @@ ChickynoidClient.characterModel = nil
 --Milliseconds of *extra* buffer time to account for ping flux
 ChickynoidClient.interpolationBuffer = 20
 
+--[=[
+	@interface ClientConfig
+	@within ChickynoidClient
+	.fpsMin number -- If you're slower than this, your step will be broken up.
+	.fpsMax number -- Think carefully about changing this! Every extra frame clients make, puts load on the server.
+
+	.useSubFrameInterpolation bool
+	.showDebugMovement bool -- Show movement debug in FPS graph.
+
+	Client config for Chickynoid.
+]=]
+ChickynoidClient.config = {
+    fpsMin = 25,
+    fpsMax = 144,
+
+    useSubFrameInterpolation = false,
+    showDebugMovement = true,
+}
+
+--[=[
+	Creates connections so that Chickynoid can run on the client. Specfically, it connects to relevant networking and
+	RunService events.
+]=]
 function ChickynoidClient:Setup()
     local eventHandler = {}
 
@@ -145,7 +164,7 @@ function ChickynoidClient:Setup()
         --Do a framerate cap to 144? fps
         self.cappedElapsedTime += deltaTime
         self.timeSinceLastThink += deltaTime
-        local fraction = 1 / self.fpsMax
+        local fraction = 1 / self.config.fpsMax
 
         if self.cappedElapsedTime < fraction and self.fpsIsCapped == true then
             return --If not enough time for a whole frame has elapsed
@@ -195,6 +214,12 @@ function ChickynoidClient:Setup()
     end)
 end
 
+--[=[
+	Reset the network connection. Used to recover from death spirals by telling the server to stop sending replication
+	packets.
+
+	@private
+]=]
 function ChickynoidClient:ResetConnection()
     if self.awaitingFullSnapshot == false then
         --Stop accepting/storing data
@@ -210,6 +235,12 @@ function ChickynoidClient:ResetConnection()
     end
 end
 
+--[=[
+	Calculates FPS and updates the FPS graph. FPS is also used internally for various things.
+
+	@param deltaTime number
+	@private
+]=]
 function ChickynoidClient:DoFpsCount(deltaTime)
     self.frameCounter += 1
     self.frameCounterTime += deltaTime
@@ -220,8 +251,8 @@ function ChickynoidClient:DoFpsCount(deltaTime)
         end
         --print("FPS: real ", self.frameCounter, "( physics: ",self.frameSimCounter ,")")
 
-        if self.frameCounter > self.fpsMax + 5 then
-            FpsGraph:SetWarning("(Cap your fps to " .. self.fpsMax .. ")")
+        if self.frameCounter > self.config.fpsMax + 5 then
+            FpsGraph:SetWarning("(Cap your fps to " .. self.config.fpsMax .. ")")
             self.fpsIsCapped = true
         else
             FpsGraph:SetWarning("")
@@ -298,7 +329,7 @@ function ChickynoidClient:ProcessFrame(deltaTime)
             while self.accumulatedTime > 0 do
                 self.accumulatedTime -= frac
 
-                if self.useSubFrameInterpolation == true then
+                if self.config.useSubFrameInterpolation == true then
                     --Todo: could do a small (rarely used) optimization here and only copy the 2nd to last one..
                     if self.localChickynoid.simulation.characterData ~= nil then
                         --Capture the state of the client before the current simulation
@@ -311,7 +342,7 @@ function ChickynoidClient:ProcessFrame(deltaTime)
                 count += 1
             end
 
-            if self.useSubFrameInterpolation == true then
+            if self.config.useSubFrameInterpolation == true then
                 --if this happens, we have over-simulated
                 if self.accumulatedTime < 0 then
                     --we need to do a sub-frame positioning
@@ -348,7 +379,7 @@ function ChickynoidClient:ProcessFrame(deltaTime)
 
         if self.fixedPhysicsSteps == true then
             if
-                self.useSubFrameInterpolation == false
+                self.config.useSubFrameInterpolation == false
                 or subFrameFraction == 0
                 or self.prevLocalCharacterData == nil
             then
@@ -366,7 +397,7 @@ function ChickynoidClient:ProcessFrame(deltaTime)
             self.characterModel:Think(deltaTime, self.localChickynoid.simulation.characterData.serialized)
         end
 
-        if self.showDebugMovement == true then
+        if self.config.showDebugMovement == true then
             local pos = self.characterModel.model.PrimaryPart.CFrame.Position
 
             if self.previousPos ~= nil then

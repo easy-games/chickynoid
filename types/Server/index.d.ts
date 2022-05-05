@@ -16,8 +16,7 @@ export namespace ChickynoidServer {
 	export let config: ServerConfig;
 
 	/**
-	 * Creates connections so that Chickynoid can run on the client. Specifically, it connects to relevant networking and
-	 * RunService events.
+	 * Creates connections so that Chickynoid can run on the server.
 	 *
 	 * @client
 	 */

@@ -53,6 +53,9 @@ ChickynoidServer.config = {
     serverHz = 20,
 }
 
+--[=[
+	Creates connections so that Chickynoid can run on the server.
+]=]
 function ChickynoidServer:Setup()
     self.worldRoot = self:GetDoNotReplicate()
 
@@ -94,7 +97,7 @@ end
 
 function ChickynoidServer:PlayerConnected(player)
     local playerRecord = self:AddConnection(player.UserId, player)
-    playerRecord.chickynoid = self:CreateChickynoidAsync(playerRecord)
+    playerRecord.chickynoid = self:CreateChickynoid(playerRecord)
 
     --Spawn the gui (move this to server?)
     for _, child in pairs(game.StarterGui:GetChildren()) do
@@ -239,7 +242,7 @@ end
     @param playerRecord any -- The player to spawn this Chickynoid for.
     @return ServerCharacter -- New chickynoid instance made for this player.
 ]=]
-function ChickynoidServer:CreateChickynoidAsync(playerRecord)
+function ChickynoidServer:CreateChickynoid(playerRecord)
     local chickynoid = ServerChickynoid.new(playerRecord)
     playerRecord.chickynoid = chickynoid
     chickynoid.playerRecord = playerRecord

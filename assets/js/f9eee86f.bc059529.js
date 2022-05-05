@@ -1,0 +1,1 @@
+"use strict";(self.webpackChunkdocs=self.webpackChunkdocs||[]).push([[544],{35365:function(e){e.exports=JSON.parse('{"functions":[],"properties":[],"types":[],"name":"Simulation","desc":"Simulation handles physics for characters on both the client and server.","source":{"line":5,"path":"src/Simulation/init.lua"}}')}}]);

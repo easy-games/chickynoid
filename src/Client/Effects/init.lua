@@ -25,7 +25,7 @@ function module:SpawnEffect(name, pos)
 
     for _, value in pairs(clone:GetDescendants()) do
         if value:IsA("ParticleEmitter") then
-			value = value :: ParticleEmitter
+            value = value :: ParticleEmitter
 
             local emitterRecord = {}
             emitterRecord.instance = value
@@ -46,7 +46,7 @@ function module:SpawnEffect(name, pos)
 
             record.emitters[value] = emitterRecord
         elseif value:IsA("Sound") then
-			value = value :: Sound
+            value = value :: Sound
 
             value:Play()
             local soundRecord = {}

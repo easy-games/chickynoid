@@ -136,7 +136,7 @@ function Simulation:ProcessCommand(cmd)
 
             --Enter idle
             self.characterData:PlayAnimation(Enums.Anims.Idle, false)
-        -- else
+            -- else
             --moving through the air with no input
         end
     end
@@ -216,7 +216,7 @@ function Simulation:ProcessCommand(cmd)
     else
         --Land after jump
         -- if self.state.inAir > 0 then
-            --We don't do anything special here atm
+        --We don't do anything special here atm
         -- end
         self.state.inAir = 0
     end

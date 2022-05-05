@@ -292,8 +292,8 @@ function module:ProcessCollisionOnInstance(instance, playerSize)
             record.hull = self:GenerateConvexHullAccurate(instance, playerSize, instance.CFrame)
             record.currentCFrame = instance.CFrame
 
-			-- Weird Selene shadowing bug here
-			-- selene: allow(shadowing)
+            -- Weird Selene shadowing bug here
+            -- selene: allow(shadowing)
             function record:Update()
                 if
                     ((record.currentCFrame.Position - instance.CFrame.Position).magnitude < 0.00001)

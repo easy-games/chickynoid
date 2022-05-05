@@ -271,11 +271,21 @@ function ChickynoidClient:DoFpsCount(deltaTime)
     end
 end
 
---Use this instead of raw tick()
+--[=[
+	Use this instead of raw tick()
+	@return number
+]=]
 function ChickynoidClient:LocalTick()
     return tick() - self.startTime
 end
 
+--[=[
+	Processes one frame forward in time and runs every heartbeat. This is the core part of Chickynoid that moves
+	everything along.
+
+	@private
+	@param deltaTime number -- Time since last frame
+]=]
 function ChickynoidClient:ProcessFrame(deltaTime)
     if self.worldState == nil then
         --Waiting for worldstate
@@ -476,9 +486,15 @@ function ChickynoidClient:ProcessFrame(deltaTime)
     WeaponModule:Think(timeToRenderRocketsAt, deltaTime)
 end
 
--- This tries to figure out a correct delta for the server time
--- Better to update this infrequently as it will cause a "pop" in prediction
--- Thought: Replace with roblox solution or converging solution?
+--[=[
+	This tries to figure out a correct delta for the server time. Better to update this infrequently as it will cause a
+	"pop" in prediction.
+
+	Thought: Replace with roblox solution or converging solution?
+
+	@private
+	@param serverActualTime number
+]=]
 function ChickynoidClient:SetupTime(serverActualTime)
     local oldDelta = self.estimatedServerTimeOffset
     local newDelta = self:LocalTick() - serverActualTime
@@ -490,6 +506,14 @@ function ChickynoidClient:SetupTime(serverActualTime)
     end
 end
 
+--[=[
+	Deserializes a snapshot from the server.
+
+	@private
+	@param event unknown
+	@param previousSnapshot unknown
+	@return unknown
+]=]
 function ChickynoidClient:DeserializeSnapshot(event, previousSnapshot)
     local bitBuffer = BitBuffer(event.b)
     local count = bitBuffer.readByte()

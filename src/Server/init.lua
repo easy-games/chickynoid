@@ -38,10 +38,20 @@ ChickynoidServer.startTime = tick()
 ChickynoidServer.slots = {}
 ChickynoidServer.collisionRootFolder = nil
 
---Config
-ChickynoidServer.maxPlayers = 255 --Theoretical max, use a byte for player id
-ChickynoidServer.fpsMode = Enums.FpsMode.Hybrid
-ChickynoidServer.serverHz = 20
+--[=[
+	@interface ServerConfig
+	@within ChickynoidServer
+	.maxPlayers number -- Theoretical max, use a byte for player id
+	.fpsMode FpsMode
+	.serverHz number
+
+	Server config for Chickynoid.
+]=]
+ChickynoidServer.config = {
+    maxPlayers = 255,
+    fpsMode = Enums.FpsMode.Hybrid,
+    serverHz = 20,
+}
 
 function ChickynoidServer:Setup()
     self.worldRoot = self:GetDoNotReplicate()
@@ -97,7 +107,7 @@ function ChickynoidServer:PlayerConnected(player)
 end
 
 function ChickynoidServer:AssignSlot(playerRecord)
-    for j = 1, self.maxPlayers do
+    for j = 1, self.config.maxPlayers do
         if self.slots[j] == nil then
             self.slots[j] = playerRecord
             playerRecord.slot = j
@@ -187,8 +197,8 @@ function ChickynoidServer:SendWorldstate(playerRecord)
         event.worldState.players[data.slot] = info
     end
 
-    event.worldState.serverHz = self.serverHz
-    event.worldState.fpsMode = self.fpsMode
+    event.worldState.serverHz = self.config.serverHz
+    event.worldState.fpsMode = self.config.fpsMode
 
     playerRecord:SendEventToClient(event)
 end
@@ -315,7 +325,7 @@ function ChickynoidServer:Think(deltaTime)
     self.serverStepTimer += deltaTime
     self.serverTotalFrames += 1
 
-    local fraction = (1 / self.serverHz)
+    local fraction = (1 / self.config.serverHz)
     if self.serverStepTimer > fraction then
         while self.serverStepTimer > fraction do -- -_-'
             self.serverStepTimer -= fraction

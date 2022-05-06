@@ -12,8 +12,9 @@
 	},
 	"files": [
 		"src",
-		"types",
-		"README.md"
+		"Packages",
+		"BitBuffer.lua",
+		"TableUtil.lua"
 	],
 	"publishConfig": {
 		"access": "public"

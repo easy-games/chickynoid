@@ -1,6 +1,6 @@
 {
 	"name": "@rbxts/chickynoid",
-	"version": "1.0.2",
+	"version": "1.0.3",
 	"main": "src",
 	"types": "types/index.d.ts",
 	"author": "Brooke <brooke@gril.me>",
@@ -12,10 +12,7 @@
 	},
 	"files": [
 		"src",
-		"Types",
-		"Packages",
-		"BitBuffer.lua",
-		"TableUtil.lua"
+		"Types"
 	],
 	"publishConfig": {
 		"access": "public"

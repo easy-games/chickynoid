@@ -9,7 +9,7 @@
 	"ReplicatedStorage": {
 		"$className": "ReplicatedStorage",
 		"Packages": {
-			"$path": "Packages",
+			"$className": "Folder",
 			"Chickynoid": {
 				"$path": "src"
 			}

@@ -15,7 +15,7 @@ local Enums = require(path.Enums)
 local EventType = Enums.EventType
 local ServerChickynoid = require(script.ServerChickynoid)
 local CharacterData = require(path.Simulation.CharacterData)
-local BitBuffer = require(path.Parent.BitBuffer)
+local BitBuffer = require(path.Vendor.BitBuffer)
 local WeaponsModule = require(script.WeaponsServer)
 local CollisionModule = require(path.Simulation.CollisionModule)
 

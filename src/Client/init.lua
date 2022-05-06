@@ -11,7 +11,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local remoteEvent = ReplicatedStorage:WaitForChild("ChickynoidReplication") :: RemoteEvent
 
 local path = script.Parent
-local BitBuffer = require(path.Parent.BitBuffer)
+local BitBuffer = require(path.Vendor.BitBuffer)
 
 local ClientChickynoid = require(script.ClientChickynoid)
 local CollisionModule = require(path.Simulation.CollisionModule)

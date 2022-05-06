@@ -16,7 +16,7 @@ export namespace ChickynoidServer {
 	export let config: ServerConfig;
 
 	/** Creates connections so that Chickynoid can run on the server. */
-	export function Setup(): void;
+	export function Setup(this: void): void;
 
-	export function RecreateCollisions(root: Instance): void;
+	export function RecreateCollisions(this: void, root: Instance): void;
 }

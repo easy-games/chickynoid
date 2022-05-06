@@ -17,5 +17,5 @@ export namespace ChickynoidClient {
 	 * Creates connections so that Chickynoid can run on the client. Specifically, it connects to relevant networking and
 	 * RunService events.
 	 */
-	export function Setup(): void;
+	export function Setup(this: void): void;
 }

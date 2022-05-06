@@ -1,6 +1,6 @@
 {
 	"name": "@rbxts/chickynoid",
-	"version": "1.0.4",
+	"version": "1.0.5",
 	"main": "src",
 	"types": "types/index.d.ts",
 	"author": "Brooke <brooke@gril.me>",

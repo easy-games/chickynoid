@@ -12,6 +12,7 @@
 	},
 	"files": [
 		"src",
+		"Types",
 		"Packages",
 		"BitBuffer.lua",
 		"TableUtil.lua"

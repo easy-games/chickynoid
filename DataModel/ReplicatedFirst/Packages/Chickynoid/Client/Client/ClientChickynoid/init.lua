@@ -27,9 +27,34 @@ local Camera = workspace.CurrentCamera
 local LocalPlayer = Players.LocalPlayer
 
 --For access to control vectors
-local PlayerModule = LocalPlayer:WaitForChild("PlayerScripts"):WaitForChild("PlayerModule")
-local ControlModule = require(PlayerModule:WaitForChild("ControlModule"))
+ 
+local ControlModule = nil --require(PlayerModule:WaitForChild("ControlModule"))
 
+ 
+local function GetControlModule()
+	
+	if (ControlModule == nil) then
+		
+		local scripts = LocalPlayer:FindFirstChild("PlayerScripts")
+		if (scripts == nil) then
+			return nil
+		end
+				
+		local playerModule = scripts:FindFirstChild("PlayerModule")
+		if (playerModule == nil) then
+			return nil
+		end
+		
+		local controlModule = playerModule:FindFirstChild("ControlModule")
+		if (controlModule == nil) then
+			return nil
+		end
+		
+		ControlModule = require(LocalPlayer:WaitForChild("PlayerScripts"):WaitForChild("PlayerModule"):WaitForChild("ControlModule"))
+	end
+	
+	return ControlModule
+end
 
 local DebugParts = Instance.new("Folder")
 DebugParts.Name = "DebugParts"
@@ -87,14 +112,17 @@ function ClientChickynoid:MakeCommand(dt: number)
     command.y = 0
     command.z = 0
     command.deltaTime = dt
-
-    local moveVector = ControlModule:GetMoveVector() :: Vector3
-    if moveVector.Magnitude > 0 then
-        moveVector = moveVector.Unit
-        command.x = moveVector.X
-        command.y = moveVector.Y
-        command.z = moveVector.Z
-    end
+	
+	GetControlModule()
+	if (ControlModule ~= nil) then
+		local moveVector = ControlModule:GetMoveVector() :: Vector3
+	    if moveVector.Magnitude > 0 then
+	        moveVector = moveVector.Unit
+	        command.x = moveVector.X
+	        command.y = moveVector.Y
+	        command.z = moveVector.Z
+		end
+	end
 
     -- This approach isn't ideal but it's the easiest right now
     if not UserInputService:GetFocusedTextBox() then

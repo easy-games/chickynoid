@@ -18,7 +18,13 @@ if (validInstall == true) then
 	if (numBots ~= nil) then
 		Bots:MakeBots(Server, numBots)
 	end
+	
+	
+	
+
 end
+
+
 
 
 

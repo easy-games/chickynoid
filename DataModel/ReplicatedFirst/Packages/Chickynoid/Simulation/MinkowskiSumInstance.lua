@@ -68,10 +68,7 @@ function module:GetPlanesForPointsExpanded(points, playerSize, basePlaneNum, deb
 		end
 	end
 
-	if (debugPart ~= nil) then
-		self:VisualizePlanesForPoints(newPoints, debugPart)
-	end	
-	return self:GetPlanesForPoints(newPoints, basePlaneNum)
+	return self:GetPlanesForPoints(newPoints, basePlaneNum, debugPart)
 		
 end
 
@@ -129,7 +126,9 @@ function module:VisualizePlanesForPoints(points, debugPart)
 					
 				}
 			)
- 
+			
+			--[[ SHOW NORMAL ]]--
+			--[[
 			local pos = (tri[1]+tri[2]+tri[3]) / 3
 			
 			local part = Instance.new("Part")
@@ -139,15 +138,20 @@ function module:VisualizePlanesForPoints(points, debugPart)
 			part.CFrame = CFrame.lookAt(pos+normal, pos+(normal*2))
 			part.Color = color
 			part.Parent = debugPart
- 
+ 			]]--
 		end
 	end
 end
 
 
 --Same thing but for worldspace point cloud
-function module:GetPlanesForPoints(points, basePlaneNum)
+function module:GetPlanesForPoints(points, basePlaneNum, debugPart)
+	
 
+	if (debugPart ~= nil) then
+		self:VisualizePlanesForPoints(points, debugPart)
+	end	
+	
 
 	--Run quickhull
 	local r = QuickHull.quick_run(points)
@@ -172,6 +176,8 @@ function module:GetPlanesForPoints(points, basePlaneNum)
 		end
 
 	end
+	
+
 
 	return recs, basePlaneNum
 end

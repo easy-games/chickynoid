@@ -81,8 +81,10 @@ function ChickynoidServer:Setup()
 				playerRecord:ResetConnection()
 				return
 			end
-						
-            playerRecord.chickynoid:HandleEvent(self, event)
+			
+			if (playerRecord.chickynoid) then
+				playerRecord.chickynoid:HandleEvent(self, event)
+			end
         end
 	end)
 	
@@ -92,9 +94,8 @@ end
 function ChickynoidServer:PlayerConnected(player)
 	
 	local playerRecord = self:AddConnection(player.UserId, player)
-	playerRecord.chickynoid = self:CreateChickynoidAsync(playerRecord)
 
-	--Spawn the gui (move this to server?)
+	--Spawn the gui
 	for _,child in pairs(game.StarterGui:GetChildren()) do
 		local clone = child:Clone()
 		if (clone:IsA("ScreenGui")) then
@@ -129,13 +130,16 @@ function ChickynoidServer:AddConnection(userId, player)
     self.playerRecords[userId] = playerRecord
 
     playerRecord.userId = userId
-    playerRecord.spawned = false
+    
  
     playerRecord.previousCharacterData = {}
     playerRecord.chickynoid = nil    
 	playerRecord.frame = 0
 	playerRecord.firstSnapshot = false
- 
+	
+	playerRecord.allowedToSpawn = true
+	playerRecord.respawnDelay = 3
+	playerRecord.respawnTime = tick() + playerRecord.respawnDelay
     
     self:AssignSlot(playerRecord)
     
@@ -170,6 +174,32 @@ function ChickynoidServer:AddConnection(userId, player)
 		self.firstSnapshot = false
 	end
 	
+	function playerRecord:Despawn()
+		
+		if (self.chickynoid) then
+			
+			print("Despawned!")
+			self.chickynoid:Destroy()
+			self.chickynoid = nil
+			self.respawnTime = tick() + self.respawnDelay
+			
+			
+			local event = {t = EventType.ChickynoidRemoving}
+			playerRecord:SendEventToClient(event)
+		end
+	end
+	
+	function playerRecord:Spawn(playerRecord)
+		
+		self:Despawn()
+		
+		local chickynoid = ServerChickynoid.new(playerRecord)
+		self.chickynoid = chickynoid
+		chickynoid.playerRecord = self
+		chickynoid:SpawnChickynoid()
+		return self.chickynoid
+	end
+
 	
     --Tell everyone
     for key,record in pairs(self.playerRecords) do
@@ -182,6 +212,7 @@ function ChickynoidServer:AddConnection(userId, player)
 
     return playerRecord    
 end
+
 
 function ChickynoidServer:SendEventToClients(event)
     RemoteEvent:FireAllClients( event)
@@ -212,11 +243,9 @@ function ChickynoidServer:PlayerDisconnected(userId)
     
     if (playerRecord) then
         print("Player disconnected")
-        
-        if (playerRecord.chickynoid) then
-            playerRecord.chickynoid:DestroyRobloxParts()
-        end
-        
+              
+        playerRecord:Despawn()
+              
         self.playerRecords[userId] = nil
         
         --Clear this out        
@@ -239,20 +268,6 @@ function ChickynoidServer:GetPlayerByUserId(userId)
     return self.playerRecords[userId]
 end
 
---[=[
-    Spawns a new Chickynoid for the specified player.
-
-    @param player Player -- The player to spawn this Chickynoid for.
-    @return ServerCharacter -- New chickynoid instance made for this player.
-]=]
-function ChickynoidServer:CreateChickynoidAsync(playerRecord)
-
-    local chickynoid = ServerChickynoid.new(playerRecord)
-    playerRecord.chickynoid = chickynoid
-    chickynoid.playerRecord = playerRecord
-    
-    return chickynoid
-end
 
 function ChickynoidServer:RobloxHeartbeat(deltaTime)
 
@@ -313,6 +328,18 @@ function ChickynoidServer:Think(deltaTime)
 
     --self.worldRoot = game.Workspace 
 	
+	--Spawn players
+	for userId,playerRecord in pairs(self.playerRecords) do
+		
+		if (playerRecord.chickynoid == nil and playerRecord.allowedToSpawn == true) then
+			
+			if (tick() > playerRecord.respawnTime) then
+				playerRecord:Spawn()
+			end
+		end
+	end
+	
+	
 	CollisionModule:UpdateDynamicParts()
 	
     --1st stage, pump the commands
@@ -323,12 +350,10 @@ function ChickynoidServer:Think(deltaTime)
         end
         
         if (playerRecord.chickynoid) then
-
-         
-            playerRecord.chickynoid:Think(self, self.serverSimulationTime, deltaTime)
+		    playerRecord.chickynoid:Think(self, self.serverSimulationTime, deltaTime)
             
             if (playerRecord.chickynoid.simulation.state.pos.y < -2000) then
-                playerRecord.chickynoid:SpawnChickynoid()
+                playerRecord:Despawn()
             end
         end
     end

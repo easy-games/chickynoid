@@ -386,4 +386,8 @@ function ClientChickynoid:GetAimPoint()
 
 end
 
+function ClientChickynoid:Destroy()
+	
+end
+
 return ClientChickynoid

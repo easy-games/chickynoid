@@ -62,12 +62,12 @@ function ServerChickynoid.new(playerRecord)
     end
     
  
-    self:SpawnChickynoid()
+    
 
     return self
 end
 
-function ServerChickynoid:DestroyRobloxParts()
+function ServerChickynoid:Destroy()
     
     
     if (self.pushPart) then
@@ -312,6 +312,8 @@ end
     @private
 ]=]
 function ServerChickynoid:SpawnChickynoid()
+	
+		
     local list = {}
     for _, obj in pairs(workspace:GetDescendants()) do
         if obj:IsA("SpawnLocation") and obj.Enabled == true then
@@ -339,6 +341,7 @@ function ServerChickynoid:SpawnChickynoid()
     print("Spawned character and sent event for player:", self.playerRecord.name)
     
 end
+
 
 function ServerChickynoid:PostThink(server)
     

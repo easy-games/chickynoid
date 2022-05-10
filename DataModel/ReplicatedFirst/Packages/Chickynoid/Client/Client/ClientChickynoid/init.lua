@@ -373,7 +373,7 @@ function ClientChickynoid:Heartbeat(serverTime: number, deltaTime: number)
     
     --once we've sent it, add localtime
     cmd.tick = tick()
-  
+  	return cmd
 end
 
 function ClientChickynoid:SpawnDebugSphere(pos, color)

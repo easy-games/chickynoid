@@ -97,6 +97,9 @@
     },
     "ServerStorage": {
       "$path": "DataModel/ServerStorage.rbxm",
+      "PhysicsTest": {
+        "$path": "DataModel/ServerStorage/PhysicsTest.rbxm"
+      },
       "TagList": {
         "$path": "DataModel/ServerStorage/TagList.rbxm"
       }
@@ -125,9 +128,6 @@
         "$path": "DataModel/Workspace/GameArea.rbxm",
         "GameArea2": {
           "$path": "DataModel/Workspace/GameArea/GameArea2.rbxm"
-        },
-        "Physics": {
-          "$path": "DataModel/Workspace/GameArea/Physics.rbxm"
         }
       }
     }

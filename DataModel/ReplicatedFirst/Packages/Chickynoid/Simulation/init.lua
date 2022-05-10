@@ -87,9 +87,7 @@ function Simulation:ProcessCommand(cmd)
     local onGround = nil
     self.lastGround = nil
     onGround = self:DoGroundCheck(self.state.pos)
-	
-	
-    
+	 
     --If the player is on too steep a slope, its not ground
     if (onGround ~= nil and onGround.normal.Y < self.constants.maxGroundSlope) then
         onGround = nil
@@ -116,8 +114,7 @@ function Simulation:ProcessCommand(cmd)
        
         if (onGround) then
             --Moving along the ground under player input
-            
-                                   
+                       
 			flatVel = self:GroundAccelerate(wishDir, self.constants.maxSpeed, self.constants.accel, flatVel ,cmd.deltaTime)
          
 			--Good time to trigger our walk anim
@@ -217,10 +214,7 @@ function Simulation:ProcessCommand(cmd)
         end
 
     else
-        --Land after jump
-        if (self.state.inAir > 0) then
-            --We don't do anything special here atm
-        end
+  		
         self.state.inAir = 0
     end
  
@@ -228,7 +222,22 @@ function Simulation:ProcessCommand(cmd)
     --Sweep the player through the world, once flat along the ground, and once "step up'd"
 	local stepUpResult = nil
     local walkNewPos, walkNewVel, hitSomething = self:ProjectVelocity(self.state.pos, self.state.vel, cmd.deltaTime  )
-    
+	
+	--Did we crashland
+	if (onGround == nil and hitSomething == true) then
+		--Land after jump
+		local groundCheck = self:DoGroundCheck(walkNewPos)
+		
+		if (groundCheck~=nil) then
+			--Crashland
+			
+			--Current behaviour, cap velocity
+			walkNewVel = Vector3.new(walkNewVel.x,0,walkNewVel.z)
+			walkNewVel = self:CapVelocity(walkNewVel, self.constants.maxSpeed)
+		end
+	end
+	
+	
     -- Do we attempt a stepup?                              (not jumping!)
     if (onGround ~= nil and hitSomething == true and self.state.jump == 0) then
 		stepUpResult = self:DoStepUp(self.state.pos, self.state.vel, cmd.deltaTime)
@@ -236,7 +245,7 @@ function Simulation:ProcessCommand(cmd)
     
     --Choose which one to use, either the original move or the stepup
 	if (stepUpResult ~= nil) then
-		self.state.stepUp = stepUpResult.stepUp
+		self.state.stepUp += stepUpResult.stepUp
 		self.state.pos = stepUpResult.pos
 		self.state.vel = stepUpResult.vel
     else
@@ -245,16 +254,17 @@ function Simulation:ProcessCommand(cmd)
     end
 	
 	--Do stepDown
-	if (false) then
-		if (startedOnGround ~= nil and self.state.jump == 0) then
+	if (true) then
+		if (startedOnGround ~= nil and self.state.jump == 0 and self.state.vel.y <=0) then
 			local stepDownResult = self:DoStepDown(self.state.pos)
 			if (stepDownResult ~= nil) then
-				self.state.stepUp = stepDownResult.stepDown
+				self.state.stepUp += stepDownResult.stepDown
 				self.state.pos = stepDownResult.pos
 	 		end	
 		end
 	end
 	
+
     
     --Input/Movement is done, do the update of timers and write out values
     
@@ -527,6 +537,15 @@ function Simulation:Accelerate(wishDir, wishSpeed, accel, velocity, dt)
     return velocity
 end
 
+function Simulation:CapVelocity(velocity, maxSpeed)
+	
+	local mag = velocity.magnitude
+	mag = math.min(mag, maxSpeed)
+	if (mag > 0.01) then
+		return velocity.Unit * mag
+	end
+	return Vector3.zero
+end
 
 --Todo: Compress?
 function Simulation:WriteState()

@@ -190,12 +190,13 @@ function ServerChickynoid:Think(server, serverSimulationTime, deltaTime)
         TrajectoryModule:PositionWorld(command.serverTime, command.deltaTime)
         self.debug.processedCommands += 1
  
-        
+        --Step simulation!
         self.simulation:ProcessCommand(command)
-        command.processed = true
         
-        --Fire weapons!
-        WeaponModule:HandleWeapon(server, self.playerRecord, command.deltaTime, command)
+		--Fire weapons!
+		self.playerRecord:ProcessWeaponCommand(command)
+		
+		command.processed = true
         
         if (command.l and tonumber(command.l) ~= nil) then
             self.lastConfirmedCommand = command.l
@@ -248,7 +249,19 @@ function ServerChickynoid:HandleClientEvent(server, event)
             if (command.deltaTime == nil or typeof(command.deltaTime) ~= "number" or command.deltaTime~=command.deltaTime) then
                 return
             end
-            
+			
+			
+			if (command.fa and  (typeof(command.fa) == "Vector3")) then 
+				local vec = command.fa
+				if (vec.x == vec.x and vec.y == vec.y and vec.z == vec.z)  then
+					command.fa = vec			
+				else
+					command.fa = nil
+				end
+			else
+				command.fa = nil
+			end		
+			
             
             command.serial = self.commandSerial
             self.commandSerial += 1
@@ -314,19 +327,6 @@ end
 function ServerChickynoid:SpawnChickynoid()
 	
 		
-    local list = {}
-    for _, obj in pairs(workspace:GetDescendants()) do
-        if obj:IsA("SpawnLocation") and obj.Enabled == true then
-            table.insert(list, obj)
-        end
-    end
-
-    if #list > 0 then
-        local spawn = list[math.random(1, #list)]
-        self:SetPosition(Vector3.new(spawn.Position.x, spawn.Position.y + 5, spawn.Position.z))
-    else
-        self:SetPosition(Vector3.new(0, 10, 0))
-    end
     self.simulation.state.vel = Vector3.zero
     
     if (self.playerRecord.dummy == false) then

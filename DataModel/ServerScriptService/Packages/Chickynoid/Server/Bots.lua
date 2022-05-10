@@ -19,19 +19,24 @@ function module:MakeBots(Server, numBots)
 		local playerRecord = Server:AddConnection(userId, nil)
 
 		playerRecord.name = "RandomBot" .. counter
-
+		playerRecord.respawnTime = tick() + counter * 1
+		
 		playerRecord.waitTime = 0 --Bot AI
 		playerRecord.leftOrRight = 1 
 
 		if (math.random()>0.5) then
 			playerRecord.leftOrRight = -1
 		end
-
-		playerRecord.chickynoid = Server:CreateChickynoidAsync(playerRecord)
+		
+		--Spawn them in someplace
+		playerRecord.OnSpawn:Connect(function()
+			playerRecord.chickynoid:SetPosition(Vector3.new(math.random(-350,350), 100 ,math.random(-350,350) ) + Vector3.new(-250, 0,0))
+		end)
+		
+		 
 		table.insert(debugPlayers, playerRecord)
 
-		playerRecord.chickynoid:SetPosition(Vector3.new(math.random(-150,150), 4000 ,math.random(-150,150) ) + Vector3.new(-150, 0,0)) 
-
+	
 		playerRecord.BotThink = function(deltaTime)
 
 
@@ -64,7 +69,9 @@ function module:MakeBots(Server, numBots)
 			end
 
 			playerRecord.frame += 1
-			playerRecord.chickynoid:HandleEvent(Server, event)
+			if (playerRecord.chickynoid) then
+				playerRecord.chickynoid:HandleEvent(Server, event)
+			end
 		end
 	end
 

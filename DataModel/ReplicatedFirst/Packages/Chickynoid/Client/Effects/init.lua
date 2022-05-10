@@ -55,7 +55,9 @@ function module:SpawnEffect(name, pos)
     end
     
     
-    module.particles[clone] = record    
+	module.particles[clone] = record
+	
+	return clone
 end
 
 function module:Heartbeat(deltaTime)

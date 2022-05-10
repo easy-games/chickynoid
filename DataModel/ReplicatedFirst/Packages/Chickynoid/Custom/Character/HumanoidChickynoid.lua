@@ -57,8 +57,8 @@ function ChickynoidStyle:DefineSimulationState()
         jump = 0,
         angle = 0,
         targetAngle = 0,
-        stepUp = 0,
-        inAir = 0,  
+		stepUp = 0,
+	     inAir = 0,  
     }
     
     

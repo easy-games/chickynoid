@@ -19,6 +19,7 @@ local BitBuffer = require(path.Vendor.BitBuffer)
 local RemoteEvent = game.ReplicatedStorage.Packages.Chickynoid.RemoteEvent
 local WeaponsModule = require(script.WeaponsServer)
 local CollisionModule = require(path.Simulation.CollisionModule)
+local FastSignal = require(path.Vendor.FastSignal)
 
 local ChickynoidServer = {}
 
@@ -140,6 +141,9 @@ function ChickynoidServer:AddConnection(userId, player)
 	playerRecord.allowedToSpawn = true
 	playerRecord.respawnDelay = 3
 	playerRecord.respawnTime = tick() + playerRecord.respawnDelay
+	
+	playerRecord.OnSpawn = FastSignal.new()
+		
     
     self:AssignSlot(playerRecord)
     
@@ -189,24 +193,52 @@ function ChickynoidServer:AddConnection(userId, player)
 		end
 	end
 	
-	function playerRecord:Spawn(playerRecord)
+	function playerRecord:Spawn()
 		
 		self:Despawn()
 		
 		local chickynoid = ServerChickynoid.new(playerRecord)
 		self.chickynoid = chickynoid
 		chickynoid.playerRecord = self
+		
+		
+		local list = {}
+		for _, obj in pairs(workspace:GetDescendants()) do
+			if obj:IsA("SpawnLocation") and obj.Enabled == true then
+				table.insert(list, obj)
+			end
+		end
+
+		if #list > 0 then
+			local spawn = list[math.random(1, #list)]
+			self.chickynoid:SetPosition(Vector3.new(spawn.Position.x, spawn.Position.y + 5, spawn.Position.z))
+		else
+			self.chickynoid:SetPosition(Vector3.new(0, 10, 0))
+		end
+				
+		self.OnSpawn:Fire()
+		
 		chickynoid:SpawnChickynoid()
+		
 		return self.chickynoid
 	end
-
 	
-    --Tell everyone
+	--Silence a warning
+	playerRecord.GiveWeapon = nil	
+	
+	--Connect!
+	WeaponsModule:OnPlayerConnected(self, playerRecord)
+	
+	--Give a machine gun
+	playerRecord:GiveWeapon("Machinegun", true)	
+	
+	
+	--Tell everyone
+	--Todo: Replace with a dirty flag?
     for key,record in pairs(self.playerRecords) do
 		self:SendWorldstate(record)
     end
-	
-	 
+		 
 	playerRecord:ResetConnection()
 	 
 
@@ -266,6 +298,11 @@ end
 function ChickynoidServer:GetPlayerByUserId(userId)
     
     return self.playerRecords[userId]
+end
+
+function ChickynoidServer:GetPlayers()
+
+	return self.playerRecords
 end
 
 
@@ -405,7 +442,7 @@ function ChickynoidServer:Think(deltaTime)
             
             local count = 0
             for otherUserId,otherPlayerRecord in pairs(self.playerRecords) do
-                if (otherUserId ~= userId) then
+				if (otherUserId ~= userId and otherPlayerRecord.chickynoid ~= nil) then
                     count += 1
                 end
             end
@@ -414,7 +451,12 @@ function ChickynoidServer:Think(deltaTime)
             bitBuffer.writeByte(count)
              
             for otherUserId,otherPlayerRecord in pairs(self.playerRecords) do
-                if (otherUserId ~= userId) then
+				if (otherUserId ~= userId) then
+					
+					if (otherPlayerRecord.chickynoid == nil) then
+						continue
+					end
+					
                     --Todo: delta compress , bitwise compress, etc etc    
                     bitBuffer.writeByte(otherPlayerRecord.slot)
                     

@@ -7,6 +7,7 @@ module.expansionSize = Vector3.new(1,1,1)
 module.boxCorners = {}
 local MinkowskiSumInstance = require(script.Parent.MinkowskiSumInstance)
 local showHulls = false
+local showCells = false
 
 local corners = {
 	Vector3.new( 0.5,0.5, 0.5),
@@ -149,7 +150,7 @@ function module:FetchCellMarching(x,y,z)
 	if (cell) then
 		return cell
 	end
-
+	debug.profilebegin("FetchCellMarching")
 
 	local cell = self:CreateAndFetchCell(x,y,z)
 
@@ -186,13 +187,17 @@ function module:FetchCellMarching(x,y,z)
 				local botD = Sample(occs,xd+1,yd+0,zd+1)
 				
 				
+				--All empty
+				if (topA < cutoff and topB < cutoff and topC < cutoff and topD < cutoff and
+					botA < cutoff and botB < cutoff and botC < cutoff and botD < cutoff) then
+					continue					
+				end
+				
 				--All solid ?
 				if (topA >= cutoff and topB >= cutoff and topC >= cutoff and topD >= cutoff and
 					botA >= cutoff and botB >= cutoff and botC >= cutoff and botD >= cutoff) then
-					
-				 
+				
 					for a,c in pairs(self.expandedCorners) do
-						
 						table.insert(list, center + Vector3.new(2,2,2) + c)
 					end
 
@@ -205,12 +210,6 @@ function module:FetchCellMarching(x,y,z)
 					continue
 				end
 
-				--All empty
-				if (topA < cutoff and topB < cutoff and topC < cutoff and topD < cutoff and
-					botA < cutoff and botB < cutoff and botC < cutoff and botD < cutoff) then
-					continue					
-				end
-		 
 				local topAPos = center + Vector3.new(0,4,0)
 				local topBPos = center + Vector3.new(4,4,0) 
 				local topCPos = center + Vector3.new(0,4,4) 
@@ -220,15 +219,15 @@ function module:FetchCellMarching(x,y,z)
 				local botCPos = center + Vector3.new(0,0,4) 
 				local botDPos = center + Vector3.new(4,0,4) 
 				
-				EmitSolidPoint(list, topAPos , (self.expansionSize * Vector3.new(-0.5, 0.5,-0.5)), topA)
-				EmitSolidPoint(list, topBPos , (self.expansionSize * Vector3.new( 0.5, 0.5,-0.5)), topB)
-				EmitSolidPoint(list, topCPos , (self.expansionSize * Vector3.new(-0.5, 0.5, 0.5)), topC)
-				EmitSolidPoint(list, topDPos , (self.expansionSize * Vector3.new( 0.5, 0.5, 0.5)), topD)
-				EmitSolidPoint(list, botAPos , (self.expansionSize * Vector3.new(-0.5,-0.5,-0.5)), botA)
-				EmitSolidPoint(list, botBPos , (self.expansionSize * Vector3.new( 0.5,-0.5,-0.5)), botB)
-				EmitSolidPoint(list, botCPos , (self.expansionSize * Vector3.new(-0.5,-0.5, 0.5)), botC)
-				EmitSolidPoint(list, botDPos , (self.expansionSize * Vector3.new( 0.5,-0.5, 0.5)), botD)
-
+				--See if any of the corners are solid
+				EmitSolidPoint(list, topAPos, (self.expansionSize * Vector3.new(-0.5, 0.5,-0.5)), topA)
+				EmitSolidPoint(list, topBPos, (self.expansionSize * Vector3.new( 0.5, 0.5,-0.5)), topB)
+				EmitSolidPoint(list, topCPos, (self.expansionSize * Vector3.new(-0.5, 0.5, 0.5)), topC)
+				EmitSolidPoint(list, topDPos, (self.expansionSize * Vector3.new( 0.5, 0.5, 0.5)), topD)
+				EmitSolidPoint(list, botAPos, (self.expansionSize * Vector3.new(-0.5,-0.5,-0.5)), botA)
+				EmitSolidPoint(list, botBPos, (self.expansionSize * Vector3.new( 0.5,-0.5,-0.5)), botB)
+				EmitSolidPoint(list, botCPos, (self.expansionSize * Vector3.new(-0.5,-0.5, 0.5)), botC)
+				EmitSolidPoint(list, botDPos, (self.expansionSize * Vector3.new( 0.5,-0.5, 0.5)), botD)
 								
 				--Vertical spans
 				SpanCheck(list, topA, botA, topAPos, botAPos)
@@ -248,7 +247,7 @@ function module:FetchCellMarching(x,y,z)
 				SpanCheck(list, topA, topC, topAPos, topCPos)
 				SpanCheck(list, topB, topD, topBPos, topDPos)
 				
-				if (game["Run Service"]:IsClient() and false) then
+				if (showCells and game["Run Service"]:IsClient()) then
 					local instance = Instance.new("Part")
 
 					instance.Size = Vector3.new(4,4,4)
@@ -271,7 +270,9 @@ function module:FetchCellMarching(x,y,z)
 						parent = game.Workspace.Terrain
 					end
 					
+					debug.profilebegin("MakeHull")
 					local hull, planeNum = MinkowskiSumInstance:GetPlanesForPoints(list, self.planeNum, parent)
+					debug.profileend()
 					self.planeNum = planeNum
 					if (hull and planeNum) then
 
@@ -283,7 +284,7 @@ function module:FetchCellMarching(x,y,z)
 		end
 	end
 
-
+	debug.profileend()
 
 	return cell
 end 

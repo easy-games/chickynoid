@@ -10,9 +10,10 @@ Enums.EventType = {
 	CollisionData = 6,
 	ResetConnection = 7,
     
-    --Just for test
-    RocketSpawn = 8,
-    RocketDie = 9,
+	--Just for test
+	WeaponDataChanged = 8,
+    RocketSpawn = 9,
+    RocketDie = 10,
 }
 
 Enums.NetworkProblemState = {
@@ -38,5 +39,15 @@ Enums.Anims = {
     Jump = 4,
     Fall = 5,
 }
+
+Enums.WeaponData = {
+	WeaponAdd = 0,
+	WeaponRemove = 1,
+	WeaponState = 2,
+	Equip = 3,
+	Dequip = 4,
+	
+}
+
 
 return Enums

@@ -89,6 +89,7 @@ function ChickynoidServer:Setup()
         end
 	end)
 	
+	WeaponsModule:Setup(self)
 
 end
 
@@ -161,7 +162,24 @@ function ChickynoidServer:AddConnection(userId, player)
         if (playerRecord.player) then
             RemoteEvent:FireClient(playerRecord.player, event)
         end
-    end
+	end
+	
+	function playerRecord:SendEventToClients(event)
+		if (playerRecord.player) then
+			RemoteEvent:FireAllClients(event)
+		end
+	end
+		
+	function playerRecord:SendEventToOtherClients(event)
+			
+		for key,record in pairs(self.playerRecords) do
+			if (record == playerRecord) then
+				continue
+			end
+			RemoteEvent:FireClient(record.player, event)
+		end
+	end
+
 	
 	function playerRecord:SendCollisionData()
 		

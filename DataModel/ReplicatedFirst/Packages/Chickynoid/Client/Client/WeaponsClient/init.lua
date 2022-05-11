@@ -1,23 +1,49 @@
 local module = {}
 
-module.rockets = {}
-module.weapons = {}
-module.currentWeapon = nil
-
 local path = game.ReplicatedFirst.Packages.Chickynoid
 local EffectsModule = require(path.Client.Effects)
 local Enums = require(path.Enums)
 local TableUtil = require(path.Vendor.TableUtil)
+local FastSignal = require(path.Vendor.FastSignal)
+
+module.rockets = {}
+module.weapons = {}
+module.customWeapons = {} 
+module.currentWeapon = nil
+module.OnBulletImpact = FastSignal.new()
+
 
 
 function module:HandleEvent(client, event)
-        
+	
+	if (event.t == Enums.EventType.BulletImpact) then
+		
+		local player = client.worldState.players[event.s]
+		
+		if (player == nil) then
+			return
+		end
+		
+		event.player = player
+		event.weaponModule = self:GetWeaponModuleByWeaponId(event.w)
+
+		self.OnBulletImpact:Fire(client, event)		
+		
+		if (event.weaponModule and event.weaponModule.ClientOnBulletImpact) then
+			event.weaponModule:ClientOnBulletImpact(client, event)
+		end
+				
+		return
+	end
+	
+	
+	--Todo: recode these
     if (event.t == Enums.EventType.RocketSpawn) then
         --fired a rocket
         local rocket = {}
         self.rockets[event.s] = event
         EffectsModule:SpawnEffect("RocketShoot",event.p) 
-        
+    	return    
     end
     
     if (event.t == Enums.EventType.RocketDie) then
@@ -34,7 +60,7 @@ function module:HandleEvent(client, event)
             rocket.part:Destroy()
         end
         self.rockets[event.s] = nil
-        
+		return
 	end 
 	
 	if (event.t == Enums.EventType.WeaponDataChanged) then
@@ -88,6 +114,7 @@ function module:HandleEvent(client, event)
 				self.currentWeapon = weaponRecord 
 			end
 		end
+		return
 	end
 end
 
@@ -137,16 +164,23 @@ function module:Think(predictedServerTime, deltaTime)
     end
 end
 
+function module:GetWeaponModuleByWeaponId(weaponId)
+	
+	return self.customWeapons[weaponId]
+end
 
-function module:SpawnTracer(pos, dir )
-	
-	
-	local clone = EffectsModule:SpawnEffect("Tracer", pos)
-	
-	clone.CFrame = CFrame.lookAt(pos, pos + dir)
-	
-	
-	
+function module:Setup(client)
+
+
+	for key,name in pairs(path.Custom.Weapons:GetDescendants()) do
+
+		if (name:IsA("ModuleScript")) then
+			local customWeapon = require(name)
+			table.insert(self.customWeapons, customWeapon)
+			--set the id
+			customWeapon.weaponId = #self.customWeapons
+		end
+	end
 end
 
 return module

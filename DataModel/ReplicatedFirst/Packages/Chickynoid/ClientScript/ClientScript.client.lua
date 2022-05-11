@@ -1,2 +1,5 @@
-local Chickynoid = require(game.ReplicatedFirst.Packages.Chickynoid.Client.Client)
-Chickynoid:Setup()
+local ChickynoidClient = require(game.ReplicatedFirst.Packages.Chickynoid.Client.Client)
+ChickynoidClient:Setup()
+
+
+

@@ -46,7 +46,14 @@ function module:SpawnEffect(name, pos)
             record.emitters[value] = emitterRecord
         end
         if (value:IsA("Sound")) then
-            value:Play()
+			value:Play()
+			
+			local variation = value:GetAttribute("variation")
+			
+			if (variation) then
+				value.PlaybackSpeed *= 1+(math.random()*variation)
+			end
+			
             local soundRecord = {}
             soundRecord.life = value.TimeLength / value.PlaybackSpeed
             soundRecord.instance = value

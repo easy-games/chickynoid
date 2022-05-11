@@ -355,13 +355,14 @@ function ServerChickynoid:UpdateServerCollisionBox(server)
 		--This box is also used to stop physics props from intersecting the player. Doesn't always work!
 		--But if a player does get stuck, they should just be able to move away from it
 		local box = Instance.new("Part")
-		box.Size = Vector3.new(2,5,2)
+		box.Size = Vector3.new(3,5,3)
 		box.Parent = server.worldRoot
 		box.Position = self.simulation.state.pos
 		box.Anchored = true
 		box.CanTouch = true
 		box.CanCollide = true
 		box.CanQuery = true
+		box:SetAttribute("player", self.playerRecord.userId)
 		self.hitBox = box
 	end
 	self.hitBox.CFrame = CFrame.new(self.simulation.state.pos)
@@ -435,11 +436,8 @@ function ServerChickynoid:RobloxPhysicsStep(server, deltaTime)
 						vel = vel.Unit + dir.Unit
 						vel = (Vector3.new(vel.x, 0, vel.z)).Unit * mag
 						
-						
-						
 	                    local localVel = value.CFrame:VectorToObjectSpace(vel)
 	         
-	                                        
 	                    --value:ApplyImpulseAtPosition(self.pushPart.Position, vel)
 	                    
 	                    local found = false

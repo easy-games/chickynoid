@@ -3,6 +3,7 @@ local module = {}
 module.rocketSerial = 0
 module.rockets = {}
 module.weaponSerials = 0
+module.customWeapons = {}
 
 local path = game.ReplicatedFirst.Packages.Chickynoid
 local TableUtil = require(path.Vendor.TableUtil)
@@ -10,8 +11,29 @@ local TableUtil = require(path.Vendor.TableUtil)
 local Enums = require(path.Enums)
 
 local requiredMethods = {
-	"ClientThink","ServerThink", "ClientProcessCommand", "ServerProcessCommand", "ClientEventFromServer" , "ServerSetup", "ClientSetup", "ServerEquip", "ServerDequip"
+	"ClientThink","ServerThink", "ClientProcessCommand", "ServerProcessCommand",  "ServerSetup", "ClientSetup", "ServerEquip", "ServerDequip"
 }
+
+function module:Setup(server)
+	
+	
+	for key,name in pairs(path.Custom.Weapons:GetDescendants()) do
+		
+		if (name:IsA("ModuleScript")) then
+			
+			local customWeapon = require(name)
+			
+			for key,values in pairs(requiredMethods) do
+				if (customWeapon[values] == nil) then
+					error("WeaponModule " .. name.Name .. " missing " .. values .. " implementation.")
+				end
+			end
+			table.insert(self.customWeapons, customWeapon)
+			--set the id
+			customWeapon.weaponId = #self.customWeapons
+		end
+	end
+end
 
 function module:OnPlayerConnected(server, playerRecord)
 
@@ -69,17 +91,6 @@ function module:OnPlayerConnected(server, playerRecord)
 		
 		local sourceModule = require(source)
 		
-		--Validate the module
-		local hasError = false
-		for key,values in pairs(requiredMethods) do
-			if (sourceModule[values] == nil) then
-				warn("WeaponModule " .. name .. " missing " .. key .. " implementation.")
-				hasError = true
-			end
-		end
-		if (hasError == true) then
-			return
-		end
 		
 		local weaponRecord = TableUtil.Copy(sourceModule, true)
 		weaponRecord.serial = module.weaponSerials
@@ -132,7 +143,34 @@ function module:OnPlayerConnected(server, playerRecord)
 end
 
 
-function module:FireBullet(playerRecord,server, origin, dir)
+function module:QueryBullet(playerRecord,server, origin, dir)
+	
+	
+	local rayCastResult = game.Workspace:Raycast(origin, dir * 1000)
+	
+	local pos = nil
+	local normal = nil
+	local otherPlayerRecord = nil
+	if (rayCastResult == nil) then
+		pos = origin * 1000
+	else
+		pos = rayCastResult.Position
+		normal = rayCastResult.Normal
+		
+		--See if its a player
+		
+		local userId = rayCastResult.Instance:GetAttribute("player")
+		if (userId) then
+			otherPlayerRecord = server:GetPlayerByUserId(userId)
+		end
+	end
+		
+	return pos, normal, otherPlayerRecord
+end
+
+
+
+function module:FireRocket(playerRecord,server, origin, dir)
 	local rocket = {}
 
 	rocket.p = playerRecord.chickynoid.simulation.state.pos
@@ -148,66 +186,15 @@ function module:FireBullet(playerRecord,server, origin, dir)
 
 	server:SendEventToClients(rocket)
 
-
 	--After its been sent, set a die time
 	rocket.aliveTime = 0
 	rocket.owner = playerRecord
 	rocket.n = -dir
-	
+
 	self.rockets[rocket.s] = rocket
 end
- 
 
---[[
-function module:HandleWeapon(server, playerRecord, deltaTime, command)
-    
-    
-    if (playerRecord.currentWeapon == nil) then
-        self:SetupWeapon(server, playerRecord)
-    end
-        
-    --Weapon fire button 
-    if (playerRecord.currentWeapon.cooldown <= 0) then
-        
-        if (command.f and command.f > 0) then
-            --Fire!
-            playerRecord.currentWeapon.cooldown = playerRecord.currentWeapon.cooldownDuration
-            
-            local rocket = {}
-            
-            rocket.p = playerRecord.chickynoid.simulation.state.pos
-            rocket.v = Vector3.new(1,0,0)
-            if (command.fa and typeof(command.fa) == "Vector3") then
-                local vec =  command.fa - rocket.p
-                if (vec.x == vec.x and vec.y == vec.y and vec.z == vec.z)  then
-                    rocket.v = vec.Unit
-                end
-                
-               
-            end
-            rocket.c = 150
-            rocket.o = server.serverSimulationTime
-            rocket.s = self.rocketSerial
-            self.rocketSerial+=1
-            
-            rocket.t = Enums.EventType.RocketSpawn
-            
-            server:SendEventToClients(rocket)
-            
-            
-            --After its been sent, set a die time
-            rocket.aliveTime = 0
-            rocket.owner = playerRecord
-            
-            self.rockets[rocket.s] = rocket
-            
-        end
-            
-    else
-        playerRecord.currentWeapon.cooldown -= deltaTime
-    end
-end
-]]--
+
 
 function module:Think(server, deltaTime)
     

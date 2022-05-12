@@ -222,9 +222,6 @@ end
     @private
 ]=]
 function ServerChickynoid:HandleClientEvent(server, event)
-	
-	
-	
 
 	
 	if event.t == EventType.Command then
@@ -364,9 +361,16 @@ function ServerChickynoid:UpdateServerCollisionBox(server)
 		box.CanQuery = true
 		box:SetAttribute("player", self.playerRecord.userId)
 		self.hitBox = box
+		
+		
+		--for streaming enabled games...
+		self.playerRecord.player.ReplicationFocus = self.hitBox
+		
 	end
 	self.hitBox.CFrame = CFrame.new(self.simulation.state.pos)
 	self.hitBox.Velocity = self.simulation.state.vel
+	
+	
 end
 
 function ServerChickynoid:RobloxPhysicsStep(server, deltaTime)

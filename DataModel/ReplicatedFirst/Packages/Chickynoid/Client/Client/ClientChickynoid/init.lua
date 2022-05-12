@@ -406,11 +406,13 @@ function ClientChickynoid:GetAimPoint()
     raycastParams.FilterType = Enum.RaycastFilterType.Whitelist
     raycastParams.FilterDescendantsInstances = { game.Workspace.GameArea }
 
-    local raycastResults = game.Workspace:Raycast(ray.Origin,ray.Direction * 150, raycastParams)
+    local raycastResults = game.Workspace:Raycast(ray.Origin,ray.Direction * 2000, raycastParams)
     if (raycastResults) then
         return raycastResults.Position
-    end
-    return ray.Origin + (ray.Direction * 150)
+	end
+	
+	--We hit the sky perhaps?
+    return ray.Origin + (ray.Direction * 2000)
 
 end
 

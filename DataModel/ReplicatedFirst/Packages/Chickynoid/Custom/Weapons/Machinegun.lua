@@ -4,6 +4,7 @@ local path = game.ReplicatedFirst.Packages.Chickynoid
 local EffectsModule = require(path.Client.Effects)
 local Enums = require(path.Enums)
 
+
 module.rateOfFire = 0.08
 
 --This module is cloned per player on client/server 
@@ -123,6 +124,14 @@ function module:ServerProcessCommand(command)
 				end
 				
 				self.playerRecord:SendEventToClients(event)
+				
+				if (otherPlayer) then
+					--Use the hitpoints mod to damage them!
+					local HitPoints = self.server:GetMod("Hitpoints")
+					if (HitPoints) then
+						HitPoints:DamagePlayer(otherPlayer, 10)
+					end
+				end
 			end
 		end
 	end

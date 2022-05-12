@@ -612,4 +612,11 @@ function Simulation:DoPushingTimer(cmd)
 end
 
 
+function Simulation:GetStandingPart()
+	if (self.lastGround and self.lastGround.hullRecord) then
+		return self.lastGround.hullRecord.instance
+	end
+	return nil
+end
+
 return Simulation

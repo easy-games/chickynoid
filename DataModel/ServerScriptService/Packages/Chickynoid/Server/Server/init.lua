@@ -9,6 +9,7 @@ local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 
 local path = game.ReplicatedFirst.Packages.Chickynoid
+local serverPath = game.ServerScriptService.Packages.Chickynoid
 
 local Types = require(path.Types)
 local Enums = require(path.Enums)
@@ -36,10 +37,18 @@ ChickynoidServer.startTime = tick()
 ChickynoidServer.slots = {}
 ChickynoidServer.collisionRootFolder = nil
 
+ChickynoidServer.modules = {} --Custom modules, for things like hitpoints
+
 --Config
 ChickynoidServer.maxPlayers = 255   --Theoretical max, use a byte for player id
 ChickynoidServer.fpsMode = Enums.FpsMode.Hybrid
 ChickynoidServer.serverHz = 20
+
+--API
+ChickynoidServer.OnPlayerSpawn = FastSignal.new()
+ChickynoidServer.OnBeforePlayerSpawn = FastSignal.new()
+ChickynoidServer.OnPlayerConnected = FastSignal.new()
+
 
 function ChickynoidServer:Setup()
 	
@@ -90,7 +99,18 @@ function ChickynoidServer:Setup()
 	end)
 	
 	WeaponsModule:Setup(self)
+	
+	
+	--Load the mods	
+	for key,value in pairs(serverPath.Custom.Server:GetChildren()) do
+		if (value:IsA("ModuleScript")) then
+			local mod = require(value)
+			self.modules[value.Name] = mod
+			mod:Setup(self)
+		end
+	end
 
+ 
 end
 
 function ChickynoidServer:PlayerConnected(player)
@@ -106,6 +126,7 @@ function ChickynoidServer:PlayerConnected(player)
 		clone.Parent = playerRecord.player.PlayerGui 
 	end
 	
+	self.OnPlayerConnected:Fire(self, playerRecord)
 end
 
 function ChickynoidServer:AssignSlot(playerRecord)
@@ -143,7 +164,7 @@ function ChickynoidServer:AddConnection(userId, player)
 	playerRecord.respawnDelay = 3
 	playerRecord.respawnTime = tick() + playerRecord.respawnDelay
 	
-	playerRecord.OnSpawn = FastSignal.new()
+	playerRecord.OnBeforePlayerSpawn = FastSignal.new()
 		
     
     self:AssignSlot(playerRecord)
@@ -233,11 +254,14 @@ function ChickynoidServer:AddConnection(userId, player)
 		else
 			self.chickynoid:SetPosition(Vector3.new(0, 10, 0))
 		end
-				
-		self.OnSpawn:Fire()
 		
+		
+		self.OnBeforePlayerSpawn:Fire()
+		ChickynoidServer.OnBeforePlayerSpawn:Fire(self, playerRecord)
+				
 		chickynoid:SpawnChickynoid()
 		
+		ChickynoidServer.OnPlayerSpawn:Fire(self, playerRecord)
 		return self.chickynoid
 	end
 	
@@ -266,6 +290,11 @@ end
 
 function ChickynoidServer:SendEventToClients(event)
     RemoteEvent:FireAllClients( event)
+end
+
+function ChickynoidServer:GetMod(name)
+	
+	return self.modules[name]
 end
 
 function ChickynoidServer:SendWorldstate(playerRecord)
@@ -420,7 +449,11 @@ function ChickynoidServer:Think(deltaTime)
     end
     WeaponsModule:Think(self, deltaTime)    
 
-    
+	for key,mod in pairs(self.modules) do
+		mod:Step(self, deltaTime)
+	end
+	
+	
     -- 2nd stage: Replicate character state to the player
     self.serverStepTimer += deltaTime
     self.serverTotalFrames += 1    

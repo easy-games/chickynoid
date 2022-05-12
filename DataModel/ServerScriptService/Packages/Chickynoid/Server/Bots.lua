@@ -29,7 +29,7 @@ function module:MakeBots(Server, numBots)
 		end
 		
 		--Spawn them in someplace
-		playerRecord.OnSpawn:Connect(function()
+		playerRecord.OnBeforePlayerSpawn:Connect(function()
 			playerRecord.chickynoid:SetPosition(Vector3.new(math.random(-350,350), 100 ,math.random(-350,350) ) + Vector3.new(-250, 0,0))
 		end)
 		

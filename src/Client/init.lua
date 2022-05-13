@@ -8,7 +8,7 @@
 local RunService = game:GetService("RunService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
-local remoteEvent = ReplicatedStorage:WaitForChild("ChickynoidReplication") :: RemoteEvent
+local RemoteEvent = ReplicatedStorage:WaitForChild("ChickynoidReplication") :: RemoteEvent
 
 local path = script.Parent
 local BitBuffer = require(path.Vendor.BitBuffer)
@@ -17,7 +17,8 @@ local ClientChickynoid = require(script.ClientChickynoid)
 local CollisionModule = require(path.Simulation.CollisionModule)
 local CharacterModel = require(script.CharacterModel)
 local CharacterData = require(path.Simulation.CharacterData)
-local WeaponModule = require(path.Client.WeaponsClient)
+local ClientWeaponModule = require(path.Client.WeaponsClient)
+local FastSignal = require(path.Vendor.FastSignal)
 
 local Enums = require(path.Enums)
 local MathUtils = require(path.Simulation.MathUtils)
@@ -39,6 +40,9 @@ ChickynoidClient.startTime = tick()
 ChickynoidClient.characters = {}
 ChickynoidClient.localFrame = 0
 ChickynoidClient.worldState = nil
+ChickynoidClient.fpsMax = 144 --Think carefully about changing this! Every extra frame clients make, puts load on the server
+ChickynoidClient.fpsIsCapped = true --Dynamically sets to true if your fps is fpsMax + 5
+ChickynoidClient.fpsMin = 25 --If you're slower than this, your step will be broken up
 
 ChickynoidClient.cappedElapsedTime = 0 --
 ChickynoidClient.timeSinceLastThink = 0
@@ -49,8 +53,11 @@ ChickynoidClient.stateCounter = 0 --Num states coming in
 
 ChickynoidClient.accumulatedTime = 0
 
-ChickynoidClient.fpsIsCapped = true
+ChickynoidClient.debugBoxes = {}
+
+ChickynoidClient.useSubFrameInterpolation = false
 ChickynoidClient.prevLocalCharacterData = nil
+ChickynoidClient.showDebugMovement = true
 
 --This flag can be set to true if we detect we're in a network death spiral, and are going to go quiet for a while
 ChickynoidClient.awaitingFullSnapshot = true
@@ -62,31 +69,18 @@ ChickynoidClient.characterModel = nil
 --Milliseconds of *extra* buffer time to account for ping flux
 ChickynoidClient.interpolationBuffer = 20
 
---[=[
-	@interface ClientConfig
-	@within ChickynoidClient
-	.fpsMin number -- If you're slower than this, your step will be broken up.
-	.fpsMax number -- Think carefully about changing this! Every extra frame clients make, puts load on the server.
+--Signals
+ChickynoidClient.OnNetworkEvent = FastSignal.new()
 
-	.useSubFrameInterpolation bool
-	.showDebugMovement bool -- Show movement debug in FPS graph.
+--Mods
+ChickynoidClient.modules = {}
 
-	Client config for Chickynoid.
-]=]
-ChickynoidClient.config = {
-    fpsMin = 25,
-    fpsMax = 144,
-
-    useSubFrameInterpolation = false,
-    showDebugMovement = true,
-}
-
---[=[
-	Creates connections so that Chickynoid can run on the client. Specifically, it connects to relevant networking and
-	RunService events.
-]=]
 function ChickynoidClient:Setup()
     local eventHandler = {}
+
+    eventHandler[EventType.DebugBox] = function(event)
+        ChickynoidClient:DebugBox(event.pos)
+    end
 
     --EventType.ChickynoidAdded
     eventHandler[EventType.ChickynoidAdded] = function(event)
@@ -99,6 +93,20 @@ function ChickynoidClient:Setup()
         --Force the position
         self.localChickynoid.simulation.state.pos = position
         self.prevLocalCharacterData = nil
+    end
+
+    eventHandler[EventType.ChickynoidRemoving] = function(_event)
+        print("Local chickynoid removing")
+
+        if self.localChickynoid ~= nil then
+            self.localChickynoid:Destroy()
+            self.localChickynoid = nil
+        end
+
+        self.prevLocalCharacterData = nil
+        self.characterModel:DestroyModel()
+        self.characterModel = nil
+        game.Players.LocalPlayer.Character = nil :: any
     end
 
     -- EventType.State
@@ -144,14 +152,15 @@ function ChickynoidClient:Setup()
         CollisionModule:MakeWorld(event.data, playerSize)
     end
 
-    remoteEvent.OnClientEvent:Connect(function(event)
+    RemoteEvent.OnClientEvent:Connect(function(event)
         self.timeOfLastData = tick()
 
         local func = eventHandler[event.t]
         if func ~= nil then
             func(event)
         else
-            WeaponModule:HandleEvent(event)
+            ClientWeaponModule:HandleEvent(self, event)
+            self.OnNetworkEvent:Fire(self, event)
         end
     end)
 
@@ -164,7 +173,7 @@ function ChickynoidClient:Setup()
         --Do a framerate cap to 144? fps
         self.cappedElapsedTime += deltaTime
         self.timeSinceLastThink += deltaTime
-        local fraction = 1 / self.config.fpsMax
+        local fraction = 1 / self.fpsMax
 
         if self.cappedElapsedTime < fraction and self.fpsIsCapped == true then
             return --If not enough time for a whole frame has elapsed
@@ -180,19 +189,23 @@ function ChickynoidClient:Setup()
         --Death spiral
 
         local badConnection = false
-        if self.localChickynoid:IsConnectionBad() == true then
-            print("Bad connection: Chickynoid Ping")
+        if self.localChickynoid and self.localChickynoid:IsConnectionBad() == true then
+            --print("Bad connection: Chickynoid Ping")
             badConnection = true
         end
 
         if tick() > self.timeOfLastData + 1 then
-            print("Bad connection: Long time between messages")
+            --print("Bad connection: Long time between messages")
             badConnection = true
         end
 
         --Go into recovery mode
         if badConnection == true and self.awaitingFullSnapshot == false then
             self:ResetConnection()
+        end
+
+        for _, value in pairs(self.modules) do
+            value:Step(self, deltaTime)
         end
     end
 
@@ -212,14 +225,28 @@ function ChickynoidClient:Setup()
         end
         Step(fakeDeltaTime)
     end)
+
+    --Load the mods
+    for _, value in pairs(path.Custom:GetChildren()) do
+        if value:IsA("ModuleScript") then
+            local mod = require(value)
+            self.modules[value.Name] = mod
+            mod:Setup(self)
+        end
+    end
+
+    --WeaponModule
+    ClientWeaponModule:Setup(self)
 end
 
---[=[
-	Reset the network connection. Used to recover from death spirals by telling the server to stop sending replication
-	packets.
+function ChickynoidClient:GetMod(name)
+    return self.modules[name]
+end
 
-	@private
-]=]
+function ChickynoidClient:GetClientChickynoid()
+    return self.localChickynoid
+end
+
 function ChickynoidClient:ResetConnection()
     if self.awaitingFullSnapshot == false then
         --Stop accepting/storing data
@@ -230,17 +257,11 @@ function ChickynoidClient:ResetConnection()
 
         local event = {}
         event.t = EventType.ResetConnection
-        remoteEvent:FireServer(event)
+        RemoteEvent:FireServer(event)
         print("Sending event to reset connection")
     end
 end
 
---[=[
-	Calculates FPS and updates the FPS graph. FPS is also used internally for various things.
-
-	@param deltaTime number
-	@private
-]=]
 function ChickynoidClient:DoFpsCount(deltaTime)
     self.frameCounter += 1
     self.frameCounterTime += deltaTime
@@ -251,8 +272,8 @@ function ChickynoidClient:DoFpsCount(deltaTime)
         end
         --print("FPS: real ", self.frameCounter, "( physics: ",self.frameSimCounter ,")")
 
-        if self.frameCounter > self.config.fpsMax + 5 then
-            FpsGraph:SetWarning("(Cap your fps to " .. self.config.fpsMax .. ")")
+        if self.frameCounter > self.fpsMax + 5 then
+            FpsGraph:SetWarning("(Cap your fps to " .. self.fpsMax .. ")")
             self.fpsIsCapped = true
         else
             FpsGraph:SetWarning("")
@@ -271,23 +292,11 @@ function ChickynoidClient:DoFpsCount(deltaTime)
     end
 end
 
---[=[
-	Use this instead of raw tick().
-	
-	@private
-	@return number
-]=]
+--Use this instead of raw tick()
 function ChickynoidClient:LocalTick()
     return tick() - self.startTime
 end
 
---[=[
-	Processes one frame forward in time and runs every heartbeat. This is the core part of Chickynoid that moves
-	everything along.
-
-	@private
-	@param deltaTime number -- Time since last frame
-]=]
 function ChickynoidClient:ProcessFrame(deltaTime)
     if self.worldState == nil then
         --Waiting for worldstate
@@ -341,7 +350,7 @@ function ChickynoidClient:ProcessFrame(deltaTime)
             while self.accumulatedTime > 0 do
                 self.accumulatedTime -= frac
 
-                if self.config.useSubFrameInterpolation == true then
+                if self.useSubFrameInterpolation == true then
                     --Todo: could do a small (rarely used) optimization here and only copy the 2nd to last one..
                     if self.localChickynoid.simulation.characterData ~= nil then
                         --Capture the state of the client before the current simulation
@@ -350,11 +359,13 @@ function ChickynoidClient:ProcessFrame(deltaTime)
                 end
 
                 --Step!
-                self.localChickynoid:Heartbeat(pointInTimeToRender, frac)
+                local cmd = self.localChickynoid:Heartbeat(pointInTimeToRender, frac)
+                ClientWeaponModule:ProcessCommand(cmd)
+
                 count += 1
             end
 
-            if self.config.useSubFrameInterpolation == true then
+            if self.useSubFrameInterpolation == true then
                 --if this happens, we have over-simulated
                 if self.accumulatedTime < 0 then
                     --we need to do a sub-frame positioning
@@ -376,57 +387,68 @@ function ChickynoidClient:ProcessFrame(deltaTime)
             end
         else
             --For this to work, the server has to accept deltaTime from the client
-            --which by default it is configured not to
-            self.localChickynoid:Heartbeat(pointInTimeToRender, deltaTime)
+            local cmd = self.localChickynoid:Heartbeat(pointInTimeToRender, deltaTime)
+            ClientWeaponModule:ProcessCommand(cmd)
         end
 
-        if self.characterModel == nil then
+        if self.characterModel == nil and self.localChickynoid ~= nil then
+            --Spawn the character in
+            print("Creating local model for UserId", game.Players.LocalPlayer.UserId)
             self.characterModel = CharacterModel.new()
             self.characterModel:CreateModel(game.Players.LocalPlayer.UserId)
         end
 
-        --Blend out the mispredict value
-        self.localChickynoid.mispredict = MathUtils:VelocityFriction(self.localChickynoid.mispredict, 0.05, deltaTime)
-        self.characterModel.mispredict = self.localChickynoid.mispredict
+        if self.characterModel ~= nil then
+            --Blend out the mispredict value
 
-        if self.fixedPhysicsSteps == true then
-            if
-                self.config.useSubFrameInterpolation == false
-                or subFrameFraction == 0
-                or self.prevLocalCharacterData == nil
-            then
-                self.characterModel:Think(deltaTime, self.localChickynoid.simulation.characterData.serialized)
+            self.localChickynoid.mispredict = MathUtils:VelocityFriction(
+                self.localChickynoid.mispredict,
+                0.05,
+                deltaTime
+            )
+            self.characterModel.mispredict = self.localChickynoid.mispredict
+
+            if self.fixedPhysicsSteps == true then
+                if
+                    self.useSubFrameInterpolation == false
+                    or subFrameFraction == 0
+                    or self.prevLocalCharacterData == nil
+                then
+                    self.characterModel:Think(deltaTime, self.localChickynoid.simulation.characterData.serialized)
+                else
+                    --Calculate a sub-frame interpolation
+                    local data = CharacterData:Interpolate(
+                        self.prevLocalCharacterData,
+                        self.localChickynoid.simulation.characterData.serialized,
+                        subFrameFraction
+                    )
+                    self.characterModel:Think(deltaTime, data)
+                end
             else
-                --Calculate a sub-frame interpolation
-                local data = CharacterData:Interpolate(
-                    self.prevLocalCharacterData,
-                    self.localChickynoid.simulation.characterData.serialized,
-                    subFrameFraction
-                )
-                self.characterModel:Think(deltaTime, data)
+                self.characterModel:Think(deltaTime, self.localChickynoid.simulation.characterData.serialized)
             end
-        else
-            self.characterModel:Think(deltaTime, self.localChickynoid.simulation.characterData.serialized)
-        end
 
-        if self.config.showDebugMovement == true then
-            local pos = self.characterModel.model.PrimaryPart.CFrame.Position
+            if self.showDebugMovement == true then
+                if self.characterModel and self.characterModel.model then
+                    local pos = self.characterModel.model.PrimaryPart.CFrame.Position
 
-            if self.previousPos ~= nil then
-                local delta = pos - self.previousPos
+                    if self.previousPos ~= nil then
+                        local delta = pos - self.previousPos
 
-                FpsGraph:AddPoint(delta.magnitude * 200, Color3.new(1, 0, 0), 4)
+                        FpsGraph:AddPoint(delta.magnitude * 200, Color3.new(0, 0, 1), 4)
+                    end
+                    self.previousPos = pos
+                end
             end
-            self.previousPos = pos
+
+            -- Bind the camera
+            local camera = game.Workspace.CurrentCamera
+            camera.CameraSubject = self.characterModel.model
+            camera.CameraType = Enum.CameraType.Custom
+
+            --Bind the local character, which activates all the thumbsticks etc
+            game.Players.LocalPlayer.Character = self.characterModel.model
         end
-
-        -- Bind the camera
-        local camera = game.Workspace.CurrentCamera
-        camera.CameraSubject = self.characterModel.model
-        camera.CameraType = Enum.CameraType.Custom
-
-        --Bind the local character, which activates all the thumbsticks etc
-        game.Players.LocalPlayer.Character = self.characterModel.model
     end
 
     local last = nil
@@ -465,7 +487,7 @@ function ChickynoidClient:ProcessFrame(deltaTime)
             end
 
             character.frame = self.localFrame
-
+            character.position = dataRecord.pos
             --Update it
             character.characterModel:Think(deltaTime, dataRecord)
         end
@@ -485,18 +507,16 @@ function ChickynoidClient:ProcessFrame(deltaTime)
     -- local timeToRenderRocketsAt = self.estimatedServerTime
     local timeToRenderRocketsAt = pointInTimeToRender --laggier but more correct
 
-    WeaponModule:Think(timeToRenderRocketsAt, deltaTime)
+    ClientWeaponModule:Think(timeToRenderRocketsAt, deltaTime)
 end
 
---[=[
-	This tries to figure out a correct delta for the server time. Better to update this infrequently as it will cause a
-	"pop" in prediction.
+function ChickynoidClient:GetCharacters()
+    return self.characters
+end
 
-	Thought: Replace with roblox solution or converging solution?
-
-	@private
-	@param serverActualTime number
-]=]
+-- This tries to figure out a correct delta for the server time
+-- Better to update this infrequently as it will cause a "pop" in prediction
+-- Thought: Replace with roblox solution or converging solution?
 function ChickynoidClient:SetupTime(serverActualTime)
     local oldDelta = self.estimatedServerTimeOffset
     local newDelta = self:LocalTick() - serverActualTime
@@ -508,14 +528,6 @@ function ChickynoidClient:SetupTime(serverActualTime)
     end
 end
 
---[=[
-	Deserializes a snapshot from the server.
-
-	@private
-	@param event unknown
-	@param previousSnapshot unknown
-	@return unknown
-]=]
 function ChickynoidClient:DeserializeSnapshot(event, previousSnapshot)
     local bitBuffer = BitBuffer(event.b)
     local count = bitBuffer.readByte()
@@ -547,6 +559,62 @@ function ChickynoidClient:DeserializeSnapshot(event, previousSnapshot)
     end
 
     return event
+end
+
+function ChickynoidClient:GetGui()
+    local gui = game.Players.LocalPlayer:FindFirstChild("PlayerGui")
+    return gui
+end
+
+function ChickynoidClient:DebugMarkAllPlayers()
+    if self.worldState == nil then
+        return
+    end
+    if self.worldState.flags.DEBUG_ANTILAG ~= true then
+        return
+    end
+
+    local models = self:GetCharacters()
+    for _, record in pairs(models) do
+        local instance = Instance.new("Part")
+        instance.Size = Vector3.new(3, 5, 3)
+        instance.Transparency = 0.5
+        instance.Color = Color3.new(0, 1, 0)
+        instance.Anchored = true
+        instance.CanCollide = false
+        instance.CanTouch = false
+        instance.CanQuery = false
+        instance.Position = record.position
+        instance.Parent = game.Workspace
+
+        self.debugBoxes[instance] = tick() + 5
+    end
+
+    for key, value in pairs(self.debugBoxes) do
+        if tick() > value then
+            key:Destroy()
+            self.debugBoxes[key] = nil
+        end
+    end
+end
+
+function ChickynoidClient:DebugBox(pos)
+    local instance = Instance.new("Part")
+    instance.Size = Vector3.new(3, 5, 3)
+    instance.Transparency = 1
+    instance.Color = Color3.new(1, 0, 0)
+    instance.Anchored = true
+    instance.CanCollide = false
+    instance.CanTouch = false
+    instance.CanQuery = false
+    instance.Position = pos
+    instance.Parent = game.Workspace
+
+    local adornment = Instance.new("SelectionBox")
+    adornment.Adornee = instance
+    adornment.Parent = instance
+
+    self.debugBoxes[instance] = tick() + 5
 end
 
 return ChickynoidClient

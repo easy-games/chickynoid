@@ -136,7 +136,7 @@ function Simulation:ProcessCommand(cmd)
 
             --Enter idle
             self.characterData:PlayAnimation(Enums.Anims.Idle, false)
-            -- else
+        -- else
             --moving through the air with no input
         end
     end
@@ -214,16 +214,26 @@ function Simulation:ProcessCommand(cmd)
             self.characterData:PlayAnimation(Enums.Anims.Fall, false)
         end
     else
-        --Land after jump
-        -- if self.state.inAir > 0 then
-        --We don't do anything special here atm
-        -- end
         self.state.inAir = 0
     end
 
     --Sweep the player through the world, once flat along the ground, and once "step up'd"
     local stepUpResult = nil
     local walkNewPos, walkNewVel, hitSomething = self:ProjectVelocity(self.state.pos, self.state.vel, cmd.deltaTime)
+
+    --Did we crashland
+    if onGround == nil and hitSomething == true then
+        --Land after jump
+        local groundCheck = self:DoGroundCheck(walkNewPos)
+
+        if groundCheck ~= nil then
+            --Crashland
+
+            --Current behaviour, cap velocity
+            walkNewVel = Vector3.new(walkNewVel.x, 0, walkNewVel.z)
+            walkNewVel = self:CapVelocity(walkNewVel, self.constants.maxSpeed)
+        end
+    end
 
     -- Do we attempt a stepup?                              (not jumping!)
     if onGround ~= nil and hitSomething == true and self.state.jump == 0 then
@@ -232,7 +242,7 @@ function Simulation:ProcessCommand(cmd)
 
     --Choose which one to use, either the original move or the stepup
     if stepUpResult ~= nil then
-        self.state.stepUp = stepUpResult.stepUp
+        self.state.stepUp += stepUpResult.stepUp
         self.state.pos = stepUpResult.pos
         self.state.vel = stepUpResult.vel
     else
@@ -241,11 +251,11 @@ function Simulation:ProcessCommand(cmd)
     end
 
     --Do stepDown
-    if false then
-        if startedOnGround ~= nil and self.state.jump == 0 then
+    if true then
+        if startedOnGround ~= nil and self.state.jump == 0 and self.state.vel.y <= 0 then
             local stepDownResult = self:DoStepDown(self.state.pos)
             if stepDownResult ~= nil then
-                self.state.stepUp = stepDownResult.stepDown
+                self.state.stepUp += stepDownResult.stepDown
                 self.state.pos = stepDownResult.pos
             end
         end
@@ -298,7 +308,7 @@ function Simulation:DoStepUp(pos, vel, deltaTime)
     local headHit = CollisionModule:Sweep(pos, pos + stepVec)
 
     --Project forwards
-    local stepUpNewPos, stepUpNewVel, _ = self:ProjectVelocity(headHit.endPos, flatVel, deltaTime)
+    local stepUpNewPos, stepUpNewVel, _stepHitSomething = self:ProjectVelocity(headHit.endPos, flatVel, deltaTime)
 
     --Trace back down
     local traceDownPos = stepUpNewPos
@@ -508,6 +518,15 @@ function Simulation:Accelerate(wishDir, wishSpeed, accel, velocity, dt)
     return velocity
 end
 
+function Simulation:CapVelocity(velocity, maxSpeed)
+    local mag = velocity.magnitude
+    mag = math.min(mag, maxSpeed)
+    if mag > 0.01 then
+        return velocity.Unit * mag
+    end
+    return Vector3.zero
+end
+
 --Todo: Compress?
 function Simulation:WriteState()
     local record = {}
@@ -561,6 +580,13 @@ function Simulation:DoPushingTimer(cmd)
             self.state.pushing = 0
         end
     end
+end
+
+function Simulation:GetStandingPart()
+    if self.lastGround and self.lastGround.hullRecord then
+        return self.lastGround.hullRecord.instance
+    end
+    return nil
 end
 
 return Simulation

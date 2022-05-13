@@ -10,7 +10,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local UserInputService = game:GetService("UserInputService")
 local Players = game:GetService("Players")
 
-local remoteEvent = ReplicatedStorage:WaitForChild("ChickynoidReplication") :: RemoteEvent
+local RemoteEvent = ReplicatedStorage:WaitForChild("ChickynoidReplication") :: RemoteEvent
 
 local path = script.Parent.Parent
 local Simulation = require(path.Simulation)
@@ -27,8 +27,33 @@ local Camera = workspace.CurrentCamera
 local LocalPlayer = Players.LocalPlayer
 
 --For access to control vectors
-local PlayerModule = LocalPlayer:WaitForChild("PlayerScripts"):WaitForChild("PlayerModule")
-local ControlModule = require(PlayerModule:WaitForChild("ControlModule"))
+
+local ControlModule = nil --require(PlayerModule:WaitForChild("ControlModule"))
+
+local function GetControlModule()
+    if ControlModule == nil then
+        local scripts = LocalPlayer:FindFirstChild("PlayerScripts")
+        if scripts == nil then
+            return nil
+        end
+
+        local playerModule = scripts:FindFirstChild("PlayerModule")
+        if playerModule == nil then
+            return nil
+        end
+
+        local controlModule = playerModule:FindFirstChild("ControlModule")
+        if controlModule == nil then
+            return nil
+        end
+
+        ControlModule = require(
+            LocalPlayer:WaitForChild("PlayerScripts"):WaitForChild("PlayerModule"):WaitForChild("ControlModule")
+        )
+    end
+
+    return ControlModule
+end
 
 local DebugParts = Instance.new("Folder")
 DebugParts.Name = "DebugParts"
@@ -83,12 +108,15 @@ function ClientChickynoid:MakeCommand(dt: number)
     command.z = 0
     command.deltaTime = dt
 
-    local moveVector = ControlModule:GetMoveVector() :: Vector3
-    if moveVector.Magnitude > 0 then
-        moveVector = moveVector.Unit
-        command.x = moveVector.X
-        command.y = moveVector.Y
-        command.z = moveVector.Z
+    GetControlModule()
+    if ControlModule ~= nil then
+        local moveVector = ControlModule:GetMoveVector() :: Vector3
+        if moveVector.Magnitude > 0 then
+            moveVector = moveVector.Unit
+            command.x = moveVector.X
+            command.y = moveVector.Y
+            command.z = moveVector.Z
+        end
     end
 
     -- This approach isn't ideal but it's the easiest right now
@@ -153,9 +181,7 @@ end
 
     @param state table -- The new state sent by the server.
     @param lastConfirmed number -- The serial number of the last command confirmed by the server.
-    @param serverTime number -- Time when command was confirmed
-    @param serverHealthFps number -- The current FPS the server is running at
-    @param networkProblem any -- Indicates any known network problem
+    @param serverTime - Time when command was confirmed
 ]=]
 function ClientChickynoid:HandleNewState(state, lastConfirmed, serverTime, serverHealthFps, networkProblem)
     self:ClearDebugSpheres()
@@ -325,10 +351,11 @@ function ClientChickynoid:Heartbeat(serverTime: number, deltaTime: number)
     local event = {}
     event.t = EventType.Command
     event.command = cmd
-    remoteEvent:FireServer(event)
+    RemoteEvent:FireServer(event)
 
     --once we've sent it, add localtime
     cmd.tick = tick()
+    return cmd
 end
 
 function ClientChickynoid:SpawnDebugSphere(pos, color)
@@ -359,13 +386,17 @@ function ClientChickynoid:GetAimPoint()
 
     local raycastParams = RaycastParams.new()
     raycastParams.FilterType = Enum.RaycastFilterType.Whitelist
-    raycastParams.FilterDescendantsInstances = { workspace:FindFirstChild("GameArea"), workspace.Terrain }
+    raycastParams.FilterDescendantsInstances = { game.Workspace:FindFirstChild("GameArea") }
 
-    local raycastResults = game.Workspace:Raycast(ray.Origin, ray.Direction * 150, raycastParams)
+    local raycastResults = game.Workspace:Raycast(ray.Origin, ray.Direction * 2000, raycastParams)
     if raycastResults then
         return raycastResults.Position
     end
-    return ray.Origin + (ray.Direction * 150)
+
+    --We hit the sky perhaps?
+    return ray.Origin + (ray.Direction * 2000)
 end
+
+function ClientChickynoid:Destroy() end
 
 return ClientChickynoid

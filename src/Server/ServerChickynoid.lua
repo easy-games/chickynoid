@@ -14,8 +14,6 @@ local EventType = Enums.EventType
 local Simulation = require(path.Simulation)
 local TrajectoryModule = require(path.Simulation.TrajectoryModule)
 
-local WeaponModule = require(script.Parent.WeaponsServer)
-
 local ServerChickynoid = {}
 ServerChickynoid.__index = ServerChickynoid
 
@@ -56,12 +54,10 @@ function ServerChickynoid.new(playerRecord)
         self.simulation.debugModel = nil
     end
 
-    self:SpawnChickynoid()
-
     return self
 end
 
-function ServerChickynoid:DestroyRobloxParts()
+function ServerChickynoid:Destroy()
     if self.pushPart then
         self.pushPart:Destroy()
         self.pushPart = nil
@@ -119,16 +115,12 @@ end
 --[=[
 	Steps the simulation forward by one frame. This loop handles the simulation
 	and replication timings.
-
-	@param server any -- The server.
-	@param _serverSimulationTime number -- The server simulation time.
-	@param deltaTime number -- The DT.
 ]=]
-function ServerChickynoid:Think(server, _serverSimulationTime, deltaTime)
+function ServerChickynoid:Think(_server, _serverSimulationTime, deltaTime)
     --  Anticheat methods
     --  We keep X ms of commands unprocessed, so that if players stop sending upstream, we have some commands to keep going with
     --  We only allow the player to get +150ms ahead of the servers estimated sim time (Speed cheat), if they're over this, we discard commands
-    --  We only allow the player to get -60ms behind the servers estimated sim time (Lag cheat), if they're under this, we generate fake commands to catch them up
+    --  We only allow the player to get -150ms behind the servers estimated sim time (Lag cheat), if they're under this, we generate fake commands to catch them up
     --  We only allow 15 commands per server tick (ratio of 5:1) if the user somehow has more than 15 commands that are legitimately needing processing, we discard them all
 
     self.elapsedTime += deltaTime
@@ -174,11 +166,13 @@ function ServerChickynoid:Think(server, _serverSimulationTime, deltaTime)
         TrajectoryModule:PositionWorld(command.serverTime, command.deltaTime)
         self.debug.processedCommands += 1
 
+        --Step simulation!
         self.simulation:ProcessCommand(command)
-        command.processed = true
 
         --Fire weapons!
-        WeaponModule:HandleWeapon(server, self.playerRecord, command.deltaTime, command)
+        self.playerRecord:ProcessWeaponCommand(command)
+
+        command.processed = true
 
         if command.l and tonumber(command.l) ~= nil then
             self.lastConfirmedCommand = command.l
@@ -198,7 +192,6 @@ end
 --[=[
 	Callback for handling all events from the client.
 
-	@param server any -- The server.
 	@param event table -- The event sent by the client.
 	@private
 ]=]
@@ -233,12 +226,23 @@ function ServerChickynoid:HandleClientEvent(server, event)
                 return
             end
 
+            if command.fa and (typeof(command.fa) == "Vector3") then
+                local vec = command.fa
+                if vec.x == vec.x and vec.y == vec.y and vec.z == vec.z then
+                    command.fa = vec
+                else
+                    command.fa = nil
+                end
+            else
+                command.fa = nil
+            end
+
             command.serial = self.commandSerial
             self.commandSerial += 1
 
             --sanitize
 
-            if server.fpsMode == Enums.FpsMode.Uncapped then
+            if server.config.fpsMode == Enums.FpsMode.Uncapped then
                 --Todo: really slow players need to be penalized harder.
                 if command.deltaTime > 0.5 then
                     command.deltaTime = 0.5
@@ -249,7 +253,7 @@ function ServerChickynoid:HandleClientEvent(server, event)
                     command.deltaTime = 1 / 500
                     --print("Player over 500fps:", self.playerRecord.name)
                 end
-            elseif server.fpsMode == Enums.FpsMode.Hybrid then
+            elseif server.config.fpsMode == Enums.FpsMode.Hybrid then
                 --Players under 30fps are simualted at 30fps
                 if command.deltaTime > 1 / 30 then
                     command.deltaTime = 1 / 30
@@ -260,7 +264,7 @@ function ServerChickynoid:HandleClientEvent(server, event)
                     command.deltaTime = 1 / 500
                     --print("Player over 500fps:", self.playerRecord.name)
                 end
-            elseif server.fpsMode == Enums.FpsMode.Fixed60 then
+            elseif server.config.fpsMode == Enums.FpsMode.Fixed60 then
                 command.deltaTime = 1 / 60
             else
                 warn("Unhandled FPS mode")
@@ -290,19 +294,6 @@ end
     @private
 ]=]
 function ServerChickynoid:SpawnChickynoid()
-    local list = {}
-    for _, obj: SpawnLocation in pairs(workspace:GetDescendants()) do
-        if obj:IsA("SpawnLocation") and obj.Enabled == true then
-            table.insert(list, obj)
-        end
-    end
-
-    if #list > 0 then
-        local spawn = list[math.random(1, #list)]
-        self:SetPosition(Vector3.new(spawn.Position.x, spawn.Position.y + 5, spawn.Position.z))
-    else
-        self:SetPosition(Vector3.new(0, 10, 0))
-    end
     self.simulation.state.vel = Vector3.zero
 
     if self.playerRecord.dummy == false then
@@ -325,20 +316,26 @@ function ServerChickynoid:UpdateServerCollisionBox(server)
         --This box is also used to stop physics props from intersecting the player. Doesn't always work!
         --But if a player does get stuck, they should just be able to move away from it
         local box = Instance.new("Part")
-        box.Size = Vector3.new(2, 5, 2)
+        box.Size = Vector3.new(3, 5, 3)
         box.Parent = server.worldRoot
         box.Position = self.simulation.state.pos
         box.Anchored = true
         box.CanTouch = true
         box.CanCollide = true
         box.CanQuery = true
+        box:SetAttribute("player", self.playerRecord.userId)
         self.hitBox = box
+
+        --for streaming enabled games...
+        if self.playerRecord.player then
+            self.playerRecord.player.ReplicationFocus = self.hitBox
+        end
     end
     self.hitBox.CFrame = CFrame.new(self.simulation.state.pos)
     self.hitBox.Velocity = self.simulation.state.vel
 end
 
-function ServerChickynoid:RobloxPhysicsStep(server, _)
+function ServerChickynoid:RobloxPhysicsStep(server, _deltaTime)
     self:UpdateServerCollisionBox(server)
 
     local push = true

@@ -1,10 +1,16 @@
+local RunService = game:GetService("RunService")
+
 local module = {}
 module.grid = {}
 module.div = 0
 module.counter = 0
 module.planeNum = 1000000
 module.expansionSize = Vector3.new(1, 1, 1)
+module.boxCorners = {}
+
 local MinkowskiSumInstance = require(script.Parent.MinkowskiSumInstance)
+local showHulls = false
+local showCells = false
 
 local corners = {
     Vector3.new(0.5, 0.5, 0.5),
@@ -31,116 +37,262 @@ function module:RawFetchCell(x, y, z)
 end
 
 function module:FetchCell(x, y, z)
-    local cell = self:RawFetchCell(x, y, z)
+    return self:FetchCellMarching(x, y, z)
+end
 
-    if cell then
-        return cell
+local function Sample(occs, x, y, z)
+    local avg = occs[x + 0][y + 0][z + 0]
+    avg += occs[x + 1][y + 0][z + 0]
+    avg += occs[x + 0][y + 0][z + 1]
+    avg += occs[x + 1][y + 0][z + 1]
+    avg += occs[x + 0][y + 1][z + 0]
+    avg += occs[x + 1][y + 1][z + 0]
+    avg += occs[x + 0][y + 1][z + 1]
+    avg += occs[x + 1][y + 1][z + 1]
+
+    avg /= 8
+    return avg
+end
+
+local cutoff = 0.25
+
+local function EmitPointGrey(_list, _pos, _offset)
+    --[[
+	local instance = Instance.new("Part")
+
+	instance.Size = Vector3.new(1,1,1)
+	instance.Position = pos + Vector3.new(0,16,0)
+	instance.Transparency = 0.2
+
+	instance.Shape = Enum.PartType.Ball
+	instance.Color = Color3.new(0.25,0.25,0.25)
+	instance.Parent = game.Workspace
+	instance.Transparency = 0.5
+	instance.Anchored = true
+	instance.TopSurface = Enum.SurfaceType.Smooth
+	instance.BottomSurface = Enum.SurfaceType.Smooth
+	]]
+    --
+end
+
+local function EmitRedDot(list, pos)
+    --[[
+	local instance = Instance.new("Part")
+
+	instance.Size = Vector3.new(0.25,0.25,0.25)
+	instance.Position = pos + Vector3.new(0,16,0)
+	instance.Transparency = 0
+
+	instance.Shape = Enum.PartType.Ball
+	instance.Color = Color3.new(1,0,0.25)
+	instance.Parent = game.Workspace
+	instance.Anchored = true
+	instance.TopSurface = Enum.SurfaceType.Smooth
+	instance.BottomSurface = Enum.SurfaceType.Smooth
+	]]
+    --
+
+    for _, c in pairs(module.boxCorners) do
+        table.insert(list, pos + c)
+    end
+end
+
+local function EmitPointGreen(list, pos, offset)
+    --[[
+	local instance = Instance.new("Part")
+
+	instance.Size = Vector3.new(1,1,1)
+	instance.Position = pos  + Vector3.new(0,16,0)
+	instance.Transparency = 0.5
+
+	instance.Shape = Enum.PartType.Ball
+	instance.Color = Color3.new(0.25,1,0.25)
+	instance.Parent = game.Workspace
+	instance.Anchored = true
+	instance.TopSurface = Enum.SurfaceType.Smooth
+	instance.BottomSurface = Enum.SurfaceType.Smooth
+	]]
+    --
+    table.insert(list, pos + offset)
+end
+
+local function EmitSolidPoint(list, pos, offset, val)
+    if val < cutoff then
+        EmitPointGrey(list, pos, offset)
+    else
+        EmitPointGreen(list, pos, offset)
+    end
+end
+
+local function Frac(min, max, cross)
+    local range = max - min
+    return (cross - min) / range
+end
+
+local function SpanCheck(list, aval, bval, apos, bpos)
+    --if its a mismatch
+    if aval < cutoff and bval >= cutoff then
+        local frac = Frac(aval, bval, cutoff)
+        EmitRedDot(list, apos:Lerp(bpos, frac)) --TopD
+    elseif aval >= cutoff and bval < cutoff then
+        local frac = Frac(bval, aval, cutoff)
+        EmitRedDot(list, bpos:Lerp(apos, frac)) --TopD
+    end
+end
+
+function module:FetchCellMarching(x, y, z)
+    local rawCell = self:RawFetchCell(x, y, z)
+    if rawCell then
+        return rawCell
     end
 
-    cell = self:CreateAndFetchCell(x, y, z)
+    debug.profilebegin("FetchCellMarching")
+
+    local cell = self:CreateAndFetchCell(x, y, z)
 
     local max = self.div - 1
 
     local corner = Vector3.new(x, y, z) * self.gridSize
-    local region = Region3.new(corner, corner + Vector3.new(self.gridSize + 4, self.gridSize + 4, self.gridSize + 4))
 
-    local _, occs = game.Workspace.Terrain:ReadVoxels(region, 4)
+    local region = Region3.new(
+        corner + Vector3.new(-4, -4, -4),
+        corner + Vector3.new(self.gridSize + 4, self.gridSize + 4, self.gridSize + 4)
+    )
 
-    local step = 4 / self.boxSize
-
-    local list = {}
+    local _materials, occs = game.Workspace.Terrain:ReadVoxels(region, 4)
 
     for xx = 0, max do
         for yy = 0, max do
             for zz = 0, max do
-                local fraction = Vector3.new(x + (xx / self.div), y + (yy / self.div), z + (zz / self.div))
-                local fill = self:GetOccupancyBilinear(occs, (xx / step), (yy / step), (zz / step))
+                local list = {}
 
-                if fill > 0.2 then
-                    local center = (fraction * self.gridSize)
-                        + (Vector3.new(self.boxSize, self.boxSize, self.boxSize) * 0.5)
+                local center = corner + Vector3.new(xx * 4, yy * 4, zz * 4)
 
-                    for _, expandedCorner in pairs(self.expandedCorners) do
-                        table.insert(list, center + expandedCorner)
+                local xd = xx + 1
+                local yd = yy + 1
+                local zd = zz + 1
+
+                local topA = Sample(occs, xd + 0, yd + 1, zd + 0)
+                local topB = Sample(occs, xd + 1, yd + 1, zd + 0)
+                local topC = Sample(occs, xd + 0, yd + 1, zd + 1)
+                local topD = Sample(occs, xd + 1, yd + 1, zd + 1)
+                local botA = Sample(occs, xd + 0, yd + 0, zd + 0)
+                local botB = Sample(occs, xd + 1, yd + 0, zd + 0)
+                local botC = Sample(occs, xd + 0, yd + 0, zd + 1)
+                local botD = Sample(occs, xd + 1, yd + 0, zd + 1)
+
+                --All empty
+                if
+                    topA < cutoff
+                    and topB < cutoff
+                    and topC < cutoff
+                    and topD < cutoff
+                    and botA < cutoff
+                    and botB < cutoff
+                    and botC < cutoff
+                    and botD < cutoff
+                then
+                    continue
+                end
+
+                --All solid ?
+                if
+                    topA >= cutoff
+                    and topB >= cutoff
+                    and topC >= cutoff
+                    and topD >= cutoff
+                    and botA >= cutoff
+                    and botB >= cutoff
+                    and botC >= cutoff
+                    and botD >= cutoff
+                then
+                    for _, c in pairs(self.expandedCorners) do
+                        table.insert(list, center + Vector3.new(2, 2, 2) + c)
                     end
 
-                    --[[if (game["Run Service"]:IsClient()) then
-						self:SpawnDebugGridBox(fraction.x, fraction.y, fraction.z , Color3.fromHSV(math.random(),1,1), self.boxSize)
-					end]]
-                    --
+                    local hull, planeNum = MinkowskiSumInstance:GetPlanesForPoints(list, self.planeNum, nil)
+                    self.planeNum = planeNum
+                    if hull and planeNum then
+                        table.insert(cell, { hull = hull })
+                    end
+
+                    continue
+                end
+
+                local topAPos = center + Vector3.new(0, 4, 0)
+                local topBPos = center + Vector3.new(4, 4, 0)
+                local topCPos = center + Vector3.new(0, 4, 4)
+                local topDPos = center + Vector3.new(4, 4, 4)
+                local botAPos = center + Vector3.new(0, 0, 0)
+                local botBPos = center + Vector3.new(4, 0, 0)
+                local botCPos = center + Vector3.new(0, 0, 4)
+                local botDPos = center + Vector3.new(4, 0, 4)
+
+                --See if any of the corners are solid
+                EmitSolidPoint(list, topAPos, (self.expansionSize * Vector3.new(-0.5, 0.5, -0.5)), topA)
+                EmitSolidPoint(list, topBPos, (self.expansionSize * Vector3.new(0.5, 0.5, -0.5)), topB)
+                EmitSolidPoint(list, topCPos, (self.expansionSize * Vector3.new(-0.5, 0.5, 0.5)), topC)
+                EmitSolidPoint(list, topDPos, (self.expansionSize * Vector3.new(0.5, 0.5, 0.5)), topD)
+                EmitSolidPoint(list, botAPos, (self.expansionSize * Vector3.new(-0.5, -0.5, -0.5)), botA)
+                EmitSolidPoint(list, botBPos, (self.expansionSize * Vector3.new(0.5, -0.5, -0.5)), botB)
+                EmitSolidPoint(list, botCPos, (self.expansionSize * Vector3.new(-0.5, -0.5, 0.5)), botC)
+                EmitSolidPoint(list, botDPos, (self.expansionSize * Vector3.new(0.5, -0.5, 0.5)), botD)
+
+                --Vertical spans
+                SpanCheck(list, topA, botA, topAPos, botAPos)
+                SpanCheck(list, topB, botB, topBPos, botBPos)
+                SpanCheck(list, topC, botC, topCPos, botCPos)
+                SpanCheck(list, topD, botD, topDPos, botDPos)
+
+                --Bottom spans
+                SpanCheck(list, botA, botB, botAPos, botBPos)
+                SpanCheck(list, botC, botD, botCPos, botDPos)
+                SpanCheck(list, botA, botC, botAPos, botCPos)
+                SpanCheck(list, botB, botD, botBPos, botDPos)
+
+                --Top spans
+                SpanCheck(list, topA, topB, topAPos, topBPos)
+                SpanCheck(list, topC, topD, topCPos, topDPos)
+                SpanCheck(list, topA, topC, topAPos, topCPos)
+                SpanCheck(list, topB, topD, topBPos, topDPos)
+
+                if showCells and RunService:IsClient() then
+                    local instance = Instance.new("Part")
+
+                    instance.Size = Vector3.new(4, 4, 4)
+                    instance.Position = center + Vector3.new(2, 2, 2)
+                    instance.Transparency = 0.9
+
+                    instance.Shape = Enum.PartType.Block
+                    instance.Color = Color3.new(1, 0.3, 0.3)
+                    instance.Parent = game.Workspace
+                    instance.Anchored = true
+                    instance.TopSurface = Enum.SurfaceType.Smooth
+                    instance.BottomSurface = Enum.SurfaceType.Smooth
+                end
+
+                if #list > 3 then
+                    local parent = nil
+                    if RunService:IsClient() and showHulls then
+                        parent = game.Workspace.Terrain
+                    end
+
+                    debug.profilebegin("MakeHull")
+                    local hull, planeNum = MinkowskiSumInstance:GetPlanesForPoints(list, self.planeNum, parent)
+                    debug.profileend()
+                    self.planeNum = planeNum
+                    if hull and planeNum then
+                        --CollisionModule.planeNum = planeNum
+                        table.insert(cell, { hull = hull })
+                    end
                 end
             end
         end
     end
 
-    if #list > 0 then
-        local hull, planeNum = MinkowskiSumInstance:GetPlanesForPoints(list, self.planeNum)
-        self.planeNum = planeNum
-        if hull and planeNum then
-            --CollisionModule.planeNum = planeNum
-            table.insert(cell, { hull = hull })
-        end
-    end
-
-    --self:SpawnDebugGridBox(x, y, z, Color3.fromHSV(math.random(),1,1), self.gridSize)
+    debug.profileend()
 
     return cell
-end
-
-local function lerp(a, b, frac)
-    return (a * (1 - frac)) + (b * frac)
-end
-
-function module:GetOccupancyBilinear(occ, localx, localy, localz)
-    localx += 1
-    localy += 1
-    localz += 1
-
-    local x = math.floor(localx)
-    local y = math.floor(localy)
-    local z = math.floor(localz)
-
-    --    botface
-    --
-    --     c -----fx---cd--- d
-    --                  |
-    --                  |
-    --                  |
-    --                  |
-    --                  fy        ^
-    --                  |         |
-    --     a -----fx---ab---- b   |
-    --                            |
-    --     (xaxis)---->           (zaxis)
-
-    local fx = localx - x
-    local fy = localy - y
-    local fz = localz - z
-
-    --Bot face samples
-    local a_bot = occ[x + 0][y + 0][z + 0]
-    local b_bot = occ[x + 1][y + 0][z + 0]
-    local c_bot = occ[x + 0][y + 0][z + 1]
-    local d_bot = occ[x + 1][y + 0][z + 1]
-
-    --Top face samples
-    local a_top = occ[x + 0][y + 1][z + 0]
-    local b_top = occ[x + 1][y + 1][z + 0]
-    local c_top = occ[x + 0][y + 1][z + 1]
-    local d_top = occ[x + 1][y + 1][z + 1]
-
-    --Bot face lerped
-    local ab_bot = lerp(a_bot, b_bot, fx)
-    local cd_bot = lerp(c_bot, d_bot, fx)
-    local botFace = lerp(ab_bot, cd_bot, fz)
-
-    --Top face lerped
-    local ab_top = lerp(a_top, b_top, fx)
-    local cd_top = lerp(c_top, d_top, fx)
-    local topFace = lerp(ab_top, cd_top, fz)
-
-    --Between bot and top face
-    return lerp(botFace, topFace, fy)
 end
 
 function module:SpawnDebugGridBox(x, y, z, color, grid)
@@ -176,34 +328,27 @@ function module:CreateAndFetchCell(x, y, z)
     return gy
 end
 
-function module:BuildCollisionData(x, z, collisionModule, playerSize)
-    local chunkSize = 4
-
-    local chunkx = math.floor(x / chunkSize)
-    local chunkz = math.floor(z / chunkSize)
-
-    local hash = (chunkz * 4096) + chunkx
-    if self.mapCache[hash] ~= nil or true then
-        return
-    end
-
-    self.mapCache[hash] = true
-
-    self:ProcessChunk(chunkx * chunkSize, chunkz * chunkSize, chunkSize, collisionModule, playerSize)
-end
-
 function module:Setup(gridSize, expansionSize)
     self.grid = {}
     self.expansionSize = expansionSize
 
     self.gridSize = gridSize
-    self.boxSize = 2
+    self.boxSize = 4
     self.div = self.gridSize / self.boxSize
 
     self.expandedCorners = {}
     for _, corner in pairs(corners) do
         table.insert(self.expandedCorners, (corner * self.boxSize) + (corner * self.expansionSize))
     end
+    self.boxCorners = {}
+    for _, corner in pairs(corners) do
+        table.insert(self.boxCorners, (corner * self.expansionSize))
+    end
+
+    local testPart = Instance.new("Part")
+    testPart.Size = Vector3.new(self.boxSize, self.boxSize, self.boxSize)
+    testPart.CanCollide = false
+    self.testPart = testPart
 end
 
 return module

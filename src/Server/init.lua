@@ -18,6 +18,8 @@ local CharacterData = require(path.Simulation.CharacterData)
 local BitBuffer = require(path.Vendor.BitBuffer)
 local WeaponsModule = require(script.WeaponsServer)
 local CollisionModule = require(path.Simulation.CollisionModule)
+local Antilag = require(path.Server.Antilag)
+local FastSignal = require(path.Vendor.FastSignal)
 
 local RemoteEvent = Instance.new("RemoteEvent")
 RemoteEvent.Name = "ChickynoidReplication"
@@ -38,13 +40,14 @@ ChickynoidServer.startTime = tick()
 ChickynoidServer.slots = {}
 ChickynoidServer.collisionRootFolder = nil
 
+ChickynoidServer.modules = {} --Custom modules, for things like hitpoints
+
 --[=[
 	@interface ServerConfig
 	@within ChickynoidServer
 	.maxPlayers number -- Theoretical max, use a byte for player id
 	.fpsMode FpsMode
 	.serverHz number
-
 	Server config for Chickynoid.
 ]=]
 ChickynoidServer.config = {
@@ -52,6 +55,15 @@ ChickynoidServer.config = {
     fpsMode = Enums.FpsMode.Hybrid,
     serverHz = 20,
 }
+
+--API
+ChickynoidServer.OnPlayerSpawn = FastSignal.new()
+ChickynoidServer.OnPlayerDespawn = FastSignal.new()
+ChickynoidServer.OnBeforePlayerSpawn = FastSignal.new()
+ChickynoidServer.OnPlayerConnected = FastSignal.new()
+
+ChickynoidServer.flags = {}
+ChickynoidServer.flags.DEBUG_ANTILAG = false
 
 --[=[
 	Creates connections so that Chickynoid can run on the server.
@@ -90,16 +102,30 @@ function ChickynoidServer:Setup()
                 return
             end
 
-            playerRecord.chickynoid:HandleEvent(self, event)
+            if playerRecord.chickynoid then
+                playerRecord.chickynoid:HandleEvent(self, event)
+            end
         end
     end)
+
+    WeaponsModule:Setup(self)
+
+    Antilag:Setup(self)
+
+    --Load the mods
+    for _, value in pairs(path.Custom.Server:GetChildren()) do
+        if value:IsA("ModuleScript") then
+            local mod = require(value)
+            self.modules[value.Name] = mod
+            mod:Setup(self)
+        end
+    end
 end
 
 function ChickynoidServer:PlayerConnected(player)
     local playerRecord = self:AddConnection(player.UserId, player)
-    playerRecord.chickynoid = self:CreateChickynoid(playerRecord)
 
-    --Spawn the gui (move this to server?)
+    --Spawn the gui
     for _, child in pairs(game.StarterGui:GetChildren()) do
         local clone = child:Clone() :: ScreenGui
         if clone:IsA("ScreenGui") then
@@ -107,6 +133,8 @@ function ChickynoidServer:PlayerConnected(player)
         end
         clone.Parent = playerRecord.player.PlayerGui
     end
+
+    self.OnPlayerConnected:Fire(self, playerRecord)
 end
 
 function ChickynoidServer:AssignSlot(playerRecord)
@@ -132,12 +160,17 @@ function ChickynoidServer:AddConnection(userId, player)
     self.playerRecords[userId] = playerRecord
 
     playerRecord.userId = userId
-    playerRecord.spawned = false
 
     playerRecord.previousCharacterData = {}
     playerRecord.chickynoid = nil
     playerRecord.frame = 0
     playerRecord.firstSnapshot = false
+
+    playerRecord.allowedToSpawn = true
+    playerRecord.respawnDelay = 3
+    playerRecord.respawnTime = tick() + playerRecord.respawnDelay
+
+    playerRecord.OnBeforePlayerSpawn = FastSignal.new()
 
     self:AssignSlot(playerRecord)
 
@@ -158,6 +191,23 @@ function ChickynoidServer:AddConnection(userId, player)
     end
 
     -- selene: allow(shadowing)
+    function playerRecord:SendEventToClients(event)
+        if playerRecord.player then
+            RemoteEvent:FireAllClients(event)
+        end
+    end
+
+    -- selene: allow(shadowing)
+    function playerRecord:SendEventToOtherClients(event)
+        for _, record in pairs(self.playerRecords) do
+            if record == playerRecord then
+                continue
+            end
+            RemoteEvent:FireClient(record.player, event)
+        end
+    end
+
+    -- selene: allow(shadowing)
     function playerRecord:SendCollisionData()
         local event = {}
         event.t = Enums.EventType.CollisionData
@@ -173,7 +223,57 @@ function ChickynoidServer:AddConnection(userId, player)
         self.firstSnapshot = false
     end
 
+    -- selene: allow(shadowing)
+    function playerRecord:Despawn()
+        if self.chickynoid then
+            ChickynoidServer.OnPlayerDespawn:Fire(self)
+
+            print("Despawned!")
+            self.chickynoid:Destroy()
+            self.chickynoid = nil
+            self.respawnTime = tick() + self.respawnDelay
+
+            local event = { t = EventType.ChickynoidRemoving }
+            playerRecord:SendEventToClient(event)
+        end
+    end
+
+    -- selene: allow(shadowing)
+    function playerRecord:Spawn()
+        self:Despawn()
+
+        local chickynoid = ServerChickynoid.new(playerRecord)
+        self.chickynoid = chickynoid
+        chickynoid.playerRecord = self
+
+        local list = {}
+        for _, obj: SpawnLocation in pairs(workspace:GetDescendants()) do
+            if obj:IsA("SpawnLocation") and obj.Enabled == true then
+                table.insert(list, obj)
+            end
+        end
+
+        if #list > 0 then
+            local spawn = list[math.random(1, #list)]
+            self.chickynoid:SetPosition(Vector3.new(spawn.Position.x, spawn.Position.y + 5, spawn.Position.z))
+        else
+            self.chickynoid:SetPosition(Vector3.new(0, 10, 0))
+        end
+
+        self.OnBeforePlayerSpawn:Fire()
+        ChickynoidServer.OnBeforePlayerSpawn:Fire(self, playerRecord)
+
+        chickynoid:SpawnChickynoid()
+
+        ChickynoidServer.OnPlayerSpawn:Fire(self, playerRecord)
+        return self.chickynoid
+    end
+
+    --Connect!
+    WeaponsModule:OnPlayerConnected(self, playerRecord)
+
     --Tell everyone
+    --TODO: Replace with a dirty flag?
     for _, record in pairs(self.playerRecords) do
         self:SendWorldstate(record)
     end
@@ -187,10 +287,16 @@ function ChickynoidServer:SendEventToClients(event)
     RemoteEvent:FireAllClients(event)
 end
 
+function ChickynoidServer:GetMod(name)
+    return self.modules[name]
+end
+
 function ChickynoidServer:SendWorldstate(playerRecord)
     local event = {}
     event.t = Enums.EventType.WorldState
     event.worldState = {}
+    event.worldState.flags = self.flags
+
     event.worldState.players = {}
     for _, data in pairs(self.playerRecords) do
         local info = {}
@@ -212,9 +318,7 @@ function ChickynoidServer:PlayerDisconnected(userId)
     if playerRecord then
         print("Player disconnected")
 
-        if playerRecord.chickynoid then
-            playerRecord.chickynoid:DestroyRobloxParts()
-        end
+        playerRecord:Despawn()
 
         self.playerRecords[userId] = nil
 
@@ -236,18 +340,8 @@ function ChickynoidServer:GetPlayerByUserId(userId)
     return self.playerRecords[userId]
 end
 
---[=[
-    Spawns a new Chickynoid for the specified player.
-
-    @param playerRecord any -- The player to spawn this Chickynoid for.
-    @return ServerCharacter -- New chickynoid instance made for this player.
-]=]
-function ChickynoidServer:CreateChickynoid(playerRecord)
-    local chickynoid = ServerChickynoid.new(playerRecord)
-    playerRecord.chickynoid = chickynoid
-    chickynoid.playerRecord = playerRecord
-
-    return chickynoid
+function ChickynoidServer:GetPlayers()
+    return self.playerRecords
 end
 
 function ChickynoidServer:RobloxHeartbeat(deltaTime)
@@ -300,6 +394,15 @@ function ChickynoidServer:Think(deltaTime)
 
     --self.worldRoot = game.Workspace
 
+    --Spawn players
+    for _, playerRecord in pairs(self.playerRecords) do
+        if playerRecord.chickynoid == nil and playerRecord.allowedToSpawn == true then
+            if tick() > playerRecord.respawnTime then
+                playerRecord:Spawn()
+            end
+        end
+    end
+
     CollisionModule:UpdateDynamicParts()
 
     --1st stage, pump the commands
@@ -312,7 +415,7 @@ function ChickynoidServer:Think(deltaTime)
             playerRecord.chickynoid:Think(self, self.serverSimulationTime, deltaTime)
 
             if playerRecord.chickynoid.simulation.state.pos.y < -2000 then
-                playerRecord.chickynoid:SpawnChickynoid()
+                playerRecord:Despawn()
             end
         end
     end
@@ -324,6 +427,10 @@ function ChickynoidServer:Think(deltaTime)
     end
     WeaponsModule:Think(self, deltaTime)
 
+    for _, mod in pairs(self.modules) do
+        mod:Step(self, deltaTime)
+    end
+
     -- 2nd stage: Replicate character state to the player
     self.serverStepTimer += deltaTime
     self.serverTotalFrames += 1
@@ -333,6 +440,8 @@ function ChickynoidServer:Think(deltaTime)
         while self.serverStepTimer > fraction do -- -_-'
             self.serverStepTimer -= fraction
         end
+
+        Antilag:WritePlayerPositions(self.serverSimulationTime)
 
         for userId, playerRecord in pairs(self.playerRecords) do
             if playerRecord.dummy == true then
@@ -359,8 +468,8 @@ function ChickynoidServer:Think(deltaTime)
             snapshot.t = EventType.Snapshot
 
             local count = 0
-            for otherUserId, _ in pairs(self.playerRecords) do
-                if otherUserId ~= userId then
+            for otherUserId, otherPlayerRecord in pairs(self.playerRecords) do
+                if otherUserId ~= userId and otherPlayerRecord.chickynoid ~= nil then
                     count += 1
                 end
             end
@@ -370,6 +479,10 @@ function ChickynoidServer:Think(deltaTime)
 
             for otherUserId, otherPlayerRecord in pairs(self.playerRecords) do
                 if otherUserId ~= userId then
+                    if otherPlayerRecord.chickynoid == nil then
+                        continue
+                    end
+
                     --Todo: delta compress , bitwise compress, etc etc
                     bitBuffer.writeByte(otherPlayerRecord.slot)
 

@@ -1,7 +1,7 @@
-import { ChickynoidServer } from ".";
+import PlayerRecord from "./PlayerRecord";
 
 interface ServerChickynoid {
-	playerRecord: ChickynoidServer.PlayerRecord;
+	playerRecord: PlayerRecord;
 
 	SetPosition(position: Vector3): void;
 	GetPosition(): Vector3;

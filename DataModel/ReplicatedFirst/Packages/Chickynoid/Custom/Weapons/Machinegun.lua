@@ -9,11 +9,14 @@ module.rateOfFire = 0.08
 
 --This module is cloned per player on client/server 
 function module:ClientThink(deltaTime)
-		
-	--.state is replicated to here, for things like ammo and weapon cooldowns
-	--.client 
-	--.weaponModule
-	
+
+	local gui = self.client:GetGui()
+	local state = self.clientState
+				
+	local counter = gui:FindFirstChild("AmmoCounter",true)
+	if (counter) then
+		counter.Text = state.ammo .. " / " .. state.maxAmmo
+	end
 end
 
  
@@ -22,17 +25,15 @@ function module:ClientProcessCommand(command)
 	local currentTime = self.client.estimatedServerTime
 	local state = self.clientState
 	
-	
 	--Predict firing a bullet
 	if (command.f and command.f > 0 and command.fa) then
 
 		if (state.ammo > 0 and currentTime > state.nextFire) then
 
 			--put weapon on cooldown
-			--state.ammo -= 1
+			state.ammo -= 1
 			state.nextFire = currentTime + state.fireDelay
-			--print("predicted pew")
-			
+			self:SetPredictedState() --Flag that we predicted the state, this will stop the server value from overriding it for a moment (eg: firing rapidly)
 			
 			local clientChickynoid = self.client:GetClientChickynoid()
 			if (clientChickynoid) then
@@ -62,26 +63,32 @@ function module:ClientDequip()
 
 end
 
---Warning! - this is NOT your local characters or anther characters copy of this weapon
---This is far more akin to a static method
+--Warning! - you might not have this weapon locally 
+--This is far more akin to a static method, and is provided so you can render client effects
 function module:ClientOnBulletImpact(client, event)
-	
-	print("Pew2")	
+		 
 end
 
-
 function module:ServerSetup()
-	
-	self.state.ammo = 30
+	self.state.maxAmmo = 30
+	self.state.ammo = self.state.maxAmmo
 	self.state.fireDelay = module.rateOfFire
-	self.state.nextFire = 0	
+	self.state.nextFire = 0	--Questionable about wether client needs this
+	
+	self.timeOfLastShot = 0 --Not part of state, doesnt need to go to client
 end
 
 
 function module:ServerThink(deltaTime)
 	--update cooldowns
-		
 	
+	local currentTime = self.server.serverSimulationTime
+	local state = self.state
+	
+	--Auto reload
+	if (state.ammo == 0 and currentTime > self.timeOfLastShot + 2) then
+		state.ammo = 30
+	end 
 end
 
 
@@ -96,9 +103,10 @@ function module:ServerProcessCommand(command)
 		if (state.ammo > 0 and currentTime > state.nextFire) then
 
 			--put weapon on cooldown
-			--state.ammo -= 1
+			state.ammo -= 1
 			state.nextFire = currentTime + state.fireDelay
-			--print("pew")
+			
+			self.timeOfLastShot = currentTime			
 			
 
 			local serverChickynoid = self.playerRecord.chickynoid
@@ -111,20 +119,20 @@ function module:ServerProcessCommand(command)
 				--Send an event to render this firing
 				--Todo: rewrite this to use packed bytes- this could get very data heavy in a fire fight!
 				local event = {}
-				event.o = origin
-				event.p = pos
-				event.n = normal
-				event.t = Enums.EventType.BulletImpact
-				event.s = self.playerRecord.slot
-				event.w = self.weaponId 
+				event.o = origin						--Origin
+				event.p = pos							--Impact point
+				event.n = normal						--Impact normal (no normal means we hit the sky)
+				event.t = Enums.EventType.BulletImpact	--Event identifier
+				event.s = self.playerRecord.slot		--Which player fired this
+				event.w = self.weaponId 				--Id of this weapon (Machinegun?)
 				
-				event.m = 0
+				event.m = 0								--Surface type
 				if (otherPlayer) then
-					event.m = 1
+					event.m = 1							--(blood!)
 				end
-				
 				self.playerRecord:SendEventToClients(event)
 				
+				--Do the damage
 				if (otherPlayer) then
 					--Use the hitpoints mod to damage them!
 					local HitPoints = self.server:GetMod("Hitpoints")

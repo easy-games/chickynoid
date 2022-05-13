@@ -6,8 +6,8 @@ module.weaponSerials = 0
 module.customWeapons = {}
 
 local path = game.ReplicatedFirst.Packages.Chickynoid
-local TableUtil = require(path.Vendor.TableUtil)
-
+local TableUtil
+local DeltaTable = require(path.Vendor.DeltaTable)
 local Enums = require(path.Enums)
 
 local requiredMethods = {
@@ -72,7 +72,29 @@ function module:OnPlayerConnected(server, playerRecord)
 		end
 	end
 	
- 	function playerRecord:GiveWeapon(name, equip)
+	function playerRecord:GetWeapons()
+		return self.weapons
+	end
+	
+	function playerRecord:RemoveWeaponRecord(weaponRecord)
+		
+		local event = {}
+		event.t = Enums.EventType.WeaponDataChanged
+		event.s = Enums.WeaponData.WeaponRemove
+		event.serial = weaponRecord.serial
+		self:SendEventToClient(event)
+		
+		self.weapons[weaponRecord.serial] = nil
+	end
+	
+	function playerRecord:ClearWeapons()
+		for key,weaponRecord in pairs(self.weapons) do
+			self:RemoveWeaponRecord(weaponRecord)
+		end
+	end
+
+	
+ 	function playerRecord:AddWeaponByName(name, equip)
 
 		for key,weaponRecord in pairs(self.weapons) do
 		
@@ -92,7 +114,7 @@ function module:OnPlayerConnected(server, playerRecord)
 		local sourceModule = require(source)
 		
 		
-		local weaponRecord = TableUtil.Copy(sourceModule, true)
+		local weaponRecord = DeltaTable:DeepCopy(sourceModule)
 		weaponRecord.serial = module.weaponSerials
 		module.weaponSerials+=1
 		
@@ -115,6 +137,11 @@ function module:OnPlayerConnected(server, playerRecord)
 		event.serverState = weaponRecord.state
 		playerRecord:SendEventToClient(event)
 		
+		
+		--Last state, as seen by this client
+		weaponRecord.previousState = DeltaTable:DeepCopy(weaponRecord.state)
+		
+		
 		--Equip it		
 		if (equip) then
 			self:EquipWeapon(weaponRecord.serial)
@@ -134,18 +161,31 @@ function module:OnPlayerConnected(server, playerRecord)
 	function playerRecord:WeaponThink(deltaTime)
 		for key,weaponRecord in pairs(self.weapons) do
 			weaponRecord:ServerThink(deltaTime)
+				
+			--Check if we need updates
+			local deltaTable, numChanges = DeltaTable:MakeDeltaTable(weaponRecord.previousState, weaponRecord.state)
+			
+			if (numChanges > 0) then
+				 
+				--Send the client the change to the state
+				local event = {}
+				event.t = Enums.EventType.WeaponDataChanged
+				event.s = Enums.WeaponData.WeaponState
+				event.serial = weaponRecord.serial
+				event.deltaTable = deltaTable
+				playerRecord:SendEventToClient(event)
+				
+				--Record what they saw
+				weaponRecord.previousState = DeltaTable:DeepCopy(weaponRecord.state)
+			end
 		end
-		
-		--Do networking
-		
 	end
 
 end
 
 
 function module:QueryBullet(playerRecord,server, origin, dir)
-	
-	
+
 	local rayCastResult = game.Workspace:Raycast(origin, dir * 1000)
 	
 	local pos = nil
@@ -158,7 +198,6 @@ function module:QueryBullet(playerRecord,server, origin, dir)
 		normal = rayCastResult.Normal
 		
 		--See if its a player
-		
 		local userId = rayCastResult.Instance:GetAttribute("player")
 		if (userId) then
 			otherPlayerRecord = server:GetPlayerByUserId(userId)
@@ -198,11 +237,9 @@ end
 
 function module:Think(server, deltaTime)
     
-    
 	for key,playerRecord in pairs(server:GetPlayers()) do
 		playerRecord:WeaponThink(deltaTime)
 	end
-	
 	
     for serial,rocket in pairs(self.rockets) do
         
@@ -214,7 +251,6 @@ function module:Think(server, deltaTime)
             oldPos = rocket.p
         end
         rocket.pos = rocket.p + (rocket.v * rocket.c * timePassed)
-        
         
         --Trace a line 
         local params = RaycastParams.new()

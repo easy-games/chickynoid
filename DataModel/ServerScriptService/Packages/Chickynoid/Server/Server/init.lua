@@ -46,6 +46,7 @@ ChickynoidServer.serverHz = 20
 
 --API
 ChickynoidServer.OnPlayerSpawn = FastSignal.new()
+ChickynoidServer.OnPlayerDespawn = FastSignal.new()
 ChickynoidServer.OnBeforePlayerSpawn = FastSignal.new()
 ChickynoidServer.OnPlayerConnected = FastSignal.new()
 
@@ -221,12 +222,13 @@ function ChickynoidServer:AddConnection(userId, player)
 		
 		if (self.chickynoid) then
 			
+			ChickynoidServer.OnPlayerDespawn:Fire(self)
+			
 			print("Despawned!")
 			self.chickynoid:Destroy()
 			self.chickynoid = nil
 			self.respawnTime = tick() + self.respawnDelay
-			
-			
+						
 			local event = {t = EventType.ChickynoidRemoving}
 			playerRecord:SendEventToClient(event)
 		end
@@ -265,16 +267,11 @@ function ChickynoidServer:AddConnection(userId, player)
 		return self.chickynoid
 	end
 	
-	--Silence a warning
-	playerRecord.GiveWeapon = nil	
-	
+ 
 	--Connect!
 	WeaponsModule:OnPlayerConnected(self, playerRecord)
 	
-	--Give a machine gun
-	playerRecord:GiveWeapon("Machinegun", true)	
-	
-	
+
 	--Tell everyone
 	--Todo: Replace with a dirty flag?
     for key,record in pairs(self.playerRecords) do
@@ -407,7 +404,6 @@ function ChickynoidServer:Think(deltaTime)
         self.framesPerSecondCounter = 0
     end
     
-
     self.serverSimulationTime = tick() - self.startTime
 
     --self.worldRoot = game.Workspace 

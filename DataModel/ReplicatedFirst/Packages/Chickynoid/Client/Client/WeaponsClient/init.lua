@@ -3,16 +3,15 @@ local module = {}
 local path = game.ReplicatedFirst.Packages.Chickynoid
 local EffectsModule = require(path.Client.Effects)
 local Enums = require(path.Enums)
-local TableUtil = require(path.Vendor.TableUtil)
+
 local FastSignal = require(path.Vendor.FastSignal)
+local DeltaTable = require(path.Vendor.DeltaTable)
 
 module.rockets = {}
 module.weapons = {}
 module.customWeapons = {} 
 module.currentWeapon = nil
 module.OnBulletImpact = FastSignal.new()
-
-
 
 function module:HandleEvent(client, event)
 	
@@ -79,20 +78,61 @@ function module:HandleEvent(client, event)
 			local source = path.Custom.Weapons:FindFirstChild(event.name, true)
 			local sourceModule = require(source)
 		
-			local weaponRecord = TableUtil.Copy(sourceModule, true)
+			local weaponRecord = DeltaTable:DeepCopy(sourceModule)
 			weaponRecord.serial = event.serial
 			weaponRecord.name = event.name
 			weaponRecord.client = client
 			weaponRecord.weaponModule = module
-			weaponRecord.clientState = TableUtil.Copy(event.serverState, true)
-			weaponRecord.serverState = TableUtil.Copy(event.serverState, true)
+			weaponRecord.clientState = DeltaTable:DeepCopy(event.serverState)
+			weaponRecord.serverState = DeltaTable:DeepCopy(event.serverState)
+			weaponRecord.preservePredictedStateTimer = 0
+			weaponRecord.serverStateDirty = false
+			
+			function weaponRecord:SetPredictedState()
+				--Call this to delay the server from stomping on our state: eg: when firing rapidly
+				--when you let off the trigger this will allow the server state to take priority
+				weaponRecord.preservePredictedStateTimer = tick() + 0.5 --500ms
+				
+			end
 			
 			weaponRecord:ClientSetup()
 
 			--Add to inventory
 			self.weapons[weaponRecord.serial] = weaponRecord
 		end
+	
+		--Remove
+		if (event.s == Enums.WeaponData.WeaponRemove) then
+			if (event.serial ~= nil) then
+				local weaponRecord = self.weapons[event.serial]
+				if (weaponRecord == nil) then
+					warn("Requested remove weapon not found")
+					return
+				end
+				print("Removed ", weaponRecord.name)
+				
+				--Dequip
+				if (self.currentWeapon == weaponRecord) then
+					self.currentWeapon:ClientDequip()
+					self.currentWeapon = nil
+				end
+				if (weaponRecord.ClientRemoved) then
+					weaponRecord:ClientRemoved()
+				end
+				self.weapons[weaponRecord.serial] = nil
+			end
+		end
 		
+		if (event.s == Enums.WeaponData.WeaponState) then
+			local weaponRecord = self.weapons[event.serial]
+			if (weaponRecord == nil) then
+				warn("Got state for a weapon we dont have.")
+				return
+			end
+			weaponRecord.serverStateDirty = true
+			--Apply the delta compressed packet
+			weaponRecord.serverState = DeltaTable:ApplyDeltaTable(weaponRecord.serverState, event.deltaTable)
+		end
 		
 		--Dequip
 		if (event.s == Enums.WeaponData.Dequip) then
@@ -114,6 +154,7 @@ function module:HandleEvent(client, event)
 				self.currentWeapon = weaponRecord 
 			end
 		end
+
 		return
 	end
 end
@@ -128,7 +169,27 @@ end
 
 
 function module:Think(predictedServerTime, deltaTime)
-
+	
+	
+	--Copy the new server states over?	
+	for key,weapon in pairs(self.weapons) do
+		if (weapon.serverStateDirty == true) then
+			if (tick() > weapon.preservePredictedStateTimer) then
+				weapon.serverStateDirty = false
+			 
+				weapon.clientState = DeltaTable:DeepCopy(weapon.serverState)
+				if (self.NewServerState) then
+					
+					self:NewServerState()
+				end
+			end
+		end
+	end	
+	
+	if (self.currentWeapon ~= nil) then
+		self.currentWeapon:ClientThink(deltaTime)
+	end
+	
     for serial, rocket in pairs(self.rockets) do
         
         --just render the rocket from the moment we find out about it as time 0.
@@ -154,13 +215,10 @@ function module:Think(predictedServerTime, deltaTime)
             part.Color = Color3.new(1,1,0.5)
 
             rocket.part = part
-            
-            
        end
 
         rocket.pos = rocket.p + (rocket.v * rocket.c * timePassed)
         rocket.part.Position = rocket.pos
-
     end
 end
 

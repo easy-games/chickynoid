@@ -1,3 +1,6 @@
+import Signal from "@rbxts/signal";
+import PlayerRecord from "./PlayerRecord";
+
 /** @server */
 export namespace ChickynoidServer {
 	export interface ServerConfig {
@@ -14,6 +17,12 @@ export namespace ChickynoidServer {
 	}
 
 	export let config: ServerConfig;
+	export const playerRecords: Map<number, PlayerRecord>;
+
+	export const OnPlayerSpawn: Signal<(playerRecord: PlayerRecord) => void>;
+	export const OnPlayerDespawn: Signal<(playerRecord: PlayerRecord) => void>;
+	export const OnBeforePlayerSpawn: Signal<(playerRecord: PlayerRecord) => void>;
+	export const OnPlayerConnected: Signal<(server: typeof ChickynoidServer, playerRecord: PlayerRecord) => void>; // FIXME: This type is cursed
 
 	/** Creates connections so that Chickynoid can run on the server. */
 	export function Setup(this: typeof ChickynoidServer): void;

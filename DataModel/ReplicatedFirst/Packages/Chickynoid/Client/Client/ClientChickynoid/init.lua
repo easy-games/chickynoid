@@ -62,6 +62,7 @@ DebugParts.Parent = workspace
 
 local SKIP_RESIMULATION = true
 local DEBUG_SPHERES = false
+
  
 local ClientChickynoid = {}
 ClientChickynoid.__index = ClientChickynoid

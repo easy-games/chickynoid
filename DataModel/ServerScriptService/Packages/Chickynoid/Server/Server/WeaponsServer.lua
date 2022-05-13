@@ -6,9 +6,12 @@ module.weaponSerials = 0
 module.customWeapons = {}
 
 local path = game.ReplicatedFirst.Packages.Chickynoid
+local serverPath = game.ServerScriptService.Packages.Chickynoid
+
 local TableUtil
 local DeltaTable = require(path.Vendor.DeltaTable)
 local Enums = require(path.Enums)
+local Antilag = require(serverPath.Server.Server.Antilag)
 
 local requiredMethods = {
 	"ClientThink","ServerThink", "ClientProcessCommand", "ServerProcessCommand",  "ServerSetup", "ClientSetup", "ServerEquip", "ServerDequip"
@@ -136,12 +139,10 @@ function module:OnPlayerConnected(server, playerRecord)
 		event.s = Enums.WeaponData.WeaponAdd
 		event.serverState = weaponRecord.state
 		playerRecord:SendEventToClient(event)
-		
-		
+				
 		--Last state, as seen by this client
 		weaponRecord.previousState = DeltaTable:DeepCopy(weaponRecord.state)
-		
-		
+				
 		--Equip it		
 		if (equip) then
 			self:EquipWeapon(weaponRecord.serial)
@@ -184,8 +185,10 @@ function module:OnPlayerConnected(server, playerRecord)
 end
 
 
-function module:QueryBullet(playerRecord,server, origin, dir)
-
+function module:QueryBullet(playerRecord, server, origin, dir, serverTime)
+	
+	Antilag:PushPlayerPositionsToTime(playerRecord, serverTime)
+	
 	local rayCastResult = game.Workspace:Raycast(origin, dir * 1000)
 	
 	local pos = nil
@@ -203,7 +206,9 @@ function module:QueryBullet(playerRecord,server, origin, dir)
 			otherPlayerRecord = server:GetPlayerByUserId(userId)
 		end
 	end
-		
+	
+	Antilag:Pop() --Don't forget!
+	
 	return pos, normal, otherPlayerRecord
 end
 

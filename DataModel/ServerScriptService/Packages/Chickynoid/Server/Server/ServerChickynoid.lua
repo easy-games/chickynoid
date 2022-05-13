@@ -139,7 +139,7 @@ function ServerChickynoid:Think(server, serverSimulationTime, deltaTime)
     --  Anticheat methods
     --  We keep X ms of commands unprocessed, so that if players stop sending upstream, we have some commands to keep going with
     --  We only allow the player to get +150ms ahead of the servers estimated sim time (Speed cheat), if they're over this, we discard commands
-    --  We only allow the player to get -60ms behind the servers estimated sim time (Lag cheat), if they're under this, we generate fake commands to catch them up
+    --  We only allow the player to get -150ms behind the servers estimated sim time (Lag cheat), if they're under this, we generate fake commands to catch them up
     --  We only allow 15 commands per server tick (ratio of 5:1) if the user somehow has more than 15 commands that are legitimately needing processing, we discard them all
     
 
@@ -361,10 +361,11 @@ function ServerChickynoid:UpdateServerCollisionBox(server)
 		box.CanQuery = true
 		box:SetAttribute("player", self.playerRecord.userId)
 		self.hitBox = box
-		
-		
+				
 		--for streaming enabled games...
-		self.playerRecord.player.ReplicationFocus = self.hitBox
+		if (self.playerRecord.player) then
+			self.playerRecord.player.ReplicationFocus = self.hitBox
+		end
 		
 	end
 	self.hitBox.CFrame = CFrame.new(self.simulation.state.pos)

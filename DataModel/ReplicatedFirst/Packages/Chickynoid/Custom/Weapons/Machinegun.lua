@@ -35,6 +35,8 @@ function module:ClientProcessCommand(command)
 			state.nextFire = currentTime + state.fireDelay
 			self:SetPredictedState() --Flag that we predicted the state, this will stop the server value from overriding it for a moment (eg: firing rapidly)
 			
+			self.client:DebugMarkAllPlayers()			
+			
 			local clientChickynoid = self.client:GetClientChickynoid()
 			if (clientChickynoid) then
 				local origin = clientChickynoid.simulation.state.pos
@@ -114,7 +116,7 @@ function module:ServerProcessCommand(command)
 				local origin = serverChickynoid.simulation.state.pos
 				local dest = command.fa
 				local vec = (dest - origin).Unit
-				local pos, normal, otherPlayer = self.weaponModule:QueryBullet(self.playerRecord, self.server, origin, vec)
+				local pos, normal, otherPlayer = self.weaponModule:QueryBullet(self.playerRecord, self.server, origin, vec, command.serverTime)
 		
 				--Send an event to render this firing
 				--Todo: rewrite this to use packed bytes- this could get very data heavy in a fire fight!

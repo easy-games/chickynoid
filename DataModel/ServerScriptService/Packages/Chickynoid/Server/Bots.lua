@@ -65,7 +65,7 @@ function module:MakeBots(Server, numBots)
 			end
 
 			if (math.random() < 0.01) then
-				playerRecord.waitTime = math.random() * 5                
+				--playerRecord.waitTime = math.random() * 5                
 			end
 
 			playerRecord.frame += 1

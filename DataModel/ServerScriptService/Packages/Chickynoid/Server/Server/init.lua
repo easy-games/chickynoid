@@ -20,6 +20,7 @@ local BitBuffer = require(path.Vendor.BitBuffer)
 local RemoteEvent = game.ReplicatedStorage.Packages.Chickynoid.RemoteEvent
 local WeaponsModule = require(script.WeaponsServer)
 local CollisionModule = require(path.Simulation.CollisionModule)
+local Antilag = require(serverPath.Server.Server.Antilag)
 local FastSignal = require(path.Vendor.FastSignal)
 
 local ChickynoidServer = {}
@@ -50,6 +51,8 @@ ChickynoidServer.OnPlayerDespawn = FastSignal.new()
 ChickynoidServer.OnBeforePlayerSpawn = FastSignal.new()
 ChickynoidServer.OnPlayerConnected = FastSignal.new()
 
+ChickynoidServer.flags = {} 
+ChickynoidServer.flags.DEBUG_ANTILAG = false
 
 function ChickynoidServer:Setup()
 	
@@ -64,7 +67,6 @@ function ChickynoidServer:Setup()
 		self:PlayerConnected(player)
 	end
 	
-
 	Players.PlayerRemoving:Connect(function(player)
 		self:PlayerDisconnected(player.UserId)
 	end)
@@ -101,6 +103,7 @@ function ChickynoidServer:Setup()
 	
 	WeaponsModule:Setup(self)
 	
+	Antilag:Setup(self)
 	
 	--Load the mods	
 	for key,value in pairs(serverPath.Custom.Server:GetChildren()) do
@@ -297,7 +300,9 @@ end
 function ChickynoidServer:SendWorldstate(playerRecord)
     local event = {}
     event.t = Enums.EventType.WorldState
-    event.worldState = {}
+	event.worldState = {}
+	event.worldState.flags = self.flags
+		
     event.worldState.players = {}
     for key,data in pairs(self.playerRecords) do
         local info = {}
@@ -394,8 +399,7 @@ end
 
 
 function ChickynoidServer:Think(deltaTime)
-    
-    
+
     self.framesPerSecondCounter += 1
     self.framesPerSecondTimer += deltaTime
     if (self.framesPerSecondTimer > 1) then
@@ -460,7 +464,9 @@ function ChickynoidServer:Think(deltaTime)
         while (self.serverStepTimer > fraction) do -- -_-'
             self.serverStepTimer -= fraction 
         end
-        
+		
+		Antilag:WritePlayerPositions(self.serverSimulationTime)
+				
         for userId,playerRecord in pairs(self.playerRecords) do
             
             if (playerRecord.dummy == true) then
@@ -522,8 +528,6 @@ function ChickynoidServer:Think(deltaTime)
                 end 
             end
 
-            
-			
 			snapshot.full = false
 			if (playerRecord.firstSnapshot == false) then
 				snapshot.full = true
@@ -535,9 +539,7 @@ function ChickynoidServer:Think(deltaTime)
             snapshot.serverTime = self.serverSimulationTime
             playerRecord:SendEventToClient(snapshot)
         end
-       
     end
-   
 end
 
 

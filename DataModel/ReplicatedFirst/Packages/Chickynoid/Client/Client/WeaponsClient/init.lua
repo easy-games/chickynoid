@@ -13,6 +13,7 @@ module.customWeapons = {}
 module.currentWeapon = nil
 module.OnBulletImpact = FastSignal.new()
 
+
 function module:HandleEvent(client, event)
 	
 	if (event.t == Enums.EventType.BulletImpact) then
@@ -34,8 +35,7 @@ function module:HandleEvent(client, event)
 				
 		return
 	end
-	
-	
+		
 	--Todo: recode these
     if (event.t == Enums.EventType.RocketSpawn) then
         --fired a rocket
@@ -169,8 +169,7 @@ end
 
 
 function module:Think(predictedServerTime, deltaTime)
-	
-	
+		
 	--Copy the new server states over?	
 	for key,weapon in pairs(self.weapons) do
 		if (weapon.serverStateDirty == true) then
@@ -240,5 +239,7 @@ function module:Setup(client)
 		end
 	end
 end
+
+
 
 return module

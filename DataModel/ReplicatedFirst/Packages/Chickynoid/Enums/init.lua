@@ -15,7 +15,9 @@ Enums.EventType = {
 	RocketSpawn = 9,
 	BulletImpact = 10,	
 	
-    RocketDie = 11,
+	RocketDie = 11,
+	
+	DebugBox = 12,
 }
 
 Enums.NetworkProblemState = {

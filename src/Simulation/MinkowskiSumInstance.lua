@@ -32,6 +32,21 @@ local function IsUnique(list, normal, d)
     return true
 end
 
+local function IsUniqueTri(list, normal, d)
+	local EPS = 0.001
+
+	for _, rec in pairs(list) do
+		if math.abs(rec[5] - d) > EPS then
+			continue
+		end
+		if rec[4]:Dot(normal) < 1 - EPS then
+			continue
+		end
+		return false --got a match
+	end
+	return true
+end
+
 -- local function IsUniquePoints(list, p)
 --     local EPS = 0.001
 
@@ -72,57 +87,27 @@ end
 
 --Same thing but for worldspace point cloud
 function module:VisualizePlanesForPoints(points, debugPart)
-    local color = Color3.fromHSV(math.random(), 0.5, 1)
 
-    for _, point in pairs(points) do
-        local part = Instance.new("Part")
-        part.CanCollide = false
-        part.Anchored = true
-        part.Size = Vector3.new(0.1, 0.1, 0.1)
-        part.Shape = Enum.PartType.Ball
-        part.Position = point
-        part.Color = Color3.new(0, 1, 0)
-        part.Parent = debugPart
-    end
 
     --Run quickhull
     local r = QuickHull.quick_run(points)
-    local recs = {}
+	local recs = {}
+	
+	self:VisualizeTriangles(r, Vector3.zero)
+end
 
+
+function module:VisualizeTriangles(tris, offset)
+	
+	local color = Color3.fromHSV(math.random(), 0.5, 1)
+	
     --Add triangles
-    for _, tri in pairs(r) do
-        -- local normal = (tri[1] - tri[2]):Cross(tri[1] - tri[3]).unit
-        -- local l = math.clamp(normal:Dot(Vector3.new(0.5, 0.5, 0.5)), 0.25, 1)
-        -- local finalColor = Color3.new(color.r * l, color.g * l, color.b * l)
-
-        local a, b = TrianglePart:Triangle(tri[1], tri[2], tri[3])
+    for _, tri in pairs(tris) do
+		local a, b = TrianglePart:Triangle(tri[1] + offset, tri[2] + offset, tri[3] + offset)
         a.Parent = game.Workspace.Terrain
         a.Color = color
         b.Parent = game.Workspace.Terrain
         b.Color = color
-    end
-
-    --Generate unique planes in n+d format
-    for _, tri in pairs(r) do
-        local normal = (tri[1] - tri[2]):Cross(tri[1] - tri[3]).unit
-        local ed = tri[1]:Dot(normal) --expanded distance
-
-        if IsUnique(recs, normal, ed) then
-            table.insert(recs, {
-                n = normal,
-                ed = tri[1]:Dot(normal), --expanded
-            })
-
-            local pos = (tri[1] + tri[2] + tri[3]) / 3
-
-            local part = Instance.new("Part")
-            part.CanCollide = false
-            part.Anchored = true
-            part.Size = Vector3.new(0.1, 0.1, 2)
-            part.CFrame = CFrame.lookAt(pos + normal, pos + (normal * 2))
-            part.Color = color
-            part.Parent = debugPart
-        end
     end
 end
 
@@ -141,7 +126,7 @@ function module:GetPlanesForPoints(points, basePlaneNum)
         if IsUnique(recs, normal, ed) then
             table.insert(recs, {
                 n = normal,
-                ed = tri[1]:Dot(normal), --expanded
+                ed = ed, --expanded
                 planeNum = basePlaneNum,
             })
         end
@@ -149,6 +134,28 @@ function module:GetPlanesForPoints(points, basePlaneNum)
 
     return recs, basePlaneNum
 end
+
+
+
+--Same thing but for worldspace point cloud
+function module:GetPlanePointForPoints(points)
+	--Run quickhull
+	local r = QuickHull.quick_run(points)
+	local recs = {}
+
+	--Generate unique planes in n+d format
+	for _, tri in pairs(r) do
+		local normal = (tri[1] - tri[2]):Cross(tri[1] - tri[3]).unit
+		local ed = tri[1]:Dot(normal) --expanded distance
+		
+		if IsUniqueTri(recs, normal, ed) then
+			table.insert(recs, { tri[1],tri[2], tri[3], normal, ed }) 
+		end
+	end
+
+	return recs
+end
+
 
 function module:GeneratePointsForInstance(instance, playerSize, cframe)
     local points = {}

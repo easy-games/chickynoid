@@ -338,7 +338,7 @@ end
 function ServerChickynoid:RobloxPhysicsStep(server, _deltaTime)
     self:UpdateServerCollisionBox(server)
 
-    local push = true
+    local push = false
     if push == true then
         --Check to see what  we're touching, and push them.
         if self.pushPart == nil then

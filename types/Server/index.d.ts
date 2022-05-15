@@ -28,4 +28,8 @@ export namespace ChickynoidServer {
 	export function Setup(this: typeof ChickynoidServer): void;
 
 	export function RecreateCollisions(this: typeof ChickynoidServer, root: Instance): void;
+
+	export function GetPlayerByUserId(this: typeof ChickynoidServer, userId: number): PlayerRecord | undefined;
+
+	export function GetPlayers(this: typeof ChickynoidServer): PlayerRecord[];
 }

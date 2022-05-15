@@ -2,6 +2,7 @@ import PlayerRecord from "./PlayerRecord";
 
 interface ServerChickynoid {
 	playerRecord: PlayerRecord;
+	hitBox: Part;
 
 	SetPosition(position: Vector3): void;
 	GetPosition(): Vector3;

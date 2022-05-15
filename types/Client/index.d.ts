@@ -1,3 +1,5 @@
+import CharacterRecord from "./CharacterRecord";
+
 /** @client */
 export namespace ChickynoidClient {
 	export interface ClientConfig {
@@ -18,4 +20,6 @@ export namespace ChickynoidClient {
 	 * RunService events.
 	 */
 	export function Setup(this: typeof ChickynoidClient): void;
+
+	export function GetCharacters(this: typeof ChickynoidClient): CharacterRecord[];
 }

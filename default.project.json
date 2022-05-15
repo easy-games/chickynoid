@@ -43,6 +43,10 @@
 		"$properties": {
 			"CharacterAutoLoads": false
 		}
+	},
+	"StarterGui": {
+		"$className": "StarterGui",
+		"$path": "example/gui"
 	}
   }
 }

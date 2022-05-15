@@ -4,4 +4,5 @@ local Packages = ReplicatedStorage.Packages
 local Chickynoid = require(Packages.Chickynoid).ChickynoidServer
 
 Chickynoid:RecreateCollisions(workspace:FindFirstChild("GameArea"))
+Chickynoid:RegisterModsInContainer(script.Parent.Mods)
 Chickynoid:Setup()

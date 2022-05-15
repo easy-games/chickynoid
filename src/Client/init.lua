@@ -227,16 +227,42 @@ function ChickynoidClient:Setup()
     end)
 
     --Load the mods
-    for _, value in pairs(path.Custom:GetChildren()) do
-        if value:IsA("ModuleScript") then
-            local mod = require(value)
-            self.modules[value.Name] = mod
-            mod:Setup(self)
-        end
+    for _, mod in pairs(self.modules) do
+        mod:Setup(self)
+		print("Loaded", _)
     end
 
     --WeaponModule
     ClientWeaponModule:Setup(self)
+end
+
+--[=[
+	Registers a single ModuleScript as a mod.
+	@param mod ModuleScript -- Individual ModuleScript to be loaded as a mod.
+]=]
+function ChickynoidClient:RegisterMod(mod: ModuleScript)
+    if not mod:IsA("ModuleScript") then
+        warn("Attempted to load", mod:GetFullName(), "as a mod but it is not a ModuleScript")
+        return
+    end
+
+    local contents = require(mod)
+    -- FIXME: Should `self.modules` be indexed by the module name?
+    self.modules[mod.Name] = contents
+end
+
+--[=[
+	Registers all descendants under this container as a mod.
+	@param container Instance -- Container holding mods.
+]=]
+function ChickynoidClient:RegisterModsInContainer(container: Instance)
+    for _, mod in ipairs(container:GetDescendants()) do
+        if not mod:IsA("ModuleScript") then
+            continue
+        end
+
+        ChickynoidClient:RegisterMod(mod)
+    end
 end
 
 function ChickynoidClient:GetMod(name)

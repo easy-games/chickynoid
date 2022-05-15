@@ -113,12 +113,38 @@ function ChickynoidServer:Setup()
     Antilag:Setup(self)
 
     --Load the mods
-    for _, value in pairs(path.Custom.Server:GetChildren()) do
-        if value:IsA("ModuleScript") then
-            local mod = require(value)
-            self.modules[value.Name] = mod
-            mod:Setup(self)
+    for _, mod in pairs(self.modules) do
+        mod:Setup(self)
+		-- print("Loaded", _)
+    end
+end
+
+--[=[
+	Registers a single ModuleScript as a mod.
+	@param mod ModuleScript -- Individual ModuleScript to be loaded as a mod.
+]=]
+function ChickynoidServer:RegisterMod(mod: ModuleScript)
+    if not mod:IsA("ModuleScript") then
+        warn("Attempted to load", mod:GetFullName(), "as a mod but it is not a ModuleScript")
+        return
+    end
+
+    local contents = require(mod)
+    -- FIXME: Should `self.modules` be indexed by the module name?
+    self.modules[mod.Name] = contents
+end
+
+--[=[
+	Registers all descendants under this container as a mod.
+	@param container Instance -- Container holding mods.
+]=]
+function ChickynoidServer:RegisterModsInContainer(container: Instance)
+    for _, mod in ipairs(container:GetDescendants()) do
+        if not mod:IsA("ModuleScript") then
+            continue
         end
+
+        ChickynoidServer:RegisterMod(mod)
     end
 end
 

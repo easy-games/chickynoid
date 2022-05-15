@@ -1,3 +1,6 @@
+import CharacterModel from "./CharacterModel";
+import CharacterRecord from "./CharacterRecord";
+
 /** @client */
 export namespace ChickynoidClient {
 	export interface ClientConfig {
@@ -12,10 +15,13 @@ export namespace ChickynoidClient {
 	}
 
 	export let config: ClientConfig;
+	export let characterModel: CharacterModel | undefined;
 
 	/**
 	 * Creates connections so that Chickynoid can run on the client. Specifically, it connects to relevant networking and
 	 * RunService events.
 	 */
 	export function Setup(this: typeof ChickynoidClient): void;
+
+	export function GetCharacters(this: typeof ChickynoidClient): CharacterRecord[];
 }

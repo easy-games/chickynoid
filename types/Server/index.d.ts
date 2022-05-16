@@ -32,4 +32,8 @@ export namespace ChickynoidServer {
 	export function GetPlayerByUserId(this: typeof ChickynoidServer, userId: number): PlayerRecord | undefined;
 
 	export function GetPlayers(this: typeof ChickynoidServer): PlayerRecord[];
+
+	export function RegisterMod(mod: ModuleScript): void;
+
+	export function RegisterModsInContainer(container: Instance): void;
 }

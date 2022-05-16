@@ -54,6 +54,7 @@ ChickynoidClient.stateCounter = 0 --Num states coming in
 ChickynoidClient.accumulatedTime = 0
 
 ChickynoidClient.debugBoxes = {}
+ChickynoidClient.debugMarkPlayers = nil
 
 ChickynoidClient.useSubFrameInterpolation = false
 ChickynoidClient.prevLocalCharacterData = nil
@@ -83,7 +84,7 @@ function ChickynoidClient:Setup()
     local eventHandler = {}
 
     eventHandler[EventType.DebugBox] = function(event)
-        ChickynoidClient:DebugBox(event.pos)
+        ChickynoidClient:DebugBox(event.pos, event.text)
     end
 
     --EventType.ChickynoidAdded
@@ -496,11 +497,18 @@ function ChickynoidClient:ProcessFrame(deltaTime)
         end
         prev = value
     end
-
+	
+	local debugData = {}
+	
     if prev and last and prev ~= last then
         --So pointInTimeToRender is between prev.t and last.t
         local frac = (pointInTimeToRender - prev.serverTime) / timeBetweenServerFrames
-
+		
+		debugData.frac = frac
+		debugData.prev = prev.t
+		debugData.last = last.t
+		
+		
         for userId, lastData in pairs(last.charData) do
             local prevData = prev.charData[userId]
 
@@ -523,7 +531,8 @@ function ChickynoidClient:ProcessFrame(deltaTime)
             end
 
             character.frame = self.localFrame
-            character.position = dataRecord.pos
+			character.position = dataRecord.pos
+			
             --Update it
             character.characterModel:Think(deltaTime, dataRecord)
         end
@@ -543,7 +552,14 @@ function ChickynoidClient:ProcessFrame(deltaTime)
     -- local timeToRenderRocketsAt = self.estimatedServerTime
     local timeToRenderRocketsAt = pointInTimeToRender --laggier but more correct
 
-    ClientWeaponModule:Think(timeToRenderRocketsAt, deltaTime)
+	ClientWeaponModule:Think(timeToRenderRocketsAt, deltaTime)
+	
+	if (self.debugMarkPlayers ~= nil) then
+		self:DrawBoxOnAllPlayers(self.debugMarkPlayers)
+
+        self.debugMarkPlayers = nil
+		
+	end
 end
 
 function ChickynoidClient:GetCharacters()
@@ -602,7 +618,11 @@ function ChickynoidClient:GetGui()
     return gui
 end
 
-function ChickynoidClient:DebugMarkAllPlayers()
+function ChickynoidClient:DebugMarkAllPlayers(text)
+	self.debugMarkPlayers = text
+end
+
+function ChickynoidClient:DrawBoxOnAllPlayers(text)
     if self.worldState == nil then
         return
     end
@@ -623,6 +643,8 @@ function ChickynoidClient:DebugMarkAllPlayers()
         instance.Position = record.position
         instance.Parent = game.Workspace
 
+        self:AdornText(instance, Vector3.new(0,3,0), text, Color3.new(0.5,1,0.5))
+
         self.debugBoxes[instance] = tick() + 5
     end
 
@@ -634,7 +656,7 @@ function ChickynoidClient:DebugMarkAllPlayers()
     end
 end
 
-function ChickynoidClient:DebugBox(pos)
+function ChickynoidClient:DebugBox(pos, text)
     local instance = Instance.new("Part")
     instance.Size = Vector3.new(3, 5, 3)
     instance.Transparency = 1
@@ -651,7 +673,31 @@ function ChickynoidClient:DebugBox(pos)
     adornment.Parent = instance
 
     self.debugBoxes[instance] = tick() + 5
+
+    self:AdornText(instance, Vector3.new(0,6,0), text, Color3.new(0, 0.501960, 1))
 end
+
+function ChickynoidClient:AdornText(part, offset, text, color)
+
+    local attachment = Instance.new("Attachment")
+    attachment.Parent = part
+    attachment.Position = offset
+
+    local billboard = Instance.new("BillboardGui")
+    billboard.AlwaysOnTop = true
+    billboard.Size = UDim2.new(0,50,0,20)
+    billboard.Adornee = attachment
+    billboard.Parent = attachment
+    
+    local textLabel = Instance.new("TextLabel")
+    textLabel.TextScaled = true
+    textLabel.TextColor3 = color
+    textLabel.BackgroundTransparency = 1
+    textLabel.Size = UDim2.new(1,0,1,0)
+    textLabel.Text = text
+    textLabel.Parent = billboard
+end
+
 
 function ChickynoidClient:GenerateCommand(serverTime, deltaTime)
     

@@ -29,7 +29,7 @@ function module:ClientProcessCommand(command)
             state.nextFire = currentTime + state.fireDelay
             self:SetPredictedState() --Flag that we predicted the state, this will stop the server value from overriding it for a moment (eg: firing rapidly)
 
-            self.client:DebugMarkAllPlayers()
+            self.client:DebugMarkAllPlayers(tostring(state.ammo+1))
 
             local clientChickynoid = self.client:GetClientChickynoid()
             if clientChickynoid then
@@ -90,6 +90,8 @@ function module:ServerProcessCommand(command)
 
             self.timeOfLastShot = currentTime
 
+            local debugText = tostring(state.ammo+1)
+
             local serverChickynoid = self.playerRecord.chickynoid
             if serverChickynoid then
                 local origin = serverChickynoid.simulation.state.pos
@@ -100,7 +102,8 @@ function module:ServerProcessCommand(command)
                     self.server,
                     origin,
                     vec,
-                    command.serverTime
+                    command.serverTime,
+                    debugText
                 )
 
                 --Send an event to render this firing

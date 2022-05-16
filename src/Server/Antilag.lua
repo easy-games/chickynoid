@@ -35,7 +35,7 @@ function module:WritePlayerPositions(serverTime)
     end
 end
 
-function module:PushPlayerPositionsToTime(playerRecord, serverTime)
+function module:PushPlayerPositionsToTime(playerRecord, serverTime, debugText)
     local players = self.server:GetPlayers()
 
     if #self.temporaryPositions > 0 then
@@ -105,6 +105,7 @@ function module:PushPlayerPositionsToTime(playerRecord, serverTime)
                 local event = {}
                 event.t = Enums.EventType.DebugBox
                 event.pos = pos
+                event.text = debugText
                 playerRecord:SendEventToClient(event)
             end
         end

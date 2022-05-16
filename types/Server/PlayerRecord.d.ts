@@ -10,7 +10,7 @@ interface PlayerRecord {
 	OnBeforePlayerSpawn: Signal<() => void>;
 
 	Despawn(): void;
-	Spawn(): void;
+	Spawn(): ServerChickynoid;
 }
 
 interface PlayerRecordConstructor {

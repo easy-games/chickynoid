@@ -1,19 +1,26 @@
-local module = {}
+local WeaponModule = {}
+WeaponModule.__index = WeaponModule
 
 local path = script.Parent.Parent
-local EffectsModule = require(path.Client.Effects)
 local Enums = require(path.Enums)
+local EffectsModule = require(path.Client.Effects)
 
 local FastSignal = require(path.Vendor.FastSignal)
 local DeltaTable = require(path.Vendor.DeltaTable)
 
-module.rockets = {}
-module.weapons = {}
-module.customWeapons = {}
-module.currentWeapon = nil
-module.OnBulletImpact = FastSignal.new()
+function WeaponModule.new()
+    local self = setmetatable({
+        rockets = {},
+        weapons = {},
+        customWeapons = {},
+        currentWeapon = nil,
+        OnBulletImpact = FastSignal.new()
+    }, WeaponModule)
 
-function module:HandleEvent(client, event)
+    return self
+end
+
+function WeaponModule:HandleEvent(client, event)
     if event.t == Enums.EventType.BulletImpact then
         local player = client.worldState.players[event.s]
 
@@ -150,14 +157,14 @@ function module:HandleEvent(client, event)
     end
 end
 
-function module:ProcessCommand(command)
+function WeaponModule:ProcessCommand(command)
     --Don't get tricked, this can be invoked multiple times in a single frame if the framerate is low
     if self.currentWeapon ~= nil then
         self.currentWeapon:ClientProcessCommand(command)
     end
 end
 
-function module:Think(_predictedServerTime, deltaTime)
+function WeaponModule:Think(_predictedServerTime, deltaTime)
     --Copy the new server states over?
     for _, weapon in pairs(self.weapons) do
         if weapon.serverStateDirty == true then
@@ -207,11 +214,11 @@ function module:Think(_predictedServerTime, deltaTime)
     end
 end
 
-function module:GetWeaponModuleByWeaponId(weaponId)
+function WeaponModule:GetWeaponModuleByWeaponId(weaponId)
     return self.customWeapons[weaponId]
 end
 
-function module:Setup(_client)
+function WeaponModule:Setup(_client)
     for _, name in pairs(path.Custom.Weapons:GetDescendants()) do
         if name:IsA("ModuleScript") then
             local customWeapon = require(name)
@@ -222,4 +229,4 @@ function module:Setup(_client)
     end
 end
 
-return module
+return WeaponModule

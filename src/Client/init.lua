@@ -17,7 +17,7 @@ local ClientChickynoid = require(script.ClientChickynoid)
 local CollisionModule = require(path.Simulation.CollisionModule)
 local CharacterModel = require(script.CharacterModel)
 local CharacterData = require(path.Simulation.CharacterData)
-local ClientWeaponModule = require(path.Client.WeaponsClient)
+local ClientWeaponModule = require(path.Client.WeaponsClient).new()
 local FastSignal = require(path.Vendor.FastSignal)
 
 local Enums = require(path.Enums)

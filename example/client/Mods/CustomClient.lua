@@ -32,6 +32,8 @@ function module:Setup(_client)
             clone.CFrame = CFrame.lookAt(origin, origin + vec)
         end
     end)
+
+ 
 end
 
 function module:Step(_client, _deltaTime) end

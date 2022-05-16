@@ -66,6 +66,10 @@ ChickynoidClient.timeOfLastData = tick()
 --The local character
 ChickynoidClient.characterModel = nil
 
+--Server provided collision data
+ChickynoidClient.playerSize = Vector3.new(2,5,5)
+ChickynoidClient.collisionRoot = game.Workspace           
+
 --Milliseconds of *extra* buffer time to account for ping flux
 ChickynoidClient.interpolationBuffer = 20
 
@@ -120,7 +124,6 @@ function ChickynoidClient:Setup()
     -- EventType.WorldState
     eventHandler[EventType.WorldState] = function(event)
         print("Got worldstate")
-        --This would be a good time to run the collision setup
         self.worldState = event.worldState
     end
 
@@ -148,8 +151,9 @@ function ChickynoidClient:Setup()
     end
 
     eventHandler[EventType.CollisionData] = function(event)
-        local playerSize = Vector3.new(2, 5, 2)
-        CollisionModule:MakeWorld(event.data, playerSize)
+        self.playerSize = event.playerSize
+        self.collisionRoot = event.data
+        CollisionModule:MakeWorld(self.collisionRoot, self.playerSize)
     end
 
     RemoteEvent.OnClientEvent:Connect(function(event)
@@ -273,6 +277,10 @@ function ChickynoidClient:GetClientChickynoid()
     return self.localChickynoid
 end
 
+function ChickynoidClient:GetCollisionRoot()
+    return self.collisionRoot 
+end
+
 function ChickynoidClient:ResetConnection()
     if self.awaitingFullSnapshot == false then
         --Stop accepting/storing data
@@ -385,8 +393,9 @@ function ChickynoidClient:ProcessFrame(deltaTime)
                 end
 
                 --Step!
-                local cmd = self.localChickynoid:Heartbeat(pointInTimeToRender, frac)
-                ClientWeaponModule:ProcessCommand(cmd)
+                local command = self:GenerateCommand(pointInTimeToRender, frac)    
+                self.localChickynoid:Heartbeat(command, pointInTimeToRender, frac)
+                ClientWeaponModule:ProcessCommand(command)
 
                 count += 1
             end
@@ -413,8 +422,9 @@ function ChickynoidClient:ProcessFrame(deltaTime)
             end
         else
             --For this to work, the server has to accept deltaTime from the client
-            local cmd = self.localChickynoid:Heartbeat(pointInTimeToRender, deltaTime)
-            ClientWeaponModule:ProcessCommand(cmd)
+            local command = self:GenerateCommand(pointInTimeToRender, deltaTime) 
+            self.localChickynoid:Heartbeat(command, pointInTimeToRender, deltaTime)
+            ClientWeaponModule:ProcessCommand(command)
         end
 
         if self.characterModel == nil and self.localChickynoid ~= nil then
@@ -641,6 +651,24 @@ function ChickynoidClient:DebugBox(pos)
     adornment.Parent = instance
 
     self.debugBoxes[instance] = tick() + 5
+end
+
+function ChickynoidClient:GenerateCommand(serverTime, deltaTime)
+    
+    local command = {}
+    command.serverTime = serverTime
+    command.deltaTime = deltaTime
+    command.x = 0
+    command.y = 0
+    command.z = 0
+ 
+    for key,mod in pairs(self.modules) do
+        if (mod.GenerateCommand) then
+            command = mod:GenerateCommand(command, serverTime, deltaTime)
+        end
+    end
+
+    return command
 end
 
 return ChickynoidClient

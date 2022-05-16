@@ -7,8 +7,6 @@
 ]=]
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local UserInputService = game:GetService("UserInputService")
-local Players = game:GetService("Players")
 
 local RemoteEvent = ReplicatedStorage:WaitForChild("ChickynoidReplication") :: RemoteEvent
 
@@ -22,38 +20,7 @@ local Enums = require(path.Enums)
 local EventType = Enums.EventType
 local NetGraph = require(path.Client.NetGraph)
 
-local Camera = workspace.CurrentCamera
 
-local LocalPlayer = Players.LocalPlayer
-
---For access to control vectors
-
-local ControlModule = nil --require(PlayerModule:WaitForChild("ControlModule"))
-
-local function GetControlModule()
-    if ControlModule == nil then
-        local scripts = LocalPlayer:FindFirstChild("PlayerScripts")
-        if scripts == nil then
-            return nil
-        end
-
-        local playerModule = scripts:FindFirstChild("PlayerModule")
-        if playerModule == nil then
-            return nil
-        end
-
-        local controlModule = playerModule:FindFirstChild("ControlModule")
-        if controlModule == nil then
-            return nil
-        end
-
-        ControlModule = require(
-            LocalPlayer:WaitForChild("PlayerScripts"):WaitForChild("PlayerModule"):WaitForChild("ControlModule")
-        )
-    end
-
-    return ControlModule
-end
 
 local DebugParts = Instance.new("Folder")
 DebugParts.Name = "DebugParts"
@@ -90,8 +57,7 @@ function ClientChickynoid.new(position: Vector3)
     }, ClientChickynoid)
 
     self.simulation.state.pos = position
-    self.simulation.whiteList = { workspace:FindFirstChild("GameArea"), workspace.Terrain }
-
+ 
     self:HandleLocalPlayer()
 
     return self
@@ -99,81 +65,6 @@ end
 
 function ClientChickynoid:HandleLocalPlayer() end
 
-function ClientChickynoid:MakeCommand(dt: number)
-    local command = {}
-    command.l = self.localFrame
-
-    command.x = 0
-    command.y = 0
-    command.z = 0
-    command.deltaTime = dt
-
-    GetControlModule()
-    if ControlModule ~= nil then
-        local moveVector = ControlModule:GetMoveVector() :: Vector3
-        if moveVector.Magnitude > 0 then
-            moveVector = moveVector.Unit
-            command.x = moveVector.X
-            command.y = moveVector.Y
-            command.z = moveVector.Z
-        end
-    end
-
-    -- This approach isn't ideal but it's the easiest right now
-    if not UserInputService:GetFocusedTextBox() then
-        command.y = UserInputService:IsKeyDown(Enum.KeyCode.Space) and 1 or 0
-
-        command.f = UserInputService:IsKeyDown(Enum.KeyCode.Q) and 1 or 0
-
-        --Cheat #1 - speed cheat!
-        if UserInputService:IsKeyDown(Enum.KeyCode.P) then
-            command.deltaTime *= 3
-        end
-
-        --Cheat #2 - suspend!
-        if UserInputService:IsKeyDown(Enum.KeyCode.L) then
-            local function test(f)
-                return f
-            end
-            for j = 1, 2000000 do
-                local a = j * 12
-                test(a)
-            end
-        end
-    end
-
-    if self:GetIsJumping() == true then
-        command.y = 1
-    end
-
-    if command.f and command.f > 0 then
-        --fire angles
-        command.fa = self:GetAimPoint()
-    end
-
-    local rawMoveVector = self:CalculateRawMoveVector(Vector3.new(command.x, 0, command.z))
-    command.x = rawMoveVector.X
-    command.z = rawMoveVector.Z
-
-    return command
-end
-
-function ClientChickynoid:CalculateRawMoveVector(cameraRelativeMoveVector: Vector3)
-    local _, yaw = Camera.CFrame:ToEulerAnglesYXZ()
-    return CFrame.fromEulerAnglesYXZ(0, yaw, 0) * Vector3.new(cameraRelativeMoveVector.X, 0, cameraRelativeMoveVector.Z)
-end
-
-function ClientChickynoid:GetIsJumping()
-    if ControlModule == nil then
-        return false
-    end
-    if ControlModule.activeController == nil then
-        return false
-    end
-
-    return ControlModule.activeController:GetIsJumping()
-        or (ControlModule.touchJumpController and ControlModule.touchJumpController:GetIsJumping())
-end
 
 --[=[
     The server sends each client an updated world state on a fixed timestep. This
@@ -318,22 +209,20 @@ function ClientChickynoid:IsConnectionBad()
     return false
 end
 
-function ClientChickynoid:Heartbeat(serverTime: number, deltaTime: number)
+function ClientChickynoid:Heartbeat(command, serverTime: number, deltaTime: number)
     self.localFrame += 1
 
-    -- Read user input
-    local cmd = self:MakeCommand(deltaTime)
-
-    table.insert(self.predictedCommands, cmd)
+    --Write the local frame for prediction later
+    command.l = self.localFrame
+    --Store it
+    table.insert(self.predictedCommands, command)
 
     -- Step this frame
-    cmd.serverTime = serverTime
-
-    TrajectoryModule:PositionWorld(serverTime, deltaTime)
+     TrajectoryModule:PositionWorld(serverTime, deltaTime)
     CollisionModule:UpdateDynamicParts()
 
     self.debug.processedCommands += 1
-    self.simulation:ProcessCommand(cmd)
+    self.simulation:ProcessCommand(command)
 
     -- Marker for positions added since the last server update
     self:SpawnDebugSphere(self.simulation.state.pos, Color3.fromRGB(44, 140, 39))
@@ -341,21 +230,21 @@ function ClientChickynoid:Heartbeat(serverTime: number, deltaTime: number)
     if SKIP_RESIMULATION then
         -- Add to our state cache, which we can use for skipping resims
         local cacheRecord = {}
-        cacheRecord.l = cmd.l
+        cacheRecord.l = command.l
         cacheRecord.state = self.simulation:WriteState()
 
-        self.stateCache[cmd.l] = cacheRecord
+        self.stateCache[command.l] = cacheRecord
     end
 
     -- Pass to server
     local event = {}
     event.t = EventType.Command
-    event.command = cmd
+    event.command = command
     RemoteEvent:FireServer(event)
 
     --once we've sent it, add localtime
-    cmd.tick = tick()
-    return cmd
+    command.tick = tick()
+    return command
 end
 
 function ClientChickynoid:SpawnDebugSphere(pos, color)
@@ -378,23 +267,6 @@ function ClientChickynoid:ClearDebugSpheres()
     if DEBUG_SPHERES then
         DebugParts:ClearAllChildren()
     end
-end
-
-function ClientChickynoid:GetAimPoint()
-    local mouse = game.Players.LocalPlayer:GetMouse()
-    local ray = game.Workspace.CurrentCamera:ScreenPointToRay(mouse.X, mouse.Y)
-
-    local raycastParams = RaycastParams.new()
-    raycastParams.FilterType = Enum.RaycastFilterType.Whitelist
-    raycastParams.FilterDescendantsInstances = { game.Workspace:FindFirstChild("GameArea") }
-
-    local raycastResults = game.Workspace:Raycast(ray.Origin, ray.Direction * 2000, raycastParams)
-    if raycastResults then
-        return raycastResults.Position
-    end
-
-    --We hit the sky perhaps?
-    return ray.Origin + (ray.Direction * 2000)
 end
 
 function ClientChickynoid:Destroy() end

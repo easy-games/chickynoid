@@ -40,6 +40,8 @@ ChickynoidServer.startTime = tick()
 ChickynoidServer.slots = {}
 ChickynoidServer.collisionRootFolder = nil
 
+ChickynoidServer.playerSize = Vector3.new(2, 5, 2)
+
 ChickynoidServer.modules = {} --Custom modules, for things like hitpoints
 
 --[=[
@@ -238,6 +240,7 @@ function ChickynoidServer:AddConnection(userId, player)
         local event = {}
         event.t = Enums.EventType.CollisionData
         if ChickynoidServer.collisionRootFolder ~= nil then
+            event.playerSize = ChickynoidServer.playerSize
             event.data = ChickynoidServer.collisionRootFolder
         end
         self:SendEventToClient(event)
@@ -545,10 +548,9 @@ function ChickynoidServer:Think(deltaTime)
 end
 
 function ChickynoidServer:RecreateCollisions(rootFolder)
-    local playerSize = Vector3.new(2, 5, 2)
 
     self.collisionRootFolder = rootFolder
-    CollisionModule:MakeWorld(self.collisionRootFolder, playerSize)
+    CollisionModule:MakeWorld(self.collisionRootFolder, self.playerSize)
 
     for _, playerRecord in pairs(self.playerRecords) do
         playerRecord:SendCollisionData()

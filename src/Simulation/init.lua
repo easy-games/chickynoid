@@ -75,7 +75,6 @@ end
 --	It is very important that this method rely only on whats in the cmd object
 --	and no other client or server state can "leak" into here
 --	or the server and client state will get out of sync.
---	You'll have to manage it so clients/server see the same thing in workspace.GameArea for collision...
 
 function Simulation:ProcessCommand(cmd)
     debug.profilebegin("Chickynoid Simulation")

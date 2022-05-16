@@ -65,7 +65,7 @@ ChickynoidServer.OnBeforePlayerSpawn = FastSignal.new()
 ChickynoidServer.OnPlayerConnected = FastSignal.new()
 
 ChickynoidServer.flags = {}
-ChickynoidServer.flags.DEBUG_ANTILAG = false
+ChickynoidServer.flags.DEBUG_ANTILAG = true
 
 --[=[
 	Creates connections so that Chickynoid can run on the server.
@@ -237,13 +237,15 @@ function ChickynoidServer:AddConnection(userId, player)
 
     -- selene: allow(shadowing)
     function playerRecord:SendCollisionData()
-        local event = {}
-        event.t = Enums.EventType.CollisionData
-        if ChickynoidServer.collisionRootFolder ~= nil then
+       
+		if ChickynoidServer.collisionRootFolder ~= nil then
+			local event = {}
+			event.t = Enums.EventType.CollisionData
             event.playerSize = ChickynoidServer.playerSize
-            event.data = ChickynoidServer.collisionRootFolder
+			event.data = ChickynoidServer.collisionRootFolder
+			self:SendEventToClient(event)
         end
-        self:SendEventToClient(event)
+        
     end
 
     -- selene: allow(shadowing)

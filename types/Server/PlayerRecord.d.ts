@@ -3,7 +3,13 @@ import ServerChickynoid from "./ServerChickynoid";
 
 interface PlayerRecord {
 	userId: number;
-	player: Player;
+	player?: Player;
+	allowedToSpawn: boolean;
+	respawnDelay: number;
+	respawnTime: number;
+
+	/** True if the player is a bot. */
+	dummy: boolean;
 
 	chickynoid: ServerChickynoid;
 

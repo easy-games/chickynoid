@@ -25,7 +25,7 @@ local requiredMethods = {
 function module:Setup(_server)
     for _, name in pairs(path.Custom.Weapons:GetDescendants()) do
         if name:IsA("ModuleScript") then
-            local customWeapon = require(name)
+            local customWeapon = require(name).new(_server, _server)
 
             for _, values in pairs(requiredMethods) do
                 if customWeapon[values] == nil then
@@ -113,9 +113,7 @@ function module:OnPlayerConnected(server, playerRecord)
             return
         end
 
-        local sourceModule = require(source)
-
-        local weaponRecord = DeltaTable:DeepCopy(sourceModule)
+        local weaponRecord = require(source).new()
         weaponRecord.serial = module.weaponSerials
         module.weaponSerials += 1
 

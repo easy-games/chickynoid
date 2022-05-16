@@ -1,5 +1,5 @@
 local MachineGunModule = {}
-local MachineGunModule.__index = MachineGunModule
+MachineGunModule.__index = MachineGunModule
 
 local path = script.Parent.Parent.Parent
 local EffectsModule = require(path.Client.Effects)
@@ -8,7 +8,19 @@ local Enums = require(path.Enums)
 function MachineGunModule.new()
     local self = setmetatable({
         rateOfFire = 0.08,
+        serial = nil,
+        name = nil,
+        client = nil,
+        weaponModule = nil,
+        clientState = nil,
+        serverState = nil,
+        preservePredictedStateTimer = 0,
+        serverStateDirty = false,
+        playerRecord = nil,
+        state = {},
+        previousState = {},
     }, MachineGunModule)
+    return self
 end
 
 --This module is cloned per player on client/server
@@ -64,7 +76,7 @@ function MachineGunModule:ClientOnBulletImpact(_client, _event) end
 function MachineGunModule:ServerSetup()
     self.state.maxAmmo = 30
     self.state.ammo = self.state.maxAmmo
-    self.state.fireDelay = module.rateOfFire
+    self.state.fireDelay = self.rateOfFire
     self.state.nextFire = 0 --Questionable about wether client needs this
 
     self.timeOfLastShot = 0 --Not part of state, doesnt need to go to client

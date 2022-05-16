@@ -25,7 +25,7 @@ local requiredMethods = {
 function module:Setup(_server)
     for _, name in pairs(path.Custom.Weapons:GetDescendants()) do
         if name:IsA("ModuleScript") then
-            local customWeapon = require(name).new(_server, _server)
+            local customWeapon = require(name).new()
 
             for _, values in pairs(requiredMethods) do
                 if customWeapon[values] == nil then

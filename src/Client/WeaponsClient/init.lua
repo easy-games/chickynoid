@@ -212,7 +212,7 @@ end
 function module:Setup(_client)
     for _, name in pairs(path.Custom.Weapons:GetDescendants()) do
         if name:IsA("ModuleScript") then
-            local customWeapon = require(name).new(_client, _client)
+            local customWeapon = require(name).new()
             table.insert(self.customWeapons, customWeapon)
             --set the id
             customWeapon.weaponId = #self.customWeapons

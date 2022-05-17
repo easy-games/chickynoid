@@ -1,11 +1,13 @@
 import PlayerRecord from "../Server/PlayerRecord";
+import WeaponsServer from "../Server/WeaponsServer";
 
 export interface WeaponModule<State = {}, Command = {}> {
 	clientState: State;
 	serverState: State;
 	name?: string;
 	client?: unknown;
-	weaponModule?: unknown;
+	/** Only available on server. */
+	weaponModule: WeaponsServer;
 	preservePredictedStateTimer: number;
 	serverStateDirty: boolean;
 	playerRecord?: PlayerRecord;

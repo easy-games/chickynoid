@@ -678,10 +678,28 @@ function module:MakeWorld(folder, playerSize)
     self.expansionSize = playerSize
     self.hulls = {}
     TerrainModule:Setup(self.gridSize, playerSize)
-
-    for _, instance in pairs(folder:GetDescendants()) do
-        self:ProcessCollisionOnInstance(instance, playerSize)
-    end
+	
+	 
+	coroutine.wrap(function()
+		
+		local list = folder:GetDescendants()
+		local total = #folder:GetDescendants()
+		
+		local done = 0 
+		for counter = 1, total do		
+			local instance = list[counter]
+			if (instance:IsA("BasePart") and instance.CanCollide == true) then
+				self:ProcessCollisionOnInstance(instance, playerSize)
+			end
+			done+=1
+			if (done > 2000) then
+				task.wait()
+				done = 0
+				print("Collision processing: " .. math.floor(counter/total * 100) .. "%")
+			end
+	    end
+        print("Collision processing: 100%")
+	end)()
 
     folder.DescendantAdded:Connect(function(instance)
         self:ProcessCollisionOnInstance(instance, playerSize)

@@ -1,6 +1,16 @@
-interface WeaponModule<State = {}, Command = {}> {
+import PlayerRecord from "../Server/PlayerRecord";
+
+export interface WeaponModule<State = {}, Command = {}> {
 	clientState: State;
 	serverState: State;
+	name?: string;
+	client?: unknown;
+	weaponModule?: unknown;
+	preservePredictedStateTimer: number;
+	serverStateDirty: boolean;
+	playerRecord?: PlayerRecord;
+	previousState: State;
+	state: State;
 
 	ClientThink(deltaTime: number): void;
 
@@ -22,14 +32,3 @@ interface WeaponModule<State = {}, Command = {}> {
 
 	ServerDequip(): void;
 }
-
-interface WeaponModuleConstructor {
-	/**
-	 * Constructed internally. Do not use directly.
-	 * @private
-	 */
-	new (): WeaponModule;
-}
-
-declare const WeaponModule: WeaponModuleConstructor;
-export = WeaponModule;

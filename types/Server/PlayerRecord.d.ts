@@ -15,6 +15,9 @@ interface PlayerRecord {
 
 	OnBeforePlayerSpawn: Signal<() => void>;
 
+	SendEventToClient(event: unknown): void;
+	SendEventToClients(event: unknown): void;
+
 	Despawn(): void;
 	Spawn(): ServerChickynoid;
 }

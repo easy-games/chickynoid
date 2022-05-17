@@ -1,13 +1,30 @@
-local module = {}
+local MachineGunModule = {}
+MachineGunModule.__index = MachineGunModule
 
 local path = script.Parent.Parent.Parent
 local EffectsModule = require(path.Client.Effects)
 local Enums = require(path.Enums)
 
-module.rateOfFire = 0.08
+function MachineGunModule.new()
+    local self = setmetatable({
+        rateOfFire = 0.08,
+        serial = nil,
+        name = nil,
+        client = nil,
+        weaponModule = nil,
+        clientState = nil,
+        serverState = nil,
+        preservePredictedStateTimer = 0,
+        serverStateDirty = false,
+        playerRecord = nil,
+        state = {},
+        previousState = {},
+    }, MachineGunModule)
+    return self
+end
 
 --This module is cloned per player on client/server
-function module:ClientThink(_deltaTime)
+function MachineGunModule:ClientThink(_deltaTime)
     local gui = self.client:GetGui()
     local state = self.clientState
 
@@ -17,7 +34,7 @@ function module:ClientThink(_deltaTime)
     end
 end
 
-function module:ClientProcessCommand(command)
+function MachineGunModule:ClientProcessCommand(command)
     local currentTime = self.client.estimatedServerTime
     local state = self.clientState
 
@@ -46,26 +63,26 @@ function module:ClientProcessCommand(command)
     end
 end
 
-function module:ClientSetup() end
+function MachineGunModule:ClientSetup() end
 
-function module:ClientEquip() end
+function MachineGunModule:ClientEquip() end
 
-function module:ClientDequip() end
+function MachineGunModule:ClientDequip() end
 
 --Warning! - you might not have this weapon locally
 --This is far more akin to a static method, and is provided so you can render client effects
-function module:ClientOnBulletImpact(_client, _event) end
+function MachineGunModule:ClientOnBulletImpact(_client, _event) end
 
-function module:ServerSetup()
+function MachineGunModule:ServerSetup()
     self.state.maxAmmo = 30
     self.state.ammo = self.state.maxAmmo
-    self.state.fireDelay = module.rateOfFire
+    self.state.fireDelay = self.rateOfFire
     self.state.nextFire = 0 --Questionable about wether client needs this
 
     self.timeOfLastShot = 0 --Not part of state, doesnt need to go to client
 end
 
-function module:ServerThink(_deltaTime)
+function MachineGunModule:ServerThink(_deltaTime)
     --update cooldowns
 
     local currentTime = self.server.serverSimulationTime
@@ -77,7 +94,7 @@ function module:ServerThink(_deltaTime)
     end
 end
 
-function module:ServerProcessCommand(command)
+function MachineGunModule:ServerProcessCommand(command)
     --actually Fire a bullet
     local currentTime = self.server.serverSimulationTime
     local state = self.state
@@ -135,8 +152,8 @@ function module:ServerProcessCommand(command)
     end
 end
 
-function module:ServerEquip() end
+function MachineGunModule:ServerEquip() end
 
-function module:ServerDequip() end
+function MachineGunModule:ServerDequip() end
 
-return module
+return MachineGunModule

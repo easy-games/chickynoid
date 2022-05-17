@@ -67,9 +67,7 @@ function module:HandleEvent(client, event)
             end
 
             local source = path.Custom.Weapons:FindFirstChild(event.name, true)
-            local sourceModule = require(source)
-
-            local weaponRecord = DeltaTable:DeepCopy(sourceModule)
+            local weaponRecord = require(source).new()
             weaponRecord.serial = event.serial
             weaponRecord.name = event.name
             weaponRecord.client = client
@@ -214,7 +212,7 @@ end
 function module:Setup(_client)
     for _, name in pairs(path.Custom.Weapons:GetDescendants()) do
         if name:IsA("ModuleScript") then
-            local customWeapon = require(name)
+            local customWeapon = require(name).new()
             table.insert(self.customWeapons, customWeapon)
             --set the id
             customWeapon.weaponId = #self.customWeapons

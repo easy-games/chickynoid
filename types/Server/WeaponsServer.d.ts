@@ -9,7 +9,7 @@ interface WeaponsServer {
 		dir: Vector3,
 		serverTime: number,
 		debugText: string,
-	): void;
+	): [pos: Vector3, normal: Vector3, otherPlayerRecord: PlayerRecord];
 }
 
 interface WeaponsServerConstructor {

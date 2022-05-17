@@ -554,9 +554,11 @@ function ChickynoidServer:RecreateCollisions(rootFolder)
     self.collisionRootFolder = rootFolder
     CollisionModule:MakeWorld(self.collisionRootFolder, self.playerSize)
 
+    print("collision: 4");
     for _, playerRecord in pairs(self.playerRecords) do
         playerRecord:SendCollisionData()
     end
+    print("collision: 5 FINISHED!");
 end
 
 return ChickynoidServer

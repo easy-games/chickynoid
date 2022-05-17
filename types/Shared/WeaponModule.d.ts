@@ -36,4 +36,6 @@ export interface WeaponModule<State = {}, Command = {}> {
 	ServerEquip(): void;
 
 	ServerDequip(): void;
+
+	SetPredictedState(): void;
 }

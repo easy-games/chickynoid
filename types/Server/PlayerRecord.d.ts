@@ -7,6 +7,7 @@ interface PlayerRecord {
 	allowedToSpawn: boolean;
 	respawnDelay: number;
 	respawnTime: number;
+	slot: number;
 
 	/** True if the player is a bot. */
 	dummy: boolean;

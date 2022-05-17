@@ -28,6 +28,8 @@ export interface WeaponModule<State = {}, Command = {}> {
 
 	ServerProcessCommand(command: unknown): void;
 
+	ServerSetup(): void;
+
 	ServerEquip(): void;
 
 	ServerDequip(): void;

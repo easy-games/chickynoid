@@ -37,4 +37,6 @@ export namespace ChickynoidClient {
 	export function RegisterModsInContainer(this: typeof ChickynoidClient, container: Instance): void;
 
 	export function GetClientChickynoid(this: typeof ChickynoidClient): ClientChickynoid;
+
+	export function DebugMarkAllPlayers(this: typeof ChickynoidClient, text: string): void;
 }

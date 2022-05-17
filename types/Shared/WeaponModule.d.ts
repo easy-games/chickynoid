@@ -13,6 +13,7 @@ export interface WeaponModule<State = {}, Command = {}> {
 	playerRecord?: PlayerRecord;
 	previousState: State;
 	state: State;
+	weaponId: number;
 
 	ClientThink(deltaTime: number): void;
 

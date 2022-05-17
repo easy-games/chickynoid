@@ -84,7 +84,7 @@ end
 
 -- class
 
-local EPSILON = 0.0001
+local EPSILON = 0.001
 
 local MERGE_NON_CONVEX_WRT_LARGER_FACE = 1
 local MERGE_NON_CONVEX = 2

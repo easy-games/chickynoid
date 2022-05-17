@@ -1,5 +1,6 @@
 import CharacterModel from "./CharacterModel";
 import CharacterRecord from "./CharacterRecord";
+import ClientChickynoid from "./ClientChickynoid";
 
 /** @client */
 export namespace ChickynoidClient {
@@ -28,4 +29,6 @@ export namespace ChickynoidClient {
 	export function RegisterMod(this: typeof ChickynoidClient, mod: ModuleScript): void;
 
 	export function RegisterModsInContainer(this: typeof ChickynoidClient, container: Instance): void;
+
+	export function GetClientChickynoid(this: typeof ChickynoidClient): ClientChickynoid;
 }

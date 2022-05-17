@@ -1,4 +1,7 @@
-interface WeaponModule {
+interface WeaponModule<State = {}, Command = {}> {
+	clientState: State;
+	serverState: State;
+
 	ClientThink(deltaTime: number): void;
 
 	ClientProcessCommand(command: unknown): void;

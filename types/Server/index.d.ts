@@ -18,6 +18,13 @@ export namespace ChickynoidServer {
 
 	export let config: ServerConfig;
 	export const playerRecords: Map<number, PlayerRecord>;
+	export const startTime: number;
+	export const slots: number[];
+	export const serverStepTimer: number;
+	export const serverSimulationTime: number;
+	export const framesPerSecond: number;
+	export const accumulatedTime: number;
+	export const playerSize: Vector3;
 
 	export const OnPlayerSpawn: Signal<(playerRecord: PlayerRecord) => void>;
 	export const OnPlayerDespawn: Signal<(playerRecord: PlayerRecord) => void>;

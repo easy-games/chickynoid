@@ -25,7 +25,7 @@ export namespace ChickynoidClient {
 
 	export function GetCharacters(this: typeof ChickynoidClient): CharacterRecord[];
 
-	export function RegisterMod(mod: ModuleScript): void;
+	export function RegisterMod(this: typeof ChickynoidClient, mod: ModuleScript): void;
 
-	export function RegisterModsInContainer(container: Instance): void;
+	export function RegisterModsInContainer(this: typeof ChickynoidClient, container: Instance): void;
 }

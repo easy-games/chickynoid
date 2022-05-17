@@ -33,7 +33,7 @@ export namespace ChickynoidServer {
 
 	export function GetPlayers(this: typeof ChickynoidServer): PlayerRecord[];
 
-	export function RegisterMod(mod: ModuleScript): void;
+	export function RegisterMod(this: typeof ChickynoidServer, mod: ModuleScript): void;
 
-	export function RegisterModsInContainer(container: Instance): void;
+	export function RegisterModsInContainer(this: typeof ChickynoidServer, container: Instance): void;
 }

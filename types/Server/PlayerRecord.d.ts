@@ -1,4 +1,5 @@
 import Signal from "@rbxts/signal";
+import { WeaponModule } from "../Shared/WeaponModule";
 import ServerChickynoid from "./ServerChickynoid";
 
 interface PlayerRecord {
@@ -18,6 +19,13 @@ interface PlayerRecord {
 
 	SendEventToClient(event: unknown): void;
 	SendEventToClients(event: unknown): void;
+
+	// Weapons
+	currentWeapon: WeaponModule | undefined;
+	AddWeaponByName(name: string, equip: boolean): void;
+	ClearWeapons(): void;
+	RemoveWeaponRecord(weaponRecord: WeaponModule): void;
+	GetWeapons(): WeaponModule[];
 
 	Despawn(): void;
 	Spawn(): ServerChickynoid;

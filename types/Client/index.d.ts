@@ -2,6 +2,7 @@ import Signal from "@rbxts/signal";
 import CharacterModel from "./CharacterModel";
 import CharacterRecord from "./CharacterRecord";
 import ClientChickynoid from "./ClientChickynoid";
+import { WeaponsClient } from "./WeaponsClient";
 
 /** @client */
 export namespace ChickynoidClient {
@@ -21,6 +22,7 @@ export namespace ChickynoidClient {
 	export let estimatedServerTime: number;
 	export let estimatedServerTimeOffset: number;
 	export let startTime: number;
+	export let weaponsClient: typeof WeaponsClient;
 
 	export let OnNetworkEvent: Signal<(event: unknown) => void>;
 

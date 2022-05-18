@@ -14,6 +14,7 @@ export interface WeaponModule<State = {}, Command = {}> {
 	previousState: State;
 	state: State;
 	weaponId: number;
+	totalTime: number;
 
 	ClientThink(deltaTime: number): void;
 

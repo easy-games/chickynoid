@@ -80,6 +80,8 @@ ChickynoidClient.OnNetworkEvent = FastSignal.new()
 --Mods
 ChickynoidClient.modules = {}
 
+ChickynoidClient.weaponsClient = ClientWeaponModule;
+
 function ChickynoidClient:Setup()
     local eventHandler = {}
 

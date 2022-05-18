@@ -1,4 +1,5 @@
 import Signal from "@rbxts/signal";
+import { WeaponModule } from "../Shared/WeaponModule";
 import ServerChickynoid from "./ServerChickynoid";
 
 interface PlayerRecord {
@@ -7,6 +8,7 @@ interface PlayerRecord {
 	allowedToSpawn: boolean;
 	respawnDelay: number;
 	respawnTime: number;
+	slot: number;
 
 	/** True if the player is a bot. */
 	dummy: boolean;
@@ -14,6 +16,16 @@ interface PlayerRecord {
 	chickynoid: ServerChickynoid;
 
 	OnBeforePlayerSpawn: Signal<() => void>;
+
+	SendEventToClient(event: unknown): void;
+	SendEventToClients(event: unknown): void;
+
+	// Weapons
+	currentWeapon: WeaponModule | undefined;
+	AddWeaponByName(name: string, equip: boolean): void;
+	ClearWeapons(): void;
+	RemoveWeaponRecord(weaponRecord: WeaponModule): void;
+	GetWeapons(): WeaponModule[];
 
 	Despawn(): void;
 	Spawn(): ServerChickynoid;

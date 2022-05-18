@@ -1,5 +1,7 @@
+import Signal from "@rbxts/signal";
 import CharacterModel from "./CharacterModel";
 import CharacterRecord from "./CharacterRecord";
+import ClientChickynoid from "./ClientChickynoid";
 
 /** @client */
 export namespace ChickynoidClient {
@@ -16,6 +18,11 @@ export namespace ChickynoidClient {
 
 	export let config: ClientConfig;
 	export let characterModel: CharacterModel | undefined;
+	export let estimatedServerTime: number;
+	export let estimatedServerTimeOffset: number;
+	export let startTime: number;
+
+	export let OnNetworkEvent: Signal<(event: unknown) => void>;
 
 	/**
 	 * Creates connections so that Chickynoid can run on the client. Specifically, it connects to relevant networking and
@@ -28,4 +35,8 @@ export namespace ChickynoidClient {
 	export function RegisterMod(this: typeof ChickynoidClient, mod: ModuleScript): void;
 
 	export function RegisterModsInContainer(this: typeof ChickynoidClient, container: Instance): void;
+
+	export function GetClientChickynoid(this: typeof ChickynoidClient): ClientChickynoid;
+
+	export function DebugMarkAllPlayers(this: typeof ChickynoidClient, text: string): void;
 }

@@ -76,6 +76,7 @@ function module:HandleEvent(client, event)
             weaponRecord.serverState = DeltaTable:DeepCopy(event.serverState)
             weaponRecord.preservePredictedStateTimer = 0
             weaponRecord.serverStateDirty = false
+            weaponRecord.totalTime = 0
 
 			-- selene: allow(shadowing)
             function weaponRecord:SetPredictedState()
@@ -151,6 +152,7 @@ end
 function module:ProcessCommand(command)
     --Don't get tricked, this can be invoked multiple times in a single frame if the framerate is low
     if self.currentWeapon ~= nil then
+        self.currentWeapon.totalTime += command.deltaTime
         self.currentWeapon:ClientProcessCommand(command)
     end
 end

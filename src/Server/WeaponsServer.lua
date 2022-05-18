@@ -120,6 +120,7 @@ function module:OnPlayerConnected(server, playerRecord)
         weaponRecord.playerRecord = playerRecord
         weaponRecord.server = server
         weaponRecord.weaponModule = module
+        weaponRecord.totalTime = 0
         weaponRecord.state = {}
         weaponRecord.previousState = {}
 
@@ -148,6 +149,7 @@ function module:OnPlayerConnected(server, playerRecord)
 	-- selene: allow(shadowing)
     function playerRecord:ProcessWeaponCommand(command)
         if self.currentWeapon ~= nil then
+            self.currentWeapon.totalTime += command.deltaTime
             self.currentWeapon:ServerProcessCommand(command)
         end
     end

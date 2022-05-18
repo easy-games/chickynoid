@@ -35,7 +35,7 @@ function MachineGunModule:ClientThink(_deltaTime)
 end
 
 function MachineGunModule:ClientProcessCommand(command)
-    local currentTime = self.client.estimatedServerTime
+    local currentTime = self.totalTime
     local state = self.clientState
 
     --Predict firing a bullet
@@ -85,7 +85,7 @@ end
 function MachineGunModule:ServerThink(_deltaTime)
     --update cooldowns
 
-    local currentTime = self.server.serverSimulationTime
+    local currentTime = self.totalTime
     local state = self.state
 
     --Auto reload
@@ -96,7 +96,7 @@ end
 
 function MachineGunModule:ServerProcessCommand(command)
     --actually Fire a bullet
-    local currentTime = self.server.serverSimulationTime
+    local currentTime = self.totalTime
     local state = self.state
 
     if command.f and command.f > 0 and command.fa then

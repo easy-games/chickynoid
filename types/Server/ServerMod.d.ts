@@ -1,7 +1,7 @@
 import { ChickynoidServer } from ".";
 
 export interface ServerMod {
-	Step(client: typeof ChickynoidServer, deltaTime: number): void;
+	Step(server: typeof ChickynoidServer, deltaTime: number): void;
 
-	Setup(client: typeof ChickynoidServer): void;
+	Setup(server: typeof ChickynoidServer): void;
 }

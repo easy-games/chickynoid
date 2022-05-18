@@ -134,4 +134,11 @@ function module:GetGui()
     return module.ui
 end
 
+function module:Hide()
+    if module.ui ~= nil then
+        module.ui:Destroy()
+        module.ui = nil
+    end
+end
+
 return module

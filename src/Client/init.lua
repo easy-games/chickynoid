@@ -191,13 +191,16 @@ function ChickynoidClient:Setup()
     end)
 
     local function Step(deltaTime)
-        --  print("deltaTime", deltaTime)
-        self:DoFpsCount(deltaTime)
 
-        if (self.showFpsGraph == true) then
-            FpsGraph:Scroll()
+        if (self.showFpsGraph == false) then
+            FpsGraph:Hide()
+        end
+        if (self.showNetGraph == false) then
+            NetGraph:Hide()
         end
 
+        self:DoFpsCount(deltaTime)
+  
         --Do a framerate cap to 144? fps
         self.cappedElapsedTime += deltaTime
         self.timeSinceLastThink += deltaTime
@@ -208,6 +211,7 @@ function ChickynoidClient:Setup()
         end
 
         if (self.showFpsGraph == true) then
+            FpsGraph:Scroll()
             local fps = 1 / self.timeSinceLastThink
             FpsGraph:AddBar(fps / 2, Color3.new(0.321569, 0.909804, 0.188235), 0)
         end

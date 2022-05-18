@@ -24,6 +24,7 @@ local Enums = require(path.Enums)
 local MathUtils = require(path.Simulation.MathUtils)
 
 local FpsGraph = require(path.Client.FpsGraph)
+local NetGraph = require(path.Client.NetGraph)
 
 local EventType = Enums.EventType
 local ChickynoidClient = {}
@@ -56,9 +57,16 @@ ChickynoidClient.accumulatedTime = 0
 ChickynoidClient.debugBoxes = {}
 ChickynoidClient.debugMarkPlayers = nil
 
+--Netgraph settings
+ChickynoidClient.showFpsGraph = false
+ChickynoidClient.showNetGraph = false
+ChickynoidClient.showDebugMovement = true
+
+ChickynoidClient.ping = 0
+ChickynoidClient.pings = {}
+
 ChickynoidClient.useSubFrameInterpolation = false
 ChickynoidClient.prevLocalCharacterData = nil
-ChickynoidClient.showDebugMovement = true
 
 --This flag can be set to true if we detect we're in a network death spiral, and are going to go quiet for a while
 ChickynoidClient.awaitingFullSnapshot = true
@@ -119,8 +127,19 @@ function ChickynoidClient:Setup()
     -- EventType.State
     eventHandler[EventType.State] = function(event)
         if self.localChickynoid and event.lastConfirmed then
-            self.localChickynoid:HandleNewState(event.state, event.lastConfirmed, event.serverTime, event.s, event.e)
+            local resimulate, ping = self.localChickynoid:HandleNewState(event.state, event.lastConfirmed, event.serverTime)
+          
+            --Keep a rolling history of pings
+            table.insert(self.pings, ping)
+            if #self.pings > 20 then
+                table.remove(self.pings, 1)
+            end
+
             self.stateCounter += 1
+            
+            if (self.showNetGraph == true) then
+                self:AddPingToNetgraph(resimulate, event.s, event.e, ping)
+            end
         end
     end
 
@@ -173,9 +192,11 @@ function ChickynoidClient:Setup()
 
     local function Step(deltaTime)
         --  print("deltaTime", deltaTime)
-        FpsGraph:Scroll()
-
         self:DoFpsCount(deltaTime)
+
+        if (self.showFpsGraph == true) then
+            FpsGraph:Scroll()
+        end
 
         --Do a framerate cap to 144? fps
         self.cappedElapsedTime += deltaTime
@@ -186,9 +207,12 @@ function ChickynoidClient:Setup()
             return --If not enough time for a whole frame has elapsed
         end
 
-        local fps = 1 / self.timeSinceLastThink
-        FpsGraph:AddBar(fps / 2, Color3.new(0.321569, 0.909804, 0.188235), 0)
+        if (self.showFpsGraph == true) then
+            local fps = 1 / self.timeSinceLastThink
+            FpsGraph:AddBar(fps / 2, Color3.new(0.321569, 0.909804, 0.188235), 0)
+        end
         self:ProcessFrame(self.timeSinceLastThink)
+
         self.timeSinceLastThink = 0
 
         self.cappedElapsedTime = math.fmod(self.cappedElapsedTime, fraction)
@@ -196,7 +220,7 @@ function ChickynoidClient:Setup()
         --Death spiral
 
         local badConnection = false
-        if self.localChickynoid and self.localChickynoid:IsConnectionBad() == true then
+        if self:IsConnectionBad() == true then
             --print("Bad connection: Chickynoid Ping")
             badConnection = true
         end
@@ -310,17 +334,22 @@ function ChickynoidClient:DoFpsCount(deltaTime)
         --print("FPS: real ", self.frameCounter, "( physics: ",self.frameSimCounter ,")")
 
         if self.frameCounter > self.fpsMax + 5 then
-            FpsGraph:SetWarning("(Cap your fps to " .. self.fpsMax .. ")")
+            if (self.showFpsGraph == true) then
+                FpsGraph:SetWarning("(Cap your fps to " .. self.fpsMax .. ")")
+            end
             self.fpsIsCapped = true
         else
-            FpsGraph:SetWarning("")
-
+            if (self.showFpsGraph == true) then
+                FpsGraph:SetWarning("")
+            end
             self.fpsIsCapped = false
         end
-        if self.frameCounter == self.frameSimCounter then
-            FpsGraph:SetFpsText("Fps: " .. self.frameCounter .. " CmdRate: " .. self.stateCounter)
-        else
-            FpsGraph:SetFpsText("Fps: " .. self.frameCounter .. " Sim: " .. self.frameSimCounter)
+        if (self.showFpsGraph == true) then
+            if self.frameCounter == self.frameSimCounter then
+                FpsGraph:SetFpsText("Fps: " .. self.frameCounter .. " CmdRate: " .. self.stateCounter)
+            else
+                FpsGraph:SetFpsText("Fps: " .. self.frameCounter .. " Sim: " .. self.frameSimCounter)
+            end
         end
 
         self.frameCounter = 0
@@ -416,12 +445,14 @@ function ChickynoidClient:ProcessFrame(deltaTime)
                 end
             end
 
-            if count > 0 then
-                local pixels = 1000 / fixedPhysics
-                FpsGraph:AddPoint((count * pixels), Color3.new(0, 1, 1), 3)
-                FpsGraph:AddBar(math.abs(self.accumulatedTime * 1000), Color3.new(1, 1, 0), 2)
-            else
-                FpsGraph:AddBar(math.abs(self.accumulatedTime * 1000), Color3.new(1, 1, 0), 2)
+            if (self.showFpsGraph == true) then
+                if count > 0 then
+                    local pixels = 1000 / fixedPhysics
+                    FpsGraph:AddPoint((count * pixels), Color3.new(0, 1, 1), 3)
+                    FpsGraph:AddBar(math.abs(self.accumulatedTime * 1000), Color3.new(1, 1, 0), 2)
+                else
+                    FpsGraph:AddBar(math.abs(self.accumulatedTime * 1000), Color3.new(1, 1, 0), 2)
+                end
             end
         else
             --For this to work, the server has to accept deltaTime from the client
@@ -467,16 +498,18 @@ function ChickynoidClient:ProcessFrame(deltaTime)
                 self.characterModel:Think(deltaTime, self.localChickynoid.simulation.characterData.serialized)
             end
 
-            if self.showDebugMovement == true then
-                if self.characterModel and self.characterModel.model then
-                    local pos = self.characterModel.model.PrimaryPart.CFrame.Position
+            if (self.showFpsGraph == true) then
+                if self.showDebugMovement == true then
+                    if self.characterModel and self.characterModel.model then
+                        local pos = self.characterModel.model.PrimaryPart.CFrame.Position
 
-                    if self.previousPos ~= nil then
-                        local delta = pos - self.previousPos
+                        if self.previousPos ~= nil then
+                            local delta = pos - self.previousPos
 
-                        FpsGraph:AddPoint(delta.magnitude * 200, Color3.new(0, 0, 1), 4)
+                            FpsGraph:AddPoint(delta.magnitude * 200, Color3.new(0, 0, 1), 4)
+                        end
+                        self.previousPos = pos
                     end
-                    self.previousPos = pos
                 end
             end
 
@@ -700,6 +733,61 @@ function ChickynoidClient:AdornText(part, offset, text, color)
     textLabel.Parent = billboard
 end
 
+
+function ChickynoidClient:AddPingToNetgraph(resimulate, serverHealthFps, networkProblem, ping)
+
+    --Ping graph
+    local total = 0
+    for _, ping in pairs(self.pings) do
+        total += ping
+    end
+    total /= #self.pings
+
+    NetGraph:Scroll()
+
+    local color1 = Color3.new(1, 1, 1)
+    local color2 = Color3.new(1, 1, 0)
+    if resimulate == false then
+        NetGraph:AddPoint(ping * 0.25, color1, 4)
+        NetGraph:AddPoint(total * 0.25, color2, 3)
+    else
+        NetGraph:AddPoint(ping * 0.25, color1, 4)
+        local tint = Color3.new(0.5, 1, 0.5)
+        NetGraph:AddPoint(total * 0.25, tint, 3)
+        NetGraph:AddBar(10 * 0.25, tint, 1)
+    end
+
+    --Server fps
+    if serverHealthFps < 60 then
+        NetGraph:AddPoint(serverHealthFps, Color3.new(1, 0, 0), 2)
+    else
+        NetGraph:AddPoint(serverHealthFps, Color3.new(0.5, 0.0, 0.0), 2)
+    end
+
+    --Blue bar
+    if networkProblem == Enums.NetworkProblemState.TooFarBehind then
+        NetGraph:AddBar(100, Color3.new(0, 0, 1), 0)
+    end
+    --Yellow bar
+    if networkProblem == Enums.NetworkProblemState.TooFarAhead then
+        NetGraph:AddBar(100, Color3.new(1, 1, 0), 0)
+    end
+    --Orange bar
+    if networkProblem == Enums.NetworkProblemState.TooManyCommands then
+        NetGraph:AddBar(100, Color3.new(1, 0.5, 0), 0)
+    end
+
+    NetGraph:SetFpsText("Effective Ping: " .. math.floor(total) .. "ms")
+end
+
+function ChickynoidClient:IsConnectionBad()
+
+    local pings 
+    if #self.pings > 10 and self.ping > 1000 then
+        return true
+    end
+    return false
+end
 
 function ChickynoidClient:GenerateCommand(serverTime, deltaTime)
     

@@ -16,18 +16,7 @@ local CollisionModule = require(path.Simulation.CollisionModule)
 
 local TrajectoryModule = require(path.Simulation.TrajectoryModule)
 local Enums = require(path.Enums)
-
 local EventType = Enums.EventType
-local NetGraph = require(path.Client.NetGraph)
-
-
-
-local DebugParts = Instance.new("Folder")
-DebugParts.Name = "DebugParts"
-DebugParts.Parent = workspace
-
-local SKIP_RESIMULATION = true
-local DEBUG_SPHERES = false
 
 local ClientChickynoid = {}
 ClientChickynoid.__index = ClientChickynoid
@@ -47,12 +36,14 @@ function ClientChickynoid.new(position: Vector3)
         stateCache = {},
 
         localFrame = 0,
-        ping = 0,
-        pings = {}, --for average
 
         mispredict = Vector3.new(0, 0, 0),
+
         debug = {
             processedCommands = 0,
+            showDebugSpheres = false,
+            useSkipResimulationOptimization = true,
+            debugParts = nil,
         },
     }, ClientChickynoid)
 
@@ -74,7 +65,7 @@ function ClientChickynoid:HandleLocalPlayer() end
     @param lastConfirmed number -- The serial number of the last command confirmed by the server.
     @param serverTime - Time when command was confirmed
 ]=]
-function ClientChickynoid:HandleNewState(state, lastConfirmed, serverTime, serverHealthFps, networkProblem)
+function ClientChickynoid:HandleNewState(state, lastConfirmed, serverTime)
     self:ClearDebugSpheres()
 
     -- Build a list of the commands the server has not confirmed yet
@@ -96,7 +87,7 @@ function ClientChickynoid:HandleNewState(state, lastConfirmed, serverTime, serve
     local resimulate = true
 
     -- Check to see if we can skip simulation
-    if SKIP_RESIMULATION then
+    if (self.debug.useSkipResimulationOptimization == true) then
         local record = self.stateCache[lastConfirmed]
         if record then
             -- This is the state we were in, if the server agrees with this, we dont have to resim
@@ -144,7 +135,7 @@ function ClientChickynoid:HandleNewState(state, lastConfirmed, serverTime, serve
             -- Resimulated positions
             self:SpawnDebugSphere(self.simulation.state.pos, Color3.fromRGB(255, 255, 0))
 
-            if SKIP_RESIMULATION then
+            if (self.debug.useSkipResimulationOptimization == true) then
                 -- Add to our state cache, which we can use for skipping resims
                 local cacheRecord = {}
                 cacheRecord.l = command.l
@@ -161,62 +152,10 @@ function ClientChickynoid:HandleNewState(state, lastConfirmed, serverTime, serve
         --Add the offset to mispredict so we can blend it off
         self.mispredict += delta
     end
-
-    --Ping graph
-    table.insert(self.pings, self.ping)
-    if #self.pings > 20 then
-        table.remove(self.pings, 1)
-    end
-    local total = 0
-    for _, ping in pairs(self.pings) do
-        total += ping
-    end
-    total /= #self.pings
-
-    NetGraph:Scroll()
-
-    local color1 = Color3.new(1, 1, 1)
-    local color2 = Color3.new(1, 1, 0)
-    if resimulate == false then
-        NetGraph:AddPoint(self.ping * 0.25, color1, 4)
-        NetGraph:AddPoint(total * 0.25, color2, 3)
-    else
-        NetGraph:AddPoint(self.ping * 0.25, color1, 4)
-        local tint = Color3.new(0.5, 1, 0.5)
-        NetGraph:AddPoint(total * 0.25, tint, 3)
-        NetGraph:AddBar(10 * 0.25, tint, 1)
-    end
-
-    --Server fps
-    if serverHealthFps < 60 then
-        NetGraph:AddPoint(serverHealthFps, Color3.new(1, 0, 0), 2)
-    else
-        NetGraph:AddPoint(serverHealthFps, Color3.new(0.5, 0.0, 0.0), 2)
-    end
-
-    --Blue bar
-    if networkProblem == Enums.NetworkProblemState.TooFarBehind then
-        NetGraph:AddBar(100, Color3.new(0, 0, 1), 0)
-    end
-    --Yellow bar
-    if networkProblem == Enums.NetworkProblemState.TooFarAhead then
-        NetGraph:AddBar(100, Color3.new(1, 1, 0), 0)
-    end
-    --Orange bar
-    if networkProblem == Enums.NetworkProblemState.TooManyCommands then
-        NetGraph:AddBar(100, Color3.new(1, 0.5, 0), 0)
-    end
-
-    NetGraph:SetFpsText("Effective Ping: " .. math.floor(total) .. "ms")
+    
+    return resimulate, self.ping
 end
 
-function ClientChickynoid:IsConnectionBad()
-    if #self.pings > 10 and self.ping > 1000 then
-        return true
-    end
-
-    return false
-end
 
 function ClientChickynoid:Heartbeat(command, serverTime: number, deltaTime: number)
     self.localFrame += 1
@@ -236,7 +175,7 @@ function ClientChickynoid:Heartbeat(command, serverTime: number, deltaTime: numb
     -- Marker for positions added since the last server update
     self:SpawnDebugSphere(self.simulation.state.pos, Color3.fromRGB(44, 140, 39))
 
-    if SKIP_RESIMULATION then
+    if (self.debug.useSkipResimulationOptimization == true) then
         -- Add to our state cache, which we can use for skipping resims
         local cacheRecord = {}
         cacheRecord.l = command.l
@@ -257,24 +196,35 @@ function ClientChickynoid:Heartbeat(command, serverTime: number, deltaTime: numb
 end
 
 function ClientChickynoid:SpawnDebugSphere(pos, color)
-    if DEBUG_SPHERES then
-        local part = Instance.new("Part")
-        part.Anchored = true
-        part.Color = color
-        part.Shape = Enum.PartType.Ball
-        part.Size = Vector3.new(5, 5, 5)
-        part.Position = pos
-        part.Transparency = 0.25
-        part.TopSurface = Enum.SurfaceType.Smooth
-        part.BottomSurface = Enum.SurfaceType.Smooth
-
-        part.Parent = DebugParts
+    if (self.debug.showDebugSpheres ~= true) then
+        return
     end
+
+    if (self.debug.debugParts == nil) then
+        self.debug.debugParts = Instance.new("Folder")
+        self.debug.debugParts.Name = "ChickynoidDebugSpheres"
+        self.debug.debugParts.Parent = workspace
+    end
+
+    local part = Instance.new("Part")
+    part.Anchored = true
+    part.Color = color
+    part.Shape = Enum.PartType.Ball
+    part.Size = Vector3.new(5, 5, 5)
+    part.Position = pos
+    part.Transparency = 0.25
+    part.TopSurface = Enum.SurfaceType.Smooth
+    part.BottomSurface = Enum.SurfaceType.Smooth
+
+    part.Parent = self.debug.debugParts
 end
 
 function ClientChickynoid:ClearDebugSpheres()
-    if DEBUG_SPHERES then
-        DebugParts:ClearAllChildren()
+    if (self.debug.showDebugSpheres ~= true) then
+        return
+    end
+    if (self.debug.debugParts ~= nil) then
+        self.debug.debugParts:ClearAllChildren()
     end
 end
 

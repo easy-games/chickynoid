@@ -176,6 +176,7 @@ function module:Think(_predictedServerTime, deltaTime)
         self.currentWeapon:ClientThink(deltaTime)
     end
 
+    --Temporary code!
     for _, rocket in pairs(self.rockets) do
         --just render the rocket from the moment we find out about it as time 0.
         if rocket.localTime == nil then
@@ -221,5 +222,6 @@ function module:Setup(_client)
         end
     end
 end
+
 
 return module

@@ -1,9 +1,7 @@
-import { ChickynoidClient } from ".";
-
 export interface ClientMod {
-	Step(client: typeof ChickynoidClient, deltaTime: number): void;
+	Step(deltaTime: number): void;
 
-	Setup(client: typeof ChickynoidClient): void;
+	Setup(): void;
 
-	GenerateCommand(client: typeof ChickynoidClient, command: unknown, serverTime: number, deltaTime: number): unknown;
+	GenerateCommand(command: unknown, serverTime: number, deltaTime: number): unknown;
 }

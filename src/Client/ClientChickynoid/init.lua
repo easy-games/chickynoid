@@ -135,14 +135,23 @@ function ClientChickynoid:HandleNewState(state, lastConfirmed, serverTime, serve
 
         -- Resimulate all of the commands the server has not confirmed yet
         -- print("winding forward", #remainingCommands, "commands")
-        for _, cmd in pairs(remainingCommands) do
-            extrapolatedServerTime += cmd.deltaTime
+        for _, command in pairs(remainingCommands) do
+            extrapolatedServerTime += command.deltaTime
 
-            TrajectoryModule:PositionWorld(extrapolatedServerTime, cmd.deltaTime)
-            self.simulation:ProcessCommand(cmd)
+            TrajectoryModule:PositionWorld(extrapolatedServerTime, command.deltaTime)
+            self.simulation:ProcessCommand(command)
 
             -- Resimulated positions
             self:SpawnDebugSphere(self.simulation.state.pos, Color3.fromRGB(255, 255, 0))
+
+            if SKIP_RESIMULATION then
+                -- Add to our state cache, which we can use for skipping resims
+                local cacheRecord = {}
+                cacheRecord.l = command.l
+                cacheRecord.state = self.simulation:WriteState()
+        
+                self.stateCache[command.l] = cacheRecord
+            end
         end
 
         self.simulation.characterData:SetIsResimulating(false)

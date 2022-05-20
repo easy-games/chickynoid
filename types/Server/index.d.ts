@@ -43,4 +43,6 @@ export namespace ChickynoidServer {
 	export function RegisterMod(this: typeof ChickynoidServer, mod: ModuleScript): void;
 
 	export function RegisterModsInContainer(this: typeof ChickynoidServer, container: Instance): void;
+
+	export function AddConnection(userId: number, player: Player | undefined): PlayerRecord;
 }

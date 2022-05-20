@@ -10,6 +10,7 @@ interface PlayerRecord {
 	respawnDelay: number;
 	respawnTime: number;
 	slot: number;
+	frame: number;
 
 	/** Bot AI */
 	waitTime: number;

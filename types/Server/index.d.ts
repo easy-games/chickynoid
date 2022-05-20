@@ -41,7 +41,7 @@ export namespace ChickynoidServer {
 
 	export function GetPlayerByUserId(this: typeof ChickynoidServer, userId: number): PlayerRecord | undefined;
 
-	export function GetPlayers(this: typeof ChickynoidServer): PlayerRecord[];
+	export function GetPlayers(this: typeof ChickynoidServer): Map<number, PlayerRecord>;
 
 	export function RegisterMod(this: typeof ChickynoidServer, mod: ModuleScript): void;
 

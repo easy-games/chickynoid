@@ -29,6 +29,7 @@ interface PlayerRecord {
 
 	Despawn(): void;
 	Spawn(): ServerChickynoid;
+	BotThink?: (deltaTime: number) => void;
 }
 
 interface PlayerRecordConstructor {

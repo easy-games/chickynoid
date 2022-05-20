@@ -25,6 +25,9 @@ export namespace ChickynoidServer {
 	export const framesPerSecond: number;
 	export const accumulatedTime: number;
 	export const playerSize: Vector3;
+	export const flags: {
+		DEBUG_ANTILAG: boolean;
+	};
 
 	export const OnPlayerSpawn: Signal<(playerRecord: PlayerRecord) => void>;
 	export const OnPlayerDespawn: Signal<(playerRecord: PlayerRecord) => void>;

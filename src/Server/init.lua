@@ -162,7 +162,6 @@ function ChickynoidServer:PlayerConnected(player)
         clone.Parent = playerRecord.player.PlayerGui
     end
 
-    self.OnPlayerConnected:Fire(self, playerRecord)
 end
 
 function ChickynoidServer:AssignSlot(playerRecord)
@@ -299,7 +298,8 @@ function ChickynoidServer:AddConnection(userId, player)
         ChickynoidServer.OnPlayerSpawn:Fire(self, playerRecord)
         return self.chickynoid
     end
-
+    
+    self.OnPlayerConnected:Fire(self, playerRecord)
     --Connect!
     WeaponsModule:OnPlayerConnected(self, playerRecord)
 

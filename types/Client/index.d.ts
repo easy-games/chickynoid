@@ -32,7 +32,10 @@ export namespace ChickynoidClient {
 	 */
 	export function Setup(this: typeof ChickynoidClient): void;
 
-	export function GetCharacters(this: typeof ChickynoidClient): CharacterRecord[];
+	/**
+	 * Map of userId to CharacterRecord.
+	 */
+	export function GetCharacters(this: typeof ChickynoidClient): Map<number, CharacterRecord>;
 
 	export function RegisterMod(this: typeof ChickynoidClient, mod: ModuleScript): void;
 

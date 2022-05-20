@@ -121,7 +121,9 @@ function ChickynoidClient:Setup()
         self.prevLocalCharacterData = nil
         self.characterModel:DestroyModel()
         self.characterModel = nil
-        game.Players.LocalPlayer.Character = nil :: any
+		game.Players.LocalPlayer.Character = nil :: any
+		
+		self.characters[game.Players.LocalPlayer.UserId] = nil
     end
 
     -- EventType.State
@@ -469,7 +471,13 @@ function ChickynoidClient:ProcessFrame(deltaTime)
             --Spawn the character in
             print("Creating local model for UserId", game.Players.LocalPlayer.UserId)
             self.characterModel = CharacterModel.new()
-            self.characterModel:CreateModel(game.Players.LocalPlayer.UserId)
+			self.characterModel:CreateModel(game.Players.LocalPlayer.UserId)
+			
+			local record = {}
+			record.userId = game.Players.LocalPlayer.UserId
+			record.characterModel = self.characterModel
+			record.localPlayer = true
+			self.characters[record.userId] = record
         end
 
         if self.characterModel ~= nil then
@@ -481,14 +489,17 @@ function ChickynoidClient:ProcessFrame(deltaTime)
                 deltaTime
             )
             self.characterModel.mispredict = self.localChickynoid.mispredict
-
+			
+			local localRecord = self.characters[game.Players.LocalPlayer.UserId]
+						
             if self.fixedPhysicsSteps == true then
                 if
                     self.useSubFrameInterpolation == false
                     or subFrameFraction == 0
                     or self.prevLocalCharacterData == nil
                 then
-                    self.characterModel:Think(deltaTime, self.localChickynoid.simulation.characterData.serialized)
+					self.characterModel:Think(deltaTime, self.localChickynoid.simulation.characterData.serialized)
+					localRecord.characterData = self.localChickynoid.simulation.characterData
                 else
                     --Calculate a sub-frame interpolation
                     local data = CharacterData:Interpolate(
@@ -496,24 +507,26 @@ function ChickynoidClient:ProcessFrame(deltaTime)
                         self.localChickynoid.simulation.characterData.serialized,
                         subFrameFraction
                     )
-                    self.characterModel:Think(deltaTime, data)
+					self.characterModel:Think(deltaTime, data)
+					localRecord.characterData = data
                 end
             else
-                self.characterModel:Think(deltaTime, self.localChickynoid.simulation.characterData.serialized)
+				self.characterModel:Think(deltaTime, self.localChickynoid.simulation.characterData.serialized)
+				localRecord.characterData = self.localChickynoid.simulation.characterData
             end
-
+			
+			--store local data
+			localRecord.frame = self.localFrame
+			localRecord.position = localRecord.characterData.pos
+				
             if (self.showFpsGraph == true) then
                 if self.showDebugMovement == true then
-                    if self.characterModel and self.characterModel.model then
-                        local pos = self.characterModel.model.PrimaryPart.CFrame.Position
-
-                        if self.previousPos ~= nil then
-                            local delta = pos - self.previousPos
-
-                            FpsGraph:AddPoint(delta.magnitude * 200, Color3.new(0, 0, 1), 4)
-                        end
-                        self.previousPos = pos
+					local pos = localRecord.position
+                    if self.previousPos ~= nil then
+                        local delta = pos - self.previousPos
+                        FpsGraph:AddPoint(delta.magnitude * 200, Color3.new(0, 0, 1), 4)
                     end
+                    self.previousPos = pos
                 end
             end
 
@@ -571,13 +584,19 @@ function ChickynoidClient:ProcessFrame(deltaTime)
 
             character.frame = self.localFrame
 			character.position = dataRecord.pos
+            character.characterData = dataRecord
 			
             --Update it
             character.characterModel:Think(deltaTime, dataRecord)
         end
 
         --Remove any characters who were not in this snapshot
-        for key, value in pairs(self.characters) do
+		for key, value in pairs(self.characters) do
+			
+			if (key == game.Players.LocalPlayer.UserId) then
+				continue
+			end
+			
             if value.frame ~= self.localFrame then
                 value.characterModel:DestroyModel()
                 value.characterModel = nil
@@ -670,7 +689,12 @@ function ChickynoidClient:DrawBoxOnAllPlayers(text)
     end
 
     local models = self:GetCharacters()
-    for _, record in pairs(models) do
+	for _, record in pairs(models) do
+		
+		if (record.localPlayer == true) then
+			continue
+		end
+		
         local instance = Instance.new("Part")
         instance.Size = Vector3.new(3, 5, 3)
         instance.Transparency = 0.5

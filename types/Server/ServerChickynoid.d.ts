@@ -1,3 +1,4 @@
+import { ChickynoidServer } from ".";
 import Simulation from "../Simulation";
 import PlayerRecord from "./PlayerRecord";
 
@@ -8,6 +9,8 @@ interface ServerChickynoid {
 
 	SetPosition(position: Vector3): void;
 	GetPosition(): Vector3;
+
+	HandleEvent(server: typeof ChickynoidServer, event: unknown): void;
 
 	Destroy(): void;
 }

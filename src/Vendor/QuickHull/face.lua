@@ -178,12 +178,22 @@ function face:mergeAdjacentFaces(adjacentEdge, discardedFaces)
     local adjacentEdgeNext = adjacentEdge.next
     local oppositeEdgePrev = oppositeEdge.prev
     local oppositeEdgeNext = oppositeEdge.next
-
-    while adjacentEdgePrev.opposite.face == oppositeFace do
+	
+	local counter = 0
+	while adjacentEdgePrev.opposite.face == oppositeFace do
+		counter+=1
+		if (counter >100) then
+			return nil
+		end
         adjacentEdgePrev = adjacentEdgePrev.prev
         oppositeEdgeNext = oppositeEdgeNext.next
-    end
-    while adjacentEdgeNext.opposite.face == oppositeFace do
+	end
+	counter = 0
+	while adjacentEdgeNext.opposite.face == oppositeFace do
+		counter+=1
+		if (counter >100) then
+			return nil
+		end
         adjacentEdgeNext = adjacentEdgeNext.next
         oppositeEdgePrev = oppositeEdgePrev.prev
     end

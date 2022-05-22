@@ -518,8 +518,10 @@ function quick_hull:doAdjacentMerge(face, mergeType)
 
             if merge then
                 local discardedFaces = face:mergeAdjacentFaces(edge, {})
-                for i = 1, #discardedFaces do
-                    self:deleteFaceVertices(discardedFaces[i], face)
+                if (discardedFaces) then
+                    for i = 1, #discardedFaces do
+                        self:deleteFaceVertices(discardedFaces[i], face)
+                    end
                 end
                 return true
             end

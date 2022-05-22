@@ -20,7 +20,7 @@ interface PlayerRecord {
 	/** True if the player is a bot. */
 	dummy: boolean;
 
-	chickynoid: ServerChickynoid;
+	chickynoid?: ServerChickynoid;
 
 	OnBeforePlayerSpawn: Signal<() => void>;
 

@@ -77,7 +77,7 @@ end
 --Not a speedy thing to do!
 function module:GetPlanesForInstance(instance, playerSize, cframe, basePlaneNum, showDebugParentPart)
 	
-	if (instance:IsA("MeshPart") and instance.Anchored == true) then
+	if (false and instance:IsA("MeshPart") and instance.Anchored == true) then
     	return module:GetPlanesForInstanceMeshPart(instance, playerSize, cframe, basePlaneNum, showDebugParentPart)		
 	end
 	
@@ -313,19 +313,24 @@ function module:GetRaytraceInstancePoints(instance, cframe)
 	local size = instance.Size
 	
 	for key,point in pairs(points) do
-		
 		local p = cframe:PointToWorldSpace(point * size)
 		table.insert(finals, p)	
-		
-		if (false) then
+	end
+
+	
+	if (true and game["Run Service"]:IsClient()) then
+		for key,point in pairs(finals) do
+
 			local debugInstance = Instance.new("Part")
 			debugInstance.Parent = game.Workspace
 			debugInstance.Anchored = true
 			debugInstance.Size = Vector3.new(1,1,1)
-			debugInstance.Position = p
+			debugInstance.Position = point
 			debugInstance.Shape = Enum.PartType.Ball
 			debugInstance.Color = Color3.new(0,1,0)
 		end
+		
+		self:VisualizePlanesForPoints(finals, game.Workspace)
 	end
 
     return finals

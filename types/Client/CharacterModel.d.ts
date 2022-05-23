@@ -1,9 +1,12 @@
+import Signal from "@rbxts/signal";
+
 interface CharacterModel {
 	model: Model;
 	modelReady: boolean;
 	modelOffset: Vector3;
 	userId: number;
 	animator: Animator;
+	onModelCreated: Signal<(model: Model) => void>;
 }
 
 interface CharacterModelConstructor {

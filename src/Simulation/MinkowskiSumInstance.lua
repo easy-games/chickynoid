@@ -3,7 +3,7 @@ local Vendor = Root.Vendor
 
 local QuickHull = require(Vendor.QuickHull)
 local TrianglePart = require(Vendor.TrianglePart)
-local QuickHull2 = require(Vendor.QuickHull2)
+-- local QuickHull2 = require(Vendor.QuickHull2)
 
 local module = {}
 module.meshCache = {}
@@ -348,7 +348,7 @@ function module:GetPlanesForInstanceMeshPart(instance, playerSize, cframe, baseP
 		end
 	end
 
-	local r = QuickHull2:GenerateHull(points)
+	local r = QuickHull:GenerateHull(points)
     --local r = QuickHull.quick_run(points)
 	local recs = {}
 

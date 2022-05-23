@@ -14,6 +14,7 @@ CharacterModel.__index = CharacterModel
 
 local path = script.Parent.Parent
 local Enums = require(path.Enums)
+local FastSignal = require(path.Vendor.FastSignal)
 CharacterModel.template = nil
 
 function CharacterModel:ModuleSetup()

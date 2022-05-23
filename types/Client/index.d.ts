@@ -25,6 +25,7 @@ export namespace ChickynoidClient {
 	export let weaponsClient: typeof WeaponsClient;
 
 	export let OnNetworkEvent: Signal<(event: unknown) => void>;
+	export let OnCharacterModelCreated: Signal<(characterModel: CharacterModel) => void>;
 
 	/**
 	 * Creates connections so that Chickynoid can run on the client. Specifically, it connects to relevant networking and

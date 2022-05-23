@@ -14,6 +14,7 @@ CharacterModel.__index = CharacterModel
 
 local path = script.Parent.Parent
 local Enums = require(path.Enums)
+local FastSignal = require(path.Vendor.FastSignal)
 CharacterModel.template = nil
 
 function CharacterModel:ModuleSetup()
@@ -32,6 +33,7 @@ function CharacterModel.new()
         startingAnimation = Enums.Anims.Idle,
         userId = nil,
         mispredict = Vector3.new(0, 0, 0),
+        onModelCreated = FastSignal.new()
     }, CharacterModel)
 
     return self
@@ -71,6 +73,7 @@ function CharacterModel:CreateModel(userId)
             self:PlayAnimation(self.startingAnimation, true)
 
             self.model.Parent = game.Workspace
+            self.onModelCreated:Fire(self.model);
         end
     end)()
 end

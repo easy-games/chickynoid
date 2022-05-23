@@ -84,6 +84,7 @@ ChickynoidClient.interpolationBuffer = 20
 
 --Signals
 ChickynoidClient.OnNetworkEvent = FastSignal.new()
+ChickynoidClient.OnCharacterModelCreated = FastSignal.new()
 
 --Mods
 ChickynoidClient.modules = {}
@@ -472,6 +473,7 @@ function ChickynoidClient:ProcessFrame(deltaTime)
             print("Creating local model for UserId", game.Players.LocalPlayer.UserId)
             self.characterModel = CharacterModel.new()
 			self.characterModel:CreateModel(game.Players.LocalPlayer.UserId)
+            self.OnCharacterModelCreated:Fire(self.characterModel)
 			
 			local record = {}
 			record.userId = game.Players.LocalPlayer.UserId
@@ -577,6 +579,7 @@ function ChickynoidClient:ProcessFrame(deltaTime)
                 record.userId = userId
                 record.characterModel = CharacterModel.new()
                 record.characterModel:CreateModel(userId)
+                self.OnCharacterModelCreated:Fire(record.characterModel);
 
                 character = record
                 self.characters[userId] = record

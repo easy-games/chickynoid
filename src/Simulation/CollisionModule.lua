@@ -262,7 +262,7 @@ function module:GenerateConvexHullAccurate(part, expansionSize, cframe)
 end
 
 local function Trunc(number)
-    return math.floor(number * 100) / 100
+    return math.floor(number * 20) / 20
 end
 
 function module:GenerateSnappedCFrame(instance)

@@ -543,7 +543,8 @@ function quick_hull:addVertexToHull(eyeVertex)
     self:removeVertexFromFace(eyeVertex, eyeVertex.face)
     self:computeHorizon(eyeVertex.point, nil, eyeVertex.face, horizon)
     self:addNewFaces(eyeVertex, horizon)
-
+	
+	--[[
     for i = 1, #self.newFaces do
         local face = self.newFaces[i]
         if face.mark == VISIBLE then
@@ -560,6 +561,7 @@ function quick_hull:addVertexToHull(eyeVertex)
             end
         end
     end
+    ]]--
 
     self:resolveUnclaimedPoints(self.newFaces)
 end

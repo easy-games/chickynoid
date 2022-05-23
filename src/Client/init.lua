@@ -84,7 +84,7 @@ ChickynoidClient.interpolationBuffer = 20
 
 --Signals
 ChickynoidClient.OnNetworkEvent = FastSignal.new()
-ChickynoidServer.OnCharacterModelCreated = FastSignal.new()
+ChickynoidClient.OnCharacterModelCreated = FastSignal.new()
 
 --Mods
 ChickynoidClient.modules = {}

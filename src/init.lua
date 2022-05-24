@@ -5,7 +5,7 @@ local Chickynoid = {}
 local IsServer = RunService:IsServer()
 if IsServer then
     local Server = require(script.Server)
-    local Antilag = require(script.Antilag)
+    local Antilag = require(script.Server.Antilag)
     Chickynoid.ChickynoidServer = Server
     Chickynoid.Antilag = Antilag
 else

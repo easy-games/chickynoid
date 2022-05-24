@@ -45,16 +45,23 @@ function module:OnPlayerConnected(server, playerRecord)
     playerRecord.currentWeapon = nil
 
 	-- selene: allow(shadowing)
-    function playerRecord:EquipWeapon(serial)
+    function playerRecord:DequipWeapon()
         if self.currentWeapon ~= nil then
             self.currentWeapon:ServerDequip()
 
             local event = {}
             event.t = Enums.EventType.WeaponDataChanged
             event.s = Enums.WeaponData.Dequip
-            event.serial = serial
             self:SendEventToClient(event)
+            
+            self.currentWeapon = nil
         end
+    end
+
+	-- selene: allow(shadowing)
+    function playerRecord:EquipWeapon(serial)
+        
+        self:DequipWeapon()
 
         if serial ~= nil then
             local weaponRecord = self.weapons[serial]

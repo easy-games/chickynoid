@@ -141,6 +141,7 @@ function module:HandleEvent(client, event)
                     return
                 end
                 print("Equipped ", weaponRecord.name)
+                weaponRecord:ClientEquip();
                 self.currentWeapon = weaponRecord
             end
         end

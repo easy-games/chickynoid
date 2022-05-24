@@ -676,7 +676,12 @@ end
 
 function module:MakeWorld(folder, playerSize)
     self.expansionSize = playerSize
-    self.hulls = {}
+	self.hulls = {}
+	
+	if (self.processing == true) then
+		return
+	end
+	self.processing = true
     TerrainModule:Setup(self.gridSize, playerSize)
 	
 	 
@@ -692,13 +697,14 @@ function module:MakeWorld(folder, playerSize)
 				self:ProcessCollisionOnInstance(instance, playerSize)
 			end
 			done+=1
-			if (done > 2000) then
+			if (done > 500) then
 				task.wait()
 				done = 0
 				print("Collision processing: " .. math.floor(counter/total * 100) .. "%")
 			end
 	    end
-        print("Collision processing: 100%")
+		print("Collision processing: 100%")
+		self.processing = false
 	end)()
 
     folder.DescendantAdded:Connect(function(instance)

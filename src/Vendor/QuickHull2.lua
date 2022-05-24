@@ -4,6 +4,7 @@ local UNASSIGNED = -2
 local INSIDE = -1
 local EPSILON = 0.0001
 local NaN = math.NaN
+local counter = 0
 
 --Notes: openSetTail correctly bumped to be 1-based
 
@@ -99,12 +100,11 @@ local function Count(list)
     return #list
 end
 
---Dictionary<int, Face> faces;
+
 local faces = {}
 local openSet = {}
 local litFaces = {}
 local horizon = {}
-local hullVerts = {}
 
 local openSetTail = -1
 local faceCount = 0
@@ -126,22 +126,22 @@ local function VerifyFaces(points)
 		assert(faces[face.Opposite1] ~= nil)
 		assert(faces[face.Opposite2] ~= nil)
 
-        assert(face.Opposite0 ~= fi)
-        assert(face.Opposite1 ~= fi)
-        assert(face.Opposite2 ~= fi)
+		assert(face.Opposite0 ~= fi)
+		assert(face.Opposite1 ~= fi)
+		assert(face.Opposite2 ~= fi)
 
         assert(face.Vertex0 ~= face.Vertex1)
         assert(face.Vertex0 ~= face.Vertex2)
         assert(face.Vertex1 ~= face.Vertex2)
 
-        assert(HasEdge(faces[face.Opposite0], face.Vertex2, face.Vertex1))
-        assert(HasEdge(faces[face.Opposite1], face.Vertex0, face.Vertex2))
-        assert(HasEdge(faces[face.Opposite2], face.Vertex1, face.Vertex0))
+		assert(HasEdge(faces[face.Opposite0], face.Vertex2, face.Vertex1))
+		assert(HasEdge(faces[face.Opposite1], face.Vertex0, face.Vertex2))
+		assert(HasEdge(faces[face.Opposite2], face.Vertex1, face.Vertex0))
 
-        assert((face.Normal - Normal(
+       --[[ assert((face.Normal - Normal(
                     points[face.Vertex0],
                     points[face.Vertex1],
-                    points[face.Vertex2])).Magnitude < EPSILON)
+                    points[face.Vertex2])).Magnitude < EPSILON)]]--
     end
 end
  
@@ -166,9 +166,23 @@ end
 ]]--
 
 local function ReassignPoints(points)
+	
+	if (false) then
+		for key,value in pairs(openSet) do
+			print("OpenSet" , value.Face-1, value.Point-1, value.Distance)
+		end
+		for key,value in pairs(faces) do
+			print( "Face" , key-1, value.Vertex0-1 )
+		end
+	end
     --0123
-    --for (int i = 0; i <= openSetTail; i++)
-    for i = 1, openSetTail do --@@@
+	--for (int i = 0; i <= openSetTail; i++)
+	local i = 0
+	--for i = 1, openSetTail do --@@@
+	while(i < openSetTail) do --@@@
+		i+=1
+		
+		--print("looking up", i-1)
         local fp = openSet[i]
 
         if (Contains(litFaces, fp.Face)) then
@@ -190,7 +204,9 @@ local function ReassignPoints(points)
                     fp.Face = fi
                     fp.Distance = dist
 
-                    openSet[i] = fp
+					openSet[i] = fp
+					
+					--print("Assign ", i-1)
                     break
                 end
             end
@@ -207,13 +223,25 @@ local function ReassignPoints(points)
                 fp.Distance = NaN
 
                 openSet[i] = openSet[openSetTail]
-                openSet[openSetTail] = fp
+				openSet[openSetTail] = fp
+				
+				--print("Assign B", i-1)
 
                 i-=1
                 openSetTail-=1
             end
         end
-    end
+	end
+	
+	if (false) then
+		print("After")
+		for key,value in pairs(openSet) do
+			print("OpenSet" , value.Face-1, value.Point-1, value.Distance)
+		end
+		for key,value in pairs(faces) do
+			print( "Face" , key-1, value.Vertex0-1 )
+		end
+	end
 end
 
 local function VerifyOpenSet(points)
@@ -252,10 +280,10 @@ end
 
 --   Recursively search to find the horizon or lit set.
 local function SearchHorizon(points, point, prevFaceIndex, faceCount, face)
-    assert(prevFaceIndex >= 0)
-    assert(litFaces.Contains(prevFaceIndex))
-    assert(litFaces.Contains(faceCount) == false)
-    assert(FaceEquals(faces[faceCount],face))
+    --assert(prevFaceIndex >= 0)
+   -- assert(litFaces.Contains(prevFaceIndex))
+    --assert(litFaces.Contains(faceCount) == false)
+   -- assert(FaceEquals(faces[faceCount],face))
 
     
     --litFaces.Add(faceCount)
@@ -288,7 +316,7 @@ local function SearchHorizon(points, point, prevFaceIndex, faceCount, face)
         edge1 = face.Vertex1;
         edge2 = face.Vertex2;
     else
-        assert(prevFaceIndex == face.Opposite2)
+        --assert(prevFaceIndex == face.Opposite2)
 
         nextFaceIndex0 = face.Opposite0
         nextFaceIndex1 = face.Opposite1
@@ -307,7 +335,7 @@ local function SearchHorizon(points, point, prevFaceIndex, faceCount, face)
             oppositeFace)
 
         if (dist <= 0.0) then
-            horizon.Add(HorizonEdge(nextFaceIndex0, edge0, edge1))
+            table.insert(horizon,HorizonEdge(nextFaceIndex0, edge0, edge1))
         else
             SearchHorizon(points, point, faceCount, nextFaceIndex0, oppositeFace)
         end
@@ -322,7 +350,7 @@ local function SearchHorizon(points, point, prevFaceIndex, faceCount, face)
             oppositeFace)
 
         if (dist <= 0.0) then
-            horizon.Add(HorizonEdge(nextFaceIndex1, edge1, edge2))
+			table.insert(horizon,HorizonEdge(nextFaceIndex1, edge1, edge2))
                 
         else 
             SearchHorizon(points, point, faceCount, nextFaceIndex1, oppositeFace)
@@ -356,7 +384,7 @@ local function FindHorizon(points, point, fi, face)
 
     table.insert(litFaces, fi)
     
-    assert(PointFaceDistance(point, points[face.Vertex0], face) > 0.0)
+    --assert(PointFaceDistance(point, points[face.Vertex0], face) > 0.0)
 
     -- For the rest of the recursive search calls, we first check if the
     -- triangle has already been visited and is part of litFaces.
@@ -510,7 +538,7 @@ local function GenerateInitialHull(points)
         faceCount+=1
     end
 
-    VerifyFaces(points)
+    --VerifyFaces(points)
 
     --[[
         Create the openSet. Add all points except the points of the seed
@@ -551,27 +579,31 @@ local function GenerateInitialHull(points)
     --openSetTail = openSet.Count - 5 --@@@@
     openSetTail = Count(openSet) - 4
 
-	assert(Count(openSet) == Count(points))
+	--assert(Count(openSet) == Count(points))
 
     --[[
         Assign all points of the open set. This does basically the same
         thing as ReassignPoints()
     ]]--
 
-    --for (int i = 0; i <= openSetTail; i++)  ----@@@@
-    for i = 1, openSetTail do
-        assert(openSet[i].Face == UNASSIGNED)
-        assert(openSet[openSetTail].Face == UNASSIGNED)
-        assert(openSet[openSetTail + 1].Face == INSIDE)
+	--for (int i = 0; i <= openSetTail; i++)  ----@@@@
+	local i = 0
+	while (i < openSetTail) do
+		i += 1
+	
+    --for i = 1, openSetTail do
+        --assert(openSet[i].Face == UNASSIGNED)
+        --assert(openSet[openSetTail].Face == UNASSIGNED)
+        --assert(openSet[openSetTail + 1].Face == INSIDE)
 
         local assigned = false
         local fp = openSet[i]
 
-        assert(Count(faces) == 4)
-        assert(Count(faces) == faceCount)
+        --assert(Count(faces) == 4)
+        --assert(Count(faces) == faceCount)
         --for (int j = 0; j < 4; j++)  ---@@@@
         for j = 1, 4 do
-            assert(faces[j] ~= nil)
+           -- assert(faces[j] ~= nil)
 
             local face = faces[j]
 
@@ -605,7 +637,7 @@ local function GenerateInitialHull(points)
             i -= 1
         end
     end
-    VerifyOpenSet(points)
+    --VerifyOpenSet(points)
 end
 
 --[[
@@ -625,9 +657,9 @@ local function ConstructCone(points, farthestPoint)
     
     --foreach (var fi in litFaces)  ---@@
     for _,fi in pairs(litFaces) do
-        assert(faces[fi] ~= nil) -- ??
+       -- assert(faces[fi] ~= nil) -- ??
         --faces.Remove(fi)
-        table.remove(faces, fi)
+        faces[fi] = nil
     end
 
 	local firstNewFace = faceCount --Facecount is # of faces, make sure to +1 before using it to write/read
@@ -644,11 +676,11 @@ local function ConstructCone(points, farthestPoint)
         -- Opposite faces of the triangle. First, the edge on the other
         -- side of the horizon, then the next/prev faces on the new cone
 		local o0 = horizon[i].Face
-				 
+		
         --local o1 = (i == horizon.Count - 1) ? firstNewFace : firstNewFace + i + 1
         local o1 
 		if (i == Count(horizon)) then --Last index --@@@@  horizon.Count-1
-            o1 = firstNewFace --@@+1
+            o1 = firstNewFace + 1
         else
             o1 = firstNewFace + i + 1
         end
@@ -660,8 +692,10 @@ local function ConstructCone(points, farthestPoint)
         else
             o2 = firstNewFace + i - 1
         end
-
-        local fi = faceCount
+		
+		--print(i-1, "o0", o0-1, "o1", o1-1, "o2", o2-1 )
+		
+        local fi = faceCount + 1
         faceCount+=1
 		
 		--faces[fi] = Face( ----@@@@@@  incremented faceCount by 1, because 1 based
@@ -673,19 +707,19 @@ local function ConstructCone(points, farthestPoint)
         local horizonFace = faces[horizon[i].Face]
 
         if (horizonFace.Vertex0 == v1) then
-            assert(v2 == horizonFace.Vertex2)
+            --assert(v2 == horizonFace.Vertex2)
             horizonFace.Opposite1 = fi
         elseif (horizonFace.Vertex1 == v1) then
-            assert(v2 == horizonFace.Vertex0)
+            --assert(v2 == horizonFace.Vertex0)
             horizonFace.Opposite2 = fi
         else 
-            assert(v1 == horizonFace.Vertex2)
-            assert(v2 == horizonFace.Vertex1)
+           -- assert(v1 == horizonFace.Vertex2)
+           -- assert(v2 == horizonFace.Vertex1)
             horizonFace.Opposite0 = fi
         end
 		
 		--@@@@@ faces[horizon[i].Face] = horizonFace
-        faces[horizon[i].Face+1] = horizonFace
+        faces[horizon[i].Face] = horizonFace
     end
 end
 
@@ -698,19 +732,22 @@ end
 ]]--
 
 local function GrowHull(points)
-    assert(openSetTail >= 0)
-	assert(openSet[1].Face ~= INSIDE) -- assert(openSet[0].Face ~= INSIDE) --@@@@
+	
+	--print("GROW HULL", counter)
+	counter+=1
+   -- assert(openSetTail >= 0)
+	--assert(openSet[1].Face ~= INSIDE) -- assert(openSet[0].Face ~= INSIDE) --@@@@
 
     -- Find farthest point and first lit face.
-	local farthestPoint = 0
+	local farthestPoint = 1
 	
 	local dist = openSet[1].Distance -----local dist = openSet[0].Distance -- @@@
 
     --for (int i = 1; i <= openSetTail; i++)  ---@@@@
     for i = 2, openSetTail do
         if (openSet[i].Distance > dist) then
-            farthestPoint = i;
-            dist = openSet[i].Distance;
+            farthestPoint = i
+            dist = openSet[i].Distance
         end
 	end
 
@@ -722,12 +759,12 @@ local function GrowHull(points)
 				openSet[farthestPoint].Face,
 				faces[openSet[farthestPoint].Face])
 
-	VerifyHorizon()
+	--VerifyHorizon()
 
 	--Construct new cone from horizon
 	ConstructCone(points, openSet[farthestPoint].Point)
 
-	VerifyFaces(points)
+	--VerifyFaces(points)
 
     --Reassign points
 	ReassignPoints(points)
@@ -741,21 +778,28 @@ function module:GenerateHull(points)
     
     faceCount = 0
     openSetTail = -1
+	faces = {}
+	
+	openSet = {}
+	litFaces = {}
+	horizon = {}
 
     GenerateInitialHull(points)
 
-    while (openSetTail >= 0) do
+    while (openSetTail >= 1) do
         GrowHull(points)
-    end
+	end
+	
+	--unroll
+	local tris = {}
+	for key,value in pairs(faces) do
+		local tri = {}
+		table.insert(tri, points[value.Vertex0])
+		table.insert(tri, points[value.Vertex1])
+		table.insert(tri, points[value.Vertex2])
+		table.insert(tris, tri)
+	end
+	return tris
 end
 
 return module
-
-
-
-
-
-
-
-
-

@@ -1,9 +1,8 @@
 local Root = script.Parent.Parent
 local Vendor = Root.Vendor
 
-local QuickHull = require(Vendor.QuickHull)
 local TrianglePart = require(Vendor.TrianglePart)
--- local QuickHull2 = require(Vendor.QuickHull2)
+local QuickHull2 = require(Vendor.QuickHull2)
 
 local module = {}
 module.meshCache = {}
@@ -20,16 +19,13 @@ local corners = {
 }
 
 local function IsUnique(list, normal, d)
-    local EPS = 0.001
-
+    local EPS = 0.01
+	local normalTol = 0.95
+	
     for _, rec in pairs(list) do
-        if math.abs(rec.ed - d) > EPS then
-            continue
+        if (math.abs(rec.ed - d) < EPS and rec.n:Dot(normal) > normalTol) then
+        	return false
         end
-        if rec.n:Dot(normal) < 1 - EPS then
-            continue
-        end
-        return false --got a match
     end
     return true
 end
@@ -78,15 +74,16 @@ end
 --Not a speedy thing to do!
 function module:GetPlanesForInstance(instance, playerSize, cframe, basePlaneNum, showDebugParentPart)
 	
-	if (false and instance:IsA("MeshPart") and instance.Anchored == true) then
-    	return module:GetPlanesForInstanceMeshPart(instance, playerSize, cframe, basePlaneNum, showDebugParentPart)		
+	if (true and instance:IsA("MeshPart") and instance.Anchored == true and instance.CollisionFidelity == Enum.CollisionFidelity.Hull) then
+    	return module:GetPlanesForInstanceMeshPart(instance, playerSize, cframe, basePlaneNum, showDebugParentPart)
 	end
 	
 	--generate worldspace points
 	local points = self:GeneratePointsForInstance(instance, playerSize, cframe)
     if showDebugParentPart ~= nil then
         self:VisualizePlanesForPoints(points, showDebugParentPart)
-    end
+	end
+
     return self:GetPlanesForPoints(points, basePlaneNum)
 end
 
@@ -108,8 +105,9 @@ end
 function module:VisualizePlanesForPoints(points, debugPart)
 
 
-    --Run quickhull
-    local r = QuickHull.quick_run(points)
+	--Run quickhull
+	
+	local r = QuickHull2:GenerateHull(points)
 	local recs = {}
 	
 	self:VisualizeTriangles(r, Vector3.zero)
@@ -145,7 +143,7 @@ end
 --Same thing but for worldspace point cloud
 function module:GetPlanesForPoints(points, basePlaneNum)
     --Run quickhull
-    local r = QuickHull.quick_run(points)
+    local r = QuickHull2:GenerateHull(points)
     local recs = {}
 
     --Generate unique planes in n+d format
@@ -166,12 +164,10 @@ function module:GetPlanesForPoints(points, basePlaneNum)
     return recs, basePlaneNum
 end
 
-
-
 --Same thing but for worldspace point cloud
 function module:GetPlanePointForPoints(points)
 	--Run quickhull
-	local r = QuickHull.quick_run(points)
+	local r = QuickHull2:GenerateHull(points)
 	local recs = {}
 
 	--Generate unique planes in n+d format
@@ -186,8 +182,6 @@ function module:GetPlanePointForPoints(points)
 
 	return recs
 end
-
-
 
 function module:PointInsideHull(hullRecord,point)
 
@@ -242,6 +236,8 @@ function module:GetRaytraceInstancePoints(instance, cframe)
 		meshCopy.CFrame = CFrame.new(Vector3.new(0,0,0))
 		meshCopy.Size = Vector3.one
 		meshCopy.Parent = game.Workspace
+		meshCopy.CanQuery = true
+		
 		
 		local raycastParam = RaycastParams.new()
 		raycastParam.FilterType = Enum.RaycastFilterType.Whitelist
@@ -319,7 +315,8 @@ function module:GetRaytraceInstancePoints(instance, cframe)
 	end
 
 	
-	if (true and game["Run Service"]:IsClient()) then
+ 
+	if (false and game["Run Service"]:IsClient()) then
 		for key,point in pairs(finals) do
 
 			local debugInstance = Instance.new("Part")
@@ -333,6 +330,7 @@ function module:GetRaytraceInstancePoints(instance, cframe)
 		
 		self:VisualizePlanesForPoints(finals, game.Workspace)
 	end
+ 
 
     return finals
 end
@@ -348,17 +346,21 @@ function module:GetPlanesForInstanceMeshPart(instance, playerSize, cframe, baseP
 		end
 	end
 
-	local r = QuickHull:GenerateHull(points)
-    --local r = QuickHull.quick_run(points)
+	local r = QuickHull2:GenerateHull(points)
+ 
 	local recs = {}
 
 	--Generate unique planes in n+d format
+	if (r == nil) then 
+		return nil, basePlaneNum
+		
+	end
 	for _, tri in pairs(r) do
 		local normal = (tri[1] - tri[2]):Cross(tri[1] - tri[3]).unit
 		local ed = tri[1]:Dot(normal) --expanded distance
 		basePlaneNum += 1
 
-		if IsUnique(recs, normal, ed) and IsValidTri(tri, instance.Position) then
+		if IsUnique(recs, normal, ed) then
 			table.insert(recs, {
 				n = normal,
 				ed = ed, --expanded
@@ -367,8 +369,8 @@ function module:GetPlanesForInstanceMeshPart(instance, playerSize, cframe, baseP
 		end
 	end
 
-	if showDebugParentPart ~= nil then
-		self:VisualizePlanesForPoints(points, showDebugParentPart)
+	if showDebugParentPart ~= nil and game["Run Service"]:IsClient()  then
+		--self:VisualizeTriangles(r, Vector3.zero)
 	end
 
 	return recs, basePlaneNum

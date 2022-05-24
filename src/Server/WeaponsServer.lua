@@ -144,6 +144,8 @@ function module:OnPlayerConnected(server, playerRecord)
         if equip then
             self:EquipWeapon(weaponRecord.serial)
         end
+
+        return weaponRecord;
     end
 
 	-- selene: allow(shadowing)

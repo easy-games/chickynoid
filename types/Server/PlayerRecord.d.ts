@@ -30,6 +30,8 @@ interface PlayerRecord {
 	// Weapons
 	currentWeapon: WeaponModule | undefined;
 	AddWeaponByName(name: string, equip: boolean): WeaponModule | undefined;
+	EquipWeapon(weaponRecordSerial: number): void;
+	DequipWeapon(): void;
 	ClearWeapons(): void;
 	RemoveWeaponRecord(weaponRecord: WeaponModule): void;
 	GetWeapons(): WeaponModule[];

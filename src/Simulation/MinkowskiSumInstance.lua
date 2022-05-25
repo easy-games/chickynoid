@@ -74,8 +74,10 @@ end
 --Not a speedy thing to do!
 function module:GetPlanesForInstance(instance, playerSize, cframe, basePlaneNum, showDebugParentPart)
 	
-	if (true and instance:IsA("MeshPart") and instance.Anchored == true and instance.CollisionFidelity == Enum.CollisionFidelity.Hull) then
-    	return module:GetPlanesForInstanceMeshPart(instance, playerSize, cframe, basePlaneNum, showDebugParentPart)
+	if (true and instance:IsA("MeshPart") and instance.Anchored == true) then
+		if (instance.CollisionFidelity == Enum.CollisionFidelity.Hull or instance.CollisionFidelity == Enum.CollisionFidelity.PreciseConvexDecomposition) then
+			return module:GetPlanesForInstanceMeshPart(instance, playerSize, cframe, basePlaneNum, showDebugParentPart)
+		end
 	end
 	
 	--generate worldspace points

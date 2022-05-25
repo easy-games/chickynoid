@@ -249,7 +249,6 @@ function ChickynoidServer:AddConnection(userId, player)
 
     -- selene: allow(shadowing)
     function playerRecord:ResetConnection()
-        self:SendCollisionData()
         self.firstSnapshot = false
     end
 
@@ -308,7 +307,8 @@ function ChickynoidServer:AddConnection(userId, player)
     for _, record in pairs(self.playerRecords) do
         self:SendWorldstate(record)
     end
-
+	
+	playerRecord:SendCollisionData()
     playerRecord:ResetConnection()
 
     return playerRecord
@@ -554,11 +554,9 @@ function ChickynoidServer:RecreateCollisions(rootFolder)
     self.collisionRootFolder = rootFolder
     CollisionModule:MakeWorld(self.collisionRootFolder, self.playerSize)
 
-    print("collision: 4");
     for _, playerRecord in pairs(self.playerRecords) do
         playerRecord:SendCollisionData()
     end
-    print("collision: 5 FINISHED!");
 end
 
 return ChickynoidServer

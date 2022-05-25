@@ -12,6 +12,7 @@ local SKIN_THICKNESS = 0.05 --closest you can get to a wall
 module.planeNum = 0
 module.gridSize = 8
 module.grid = {}
+module.processQueue = {}
 
 module.expansionSize = Vector3.new(2, 5, 2)
 
@@ -706,10 +707,35 @@ function module:MakeWorld(folder, playerSize)
 		print("Collision processing: 100%")
 		self.processing = false
 	end)()
-
-    folder.DescendantAdded:Connect(function(instance)
-        self:ProcessCollisionOnInstance(instance, playerSize)
-    end)
+	
+	
+	if (game["Run Service"]:IsServer()) then
+		folder.DescendantAdded:Connect(function(instance)
+			self:ProcessCollisionOnInstance(instance, playerSize)
+		end)
+	else
+		folder.DescendantAdded:Connect(function(instance)
+			--On the client, put it in a queue if the part is far away
+			
+			if (instance:IsA("BasePart") == false) then
+				return	
+			end
+			
+			if (game.Workspace.CurrentCamera) then
+				local pos = game.Workspace.CurrentCamera.CFrame.Position
+				
+								
+				local mag = (pos - instance.Position).magnitude
+				if (mag < 100) then
+					--Do it instantly
+					self:ProcessCollisionOnInstance(instance, playerSize)
+					return
+				end
+			end
+			--else add it to a queue
+			self.processQueue[instance] = instance
+		end)
+	end
 
     folder.DescendantRemoving:Connect(function(instance)
         local record = module.hullRecords[instance]
@@ -731,7 +757,32 @@ function module:MakeWorld(folder, playerSize)
 		end
 	end
 	]]
-    --
+	--
+	
+	game["Run Service"].Heartbeat:Connect(function()
+		
+		local counter = 0
+		local perFrame = 10
+		for key,value in pairs(self.processQueue) do
+			counter+=1
+		end
+		
+		for key,value in pairs(self.processQueue) do
+			
+			self:ProcessCollisionOnInstance(value, playerSize)
+			self.processQueue[value] = nil
+			perFrame-=1
+			if (perFrame == 0) then
+				break
+			end
+		end
+		if (counter > 0) then
+			--print( counter)
+		end
+		
+	end)
 end
+
+
 
 return module

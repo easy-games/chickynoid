@@ -53,3 +53,5 @@ export namespace ChickynoidServer {
 		player: Player | undefined,
 	): PlayerRecord;
 }
+
+export { Antilag } from "./Antilag";

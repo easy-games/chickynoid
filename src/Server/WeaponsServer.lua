@@ -196,11 +196,13 @@ function module:QueryBullet(playerRecord, server, origin, dir, serverTime, debug
     local pos = nil
     local normal = nil
     local otherPlayerRecord = nil
+    local hitInstance = nil
     if rayCastResult == nil then
         pos = origin * 1000
     else
         pos = rayCastResult.Position
         normal = rayCastResult.Normal
+        hitInstance = rayCastResult.Instance
 
         --See if its a player
         local userId = rayCastResult.Instance:GetAttribute("player")
@@ -211,7 +213,7 @@ function module:QueryBullet(playerRecord, server, origin, dir, serverTime, debug
 
     Antilag:Pop() --Don't forget!
 
-    return pos, normal, otherPlayerRecord
+    return pos, normal, otherPlayerRecord, hitInstance
 end
 
 function module:FireRocket(playerRecord, server, _origin, dir)

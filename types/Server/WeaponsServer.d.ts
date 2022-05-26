@@ -9,7 +9,9 @@ interface WeaponsServer {
 		dir: Vector3,
 		serverTime: number,
 		debugText: string,
-	): LuaTuple<[pos: Vector3, normal: Vector3, otherPlayerRecord: PlayerRecord]>;
+	): LuaTuple<
+		[pos: Vector3, normal: Vector3, otherPlayerRecord: PlayerRecord | undefined, hitInstance: BasePart | Terrain]
+	>;
 }
 
 interface WeaponsServerConstructor {

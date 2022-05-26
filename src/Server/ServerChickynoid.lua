@@ -13,6 +13,7 @@ local EventType = Enums.EventType
 
 local Simulation = require(path.Simulation)
 local TrajectoryModule = require(path.Simulation.TrajectoryModule)
+local DeltaTable = require(path.Vendor.DeltaTable)
 
 local ServerChickynoid = {}
 ServerChickynoid.__index = ServerChickynoid
@@ -288,6 +289,15 @@ function ServerChickynoid:HandleClientEvent(server, event)
         end
     end
 end
+
+function ServerChickynoid:WriteStateDelta()
+
+    local currentState = self.simulation:WriteState()
+    local stateDelta = DeltaTable:MakeDeltaTable(self.lastSeenState, currentState)
+    self.lastSeenState = DeltaTable:DeepCopy(currentState)
+    return stateDelta
+end
+
 
 --[=[
     Picks a location to spawn the character and replicates it to the client.

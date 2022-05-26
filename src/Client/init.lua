@@ -104,7 +104,7 @@ function ChickynoidClient:Setup()
         print("Chickynoid spawned at", position)
 
         if self.localChickynoid == nil then
-            self.localChickynoid = ClientChickynoid.new(position)
+			self.localChickynoid = ClientChickynoid.new(position)
         end
         --Force the position
         self.localChickynoid.simulation.state.pos = position
@@ -129,21 +129,27 @@ function ChickynoidClient:Setup()
 
     -- EventType.State
     eventHandler[EventType.State] = function(event)
-        if self.localChickynoid and event.lastConfirmed then
-            local resimulate, ping = self.localChickynoid:HandleNewState(event.state, event.lastConfirmed, event.serverTime)
+		
+		if self.localChickynoid then
+                   
+            local resimulate, ping = self.localChickynoid:HandleNewState(event.stateDelta, event.lastConfirmed, event.serverTime)
           
-            --Keep a rolling history of pings
-            table.insert(self.pings, ping)
-            if #self.pings > 20 then
-                table.remove(self.pings, 1)
-            end
+			--Keep a rolling history of pings
+			if (ping) then
+	            table.insert(self.pings, ping)
+	            if #self.pings > 20 then
+	                table.remove(self.pings, 1)
+	            end
 
-            self.stateCounter += 1
-            
-            if (self.showNetGraph == true) then
-                self:AddPingToNetgraph(resimulate, event.s, event.e, ping)
-            end
-        end
+	            self.stateCounter += 1
+	            
+	            if (self.showNetGraph == true) then
+	                self:AddPingToNetgraph(resimulate, event.s, event.e, ping)
+				end
+			end
+		else
+			print("Error: Got chickynoid state but we don't have a local chickynoid")
+		end
     end
 
     -- EventType.WorldState
@@ -766,7 +772,9 @@ end
 
 
 function ChickynoidClient:AddPingToNetgraph(resimulate, serverHealthFps, networkProblem, ping)
-
+	
+	
+	
     --Ping graph
     local total = 0
     for _, ping in pairs(self.pings) do

@@ -2,6 +2,11 @@ local module = {}
 
 --Compares two tables, and produces a new table containing the differences
 function module:MakeDeltaTable(oldTable, newTable)
+    
+    if (oldTable == nil) then
+        return self:DeepCopy(newTable)
+    end
+    
     local deltaTable = {}
     local changes = 0
     for var, data in pairs(newTable) do
@@ -40,6 +45,10 @@ end
 
 --Produces a new table that is the combination of a target, and a deltaTable produced by MakeDeltaTable
 function module:ApplyDeltaTable(target, deltaTable)
+	
+	if (target == nil) then
+		target = {}
+	end
     local newTable = self:DeepCopy(target)
     if newTable == nil then
         newTable = {}
@@ -47,7 +56,7 @@ function module:ApplyDeltaTable(target, deltaTable)
 
     for var, _ in pairs(deltaTable) do
         if type(deltaTable[var]) == "table" then
-            newTable[var] = self:MergeTable(target[var], deltaTable[var])
+			newTable[var] = self:ApplyDeltaTable(target[var], deltaTable[var])
         else
             newTable[var] = deltaTable[var]
         end

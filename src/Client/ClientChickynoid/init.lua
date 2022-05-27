@@ -72,7 +72,8 @@ function ClientChickynoid:HandleNewState(stateDelta, lastConfirmed, serverTime)
     --Handle deltaCompression
     if (self.lastNetworkState == nil) then
         self.lastNetworkState = {}
-    end
+	end
+	
 	local stateRecord = DeltaTable:ApplyDeltaTable(self.lastNetworkState, stateDelta)
 	self.lastNetworkState = DeltaTable:DeepCopy(stateRecord)
 		

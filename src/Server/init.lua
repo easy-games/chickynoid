@@ -20,7 +20,6 @@ local WeaponsModule = require(script.WeaponsServer)
 local CollisionModule = require(path.Simulation.CollisionModule)
 local Antilag = require(path.Server.Antilag)
 local FastSignal = require(path.Vendor.FastSignal)
-local DeltaTable = require(script.Parent.Vendor.DeltaTable)
 
 local RemoteEvent = Instance.new("RemoteEvent")
 RemoteEvent.Name = "ChickynoidReplication"
@@ -489,11 +488,8 @@ function ChickynoidServer:Think(deltaTime)
                 event.e = playerRecord.chickynoid.errorState
                 event.s = self.framesPerSecond
                 event.serverTime = self.serverSimulationTime
-                --event.state = playerRecord.chickynoid.simulation:WriteState()
-
-                local currentState = playerRecord.chickynoid.simulation:WriteState()
-                event.stateDelta = DeltaTable:MakeDeltaTable(self.lastSeenState, currentState)
-                self.lastSeenState = DeltaTable:DeepCopy(currentState)
+ 
+                event.stateDelta = playerRecord.chickynoid:WriteStateDelta()
 
                 playerRecord:SendEventToClient(event)
                 playerRecord.chickynoid.errorState = Enums.NetworkProblemState.None

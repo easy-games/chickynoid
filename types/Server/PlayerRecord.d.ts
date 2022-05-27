@@ -41,7 +41,7 @@ interface PlayerRecord {
 	Spawn(): ServerChickynoid;
 	BotThink?: (deltaTime: number) => void;
 
-	SetHumanoiodType(characterModName: string): void;
+	SetHumanoidType(characterModName: string): void;
 }
 
 interface PlayerRecordConstructor {

@@ -15,4 +15,6 @@ else
     Chickynoid.ClientMods = require(script.Client.ClientMods)
 end
 
+Chickynoid.MathUtils = require(script.Simulation.MathUtils)
+
 return Chickynoid

@@ -12,7 +12,7 @@ if IsServer then
 else
     local Client = require(script.Client)
     Chickynoid.ChickynoidClient = Client
-    chickynoid.ClientMods = require(script.Client.ClientMods)
+    Chickynoid.ClientMods = require(script.Client.ClientMods)
 end
 
 return Chickynoid

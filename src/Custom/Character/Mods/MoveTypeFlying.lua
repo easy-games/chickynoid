@@ -7,15 +7,39 @@ local Enums = require(path.Enums)
 --Call this on both the client and server!
 function module:ModifySimulation(simulation)
 
-    simulation:RegisterMoveState("Flying", self.MovetypeFlying, nil, nil)
+    simulation:RegisterMoveState("Flying", self.ActiveThink, self.AlwaysThink, self.StartState, nil)
 	simulation.constants.flyFriction = 0.2
-
-	simulation:SetMoveState("Flying")
+	simulation.state.flyingCooldown = 0
 end
 
 --Imagine this is inside Simulation...
-function module:MovetypeFlying(cmd)
+function module:AlwaysThink(cmd)
+	
+	if (self.state.flyingCooldown > 0) then
+		self.state.flyingCooldown = math.max(self.state.flyingCooldown - cmd.deltaTime, 0)
+	end
+	
+	if (self.state.flyingCooldown == 0 and cmd.flying == 1) then
+		
+		if (self:GetMoveState().name == "Flying") then
+			self.state.flyingCooldown = 0.5
+			self:SetMoveState("Walking")
+		else
+			self.state.flyingCooldown = 0.5
+			self:SetMoveState("Flying")
+		end
+    end
+end
 
+function module:StartState(cmd)
+
+    --pop us up when we enter this state
+    self.state.vel = Vector3.new(0,100,0)
+end
+
+--Imagine this is inside Simulation...
+function module:ActiveThink(cmd)
+	
     --Did the player have a movement request?
     local wishDir = nil
     if cmd.x ~= 0 or cmd.y ~= 0 or cmd.z ~= 0 then

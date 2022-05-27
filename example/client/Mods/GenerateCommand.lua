@@ -79,6 +79,11 @@ function module:GenerateCommand(command, serverTime: number, dt: number)
         --Fire!
         command.f = UserInputService:IsKeyDown(Enum.KeyCode.Q) and 1 or 0
 
+        --Fly?
+        if UserInputService:IsKeyDown(Enum.KeyCode.F8) then
+            command.flying = 1
+        end
+
         --Cheat #1 - speed cheat!
         if UserInputService:IsKeyDown(Enum.KeyCode.P) then
             command.deltaTime *= 3

@@ -58,12 +58,17 @@ function Simulation.new()
 	self.constants.stepSize = 2.2
 	self.constants.gravity = -198
 
-    self:RegisterMoveState("Walking", self.MovetypeWalking, nil, nil)
+    self:RegisterMoveState("Walking", self.MovetypeWalking, nil, nil, nil)
+    self:SetMoveState("Walking")
     return self
 end
 
+function Simulation:GetMoveState()
+    local record = self.moveStates[self.state.moveState]
+    return record
+end
 
-function Simulation:RegisterMoveState(name, updateState, startState, endState)
+function Simulation:RegisterMoveState(name, updateState, alwaysThink, startState, endState)
     local index = 0
     for key,value in pairs(self.moveStateNames) do
         index+=1
@@ -73,8 +78,10 @@ function Simulation:RegisterMoveState(name, updateState, startState, endState)
     local record = {}
     record.name = name
     record.updateState = updateState
+    record.alwaysThink = alwaysThink
     record.startState = startState
     record.endState = endState
+
 
     self.moveStates[index] = record
 end
@@ -110,6 +117,12 @@ end
 
 function Simulation:ProcessCommand(cmd)
     debug.profilebegin("Chickynoid Simulation")
+
+    for key,record in pairs(self.moveStates) do
+        if (record.alwaysThink) then
+            record.alwaysThink(self, cmd)
+        end
+    end
 
     local record = self.moveStates[self.state.moveState]
     if (record and record.updateState) then

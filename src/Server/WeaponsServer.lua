@@ -106,13 +106,6 @@ function module:OnPlayerConnected(server, playerRecord)
 
 	-- selene: allow(shadowing)
     function playerRecord:AddWeaponByName(name, equip)
-        -- for _, weaponRecord in pairs(self.weapons) do
-        --     if weaponRecord.name == "name" then
-        --         print(self.name, "already has weapon", name)
-        --         return
-        --     end
-        -- end
-
         local source = path.Custom.Weapons:FindFirstChild(name, true)
 
         if source == nil then

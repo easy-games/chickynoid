@@ -44,6 +44,8 @@ interface Simulation {
 		/** Cleanup */
 		lastThink: unknown | undefined,
 	): void;
+
+	GetMoveState(): string;
 }
 
 interface SimulationConstructor {

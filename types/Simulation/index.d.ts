@@ -28,9 +28,22 @@ interface SimulationConstants {
 	stepSize: number;
 }
 
+type ThinkFunc = (simulation: typeof Simulation, command: unknown) => void;
+
 interface Simulation {
 	state: SimulationState;
 	constants: SimulationConstants;
+
+	RegisterMoveState(
+		name: string,
+		/** Runs while active */
+		activeThink: ThinkFunc,
+		/** Runs every frame. */
+		alwaysThink: ThinkFunc,
+		startState: ThinkFunc,
+		/** Cleanup */
+		lastThink: ThinkFunc | undefined,
+	): void;
 }
 
 interface SimulationConstructor {

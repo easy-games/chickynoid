@@ -86,6 +86,8 @@ ChickynoidClient.interpolationBuffer = 20
 ChickynoidClient.OnNetworkEvent = FastSignal.new()
 ChickynoidClient.OnCharacterModelCreated = FastSignal.new()
 
+ChickynoidClient.flags = {}
+
 --Mods
 ChickynoidClient.modules = {}
 
@@ -539,9 +541,11 @@ function ChickynoidClient:ProcessFrame(deltaTime)
             end
 
             -- Bind the camera
-            local camera = game.Workspace.CurrentCamera
-            camera.CameraSubject = self.characterModel.model
-            camera.CameraType = Enum.CameraType.Custom
+            if (self.flags.HANDLE_CAMERA == true) then
+                local camera = game.Workspace.CurrentCamera
+                camera.CameraSubject = self.characterModel.model
+                camera.CameraType = Enum.CameraType.Custom
+            end
 
             --Bind the local character, which activates all the thumbsticks etc
             game.Players.LocalPlayer.Character = self.characterModel.model

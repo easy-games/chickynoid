@@ -21,6 +21,7 @@ interface PlayerRecord {
 	dummy: boolean;
 
 	chickynoid?: ServerChickynoid;
+	humanoidType: string;
 
 	OnBeforePlayerSpawn: Signal<() => void>;
 
@@ -39,6 +40,8 @@ interface PlayerRecord {
 	Despawn(): void;
 	Spawn(): ServerChickynoid;
 	BotThink?: (deltaTime: number) => void;
+
+	SetHumanoidType(characterModName: string): void;
 }
 
 interface PlayerRecordConstructor {

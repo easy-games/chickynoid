@@ -12,6 +12,7 @@ local CollisionModule = require(script.CollisionModule)
 local CharacterData = require(script.CharacterData)
 local MathUtils = require(script.MathUtils)
 local Enums = require(script.Parent.Enums)
+local DeltaTable = require(script.Parent.Vendor.DeltaTable)
 
 function Simulation.new()
     local self = setmetatable({}, Simulation)
@@ -54,7 +55,9 @@ function Simulation.new()
     self.constants.jumpThrustPower = 300 --If you keep holding jump, how much extra vel per second is there?  (turn this off for no variable height jumps)
     self.constants.jumpThrustDecay = 0.25 --Smaller is faster
     self.constants.pushSpeed = 16 --set this lower than maxspeed if you want stuff to feel heavy
-    self.constants.stepSize = 2.2
+	self.constants.stepSize = 2.2
+	self.constants.gravity = -198
+	
 
     --[[ 
      --These parameters give you a pretty-close-to-stock feeling humanoid
@@ -206,7 +209,7 @@ function Simulation:ProcessCommand(cmd)
         end
 
         --gravity
-        self.state.vel += Vector3.new(0, -198 * cmd.deltaTime, 0)
+        self.state.vel += Vector3.new(0, self.constants.gravity * cmd.deltaTime, 0)
 
         --Switch to falling if we've been off the ground for a bit
         if self.state.vel.y <= 0.01 and self.state.inAir > 0.5 then
@@ -227,10 +230,7 @@ function Simulation:ProcessCommand(cmd)
 
         if groundCheck ~= nil then
             --Crashland
-
-            --Current behaviour, cap velocity
-            walkNewVel = Vector3.new(walkNewVel.x, 0, walkNewVel.z)
-            walkNewVel = self:CapVelocity(walkNewVel, self.constants.maxSpeed)
+           walkNewVel = self:CrashLand(walkNewVel)
         end
     end
 
@@ -335,6 +335,13 @@ function Simulation:DoStepUp(pos, vel, deltaTime)
     end
 
     return nil
+end
+
+function Simulation:CrashLand(vel)
+     --Current behaviour, cap velocity
+     local returnVel = Vector3.new(vel.x, 0, vel.z)
+     returnVel = self:CapVelocity(returnVel, self.constants.maxSpeed)
+     return vel
 end
 
 --Magic to stick to the ground instead of falling on every stair
@@ -526,21 +533,17 @@ function Simulation:CapVelocity(velocity, maxSpeed)
     return Vector3.zero
 end
 
---Todo: Compress?
+--This gets deltacompressed by the client/server chickynoids automatically
 function Simulation:WriteState()
     local record = {}
-
-    for key, value in pairs(self.state) do
-        record[key] = value
-    end
-
+    record.state = DeltaTable:DeepCopy(self.state)
+    record.constants = DeltaTable:DeepCopy(self.constants)
     return record
 end
 
 function Simulation:ReadState(record)
-    for key, value in pairs(record) do
-        self.state[key] = value
-    end
+    self.state = DeltaTable:DeepCopy(record.state)
+    self.constants = DeltaTable:DeepCopy(record.constants)
 end
 
 function Simulation:DoPlatformMove(lastGround, deltaTime)
@@ -587,5 +590,8 @@ function Simulation:GetStandingPart()
     end
     return nil
 end
+
+
+
 
 return Simulation

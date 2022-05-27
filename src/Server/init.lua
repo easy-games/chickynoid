@@ -488,7 +488,8 @@ function ChickynoidServer:Think(deltaTime)
                 event.e = playerRecord.chickynoid.errorState
                 event.s = self.framesPerSecond
                 event.serverTime = self.serverSimulationTime
-                event.state = playerRecord.chickynoid.simulation:WriteState()
+ 
+                event.stateDelta = playerRecord.chickynoid:WriteStateDelta()
 
                 playerRecord:SendEventToClient(event)
                 playerRecord.chickynoid.errorState = Enums.NetworkProblemState.None

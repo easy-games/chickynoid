@@ -27,6 +27,9 @@ export namespace ChickynoidClient {
 	export let OnNetworkEvent: Signal<(event: unknown) => void>;
 	export let OnCharacterModelCreated: Signal<(characterModel: CharacterModel) => void>;
 
+	export const flags: {
+		HANDLE_CAMERA: boolean;
+	};
 	/**
 	 * Creates connections so that Chickynoid can run on the client. Specifically, it connects to relevant networking and
 	 * RunService events.

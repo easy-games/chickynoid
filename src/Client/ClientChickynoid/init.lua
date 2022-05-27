@@ -13,6 +13,7 @@ local RemoteEvent = ReplicatedStorage:WaitForChild("ChickynoidReplication") :: R
 local path = script.Parent.Parent
 local Simulation = require(path.Simulation)
 local CollisionModule = require(path.Simulation.CollisionModule)
+local DeltaTable = require(path.Vendor.DeltaTable)
 
 local TrajectoryModule = require(path.Simulation.TrajectoryModule)
 local Enums = require(path.Enums)
@@ -62,48 +63,61 @@ function ClientChickynoid:HandleLocalPlayer() end
     handles state updates for this character.
 
     @param state table -- The new state sent by the server.
-    @param lastConfirmed number -- The serial number of the last command confirmed by the server.
+    @param lastConfirmed number -- The serial number of the last command confirmed by the server - can be nil!
     @param serverTime - Time when command was confirmed
 ]=]
-function ClientChickynoid:HandleNewState(state, lastConfirmed, serverTime)
+function ClientChickynoid:HandleNewState(stateDelta, lastConfirmed, serverTime)
     self:ClearDebugSpheres()
 
+    --Handle deltaCompression
+    if (self.lastNetworkState == nil) then
+        self.lastNetworkState = {}
+	end
+	
+	local stateRecord = DeltaTable:ApplyDeltaTable(self.lastNetworkState, stateDelta)
+	self.lastNetworkState = DeltaTable:DeepCopy(stateRecord)
+		
     -- Build a list of the commands the server has not confirmed yet
     local remainingCommands = {}
-
-    for _, cmd in pairs(self.predictedCommands) do
-        -- event.lastConfirmed = serial number of last confirmed command by server
-        if cmd.l > lastConfirmed then
-            -- Server hasn't processed this yet
-            table.insert(remainingCommands, cmd)
-        end
-        if cmd.l == lastConfirmed then
-            self.ping = (tick() - cmd.tick) * 1000
-        end
-    end
+	
+	if (lastConfirmed ~= nil) then
+	    for _, cmd in pairs(self.predictedCommands) do
+	        -- event.lastConfirmed = serial number of last confirmed command by server
+	        if cmd.l > lastConfirmed then
+	            -- Server hasn't processed this yet
+	            table.insert(remainingCommands, cmd)
+	        end
+	        if cmd.l == lastConfirmed then
+	            self.ping = (tick() - cmd.tick) * 1000
+	        end
+		end
+	end
 
     self.predictedCommands = remainingCommands
 
     local resimulate = true
 
     -- Check to see if we can skip simulation
-    if (self.debug.useSkipResimulationOptimization == true) then
-        local record = self.stateCache[lastConfirmed]
-        if record then
-            -- This is the state we were in, if the server agrees with this, we dont have to resim
+	if (self.debug.useSkipResimulationOptimization == true) then
+		
+		if (lastConfirmed ~= nil) then
+	        local cacheRecord = self.stateCache[lastConfirmed]
+			if cacheRecord then
+	            -- This is the state we were in, if the server agrees with this, we dont have to resim
 
-            if (record.state.pos - state.pos).magnitude < 0.05 and (record.state.vel - state.vel).magnitude < 0.1 then
-                resimulate = false
-                -- print("skipped resim")
-            end
-        end
+				if (cacheRecord.stateRecord.state.pos - stateRecord.state.pos).magnitude < 0.05 and (cacheRecord.stateRecord.state.vel - stateRecord.state.vel).magnitude < 0.1 then
+	                resimulate = false
+	                -- print("skipped resim")
+	            end
+	        end
 
-        -- Clear all the ones older than lastConfirmed
-        for key, _ in pairs(self.stateCache) do
-            if key < lastConfirmed then
-                self.stateCache[key] = nil
-            end
-        end
+	        -- Clear all the ones older than lastConfirmed
+	        for key, _ in pairs(self.stateCache) do
+	            if key < lastConfirmed then
+	                self.stateCache[key] = nil
+	            end
+			end
+		end
     end
 
     if resimulate == true then
@@ -115,7 +129,7 @@ function ClientChickynoid:HandleNewState(state, lastConfirmed, serverTime)
         local oldPos = self.simulation.state.pos
 
         -- Reset our base simulation to match the server
-        self.simulation:ReadState(state)
+        self.simulation:ReadState(stateRecord)
 
         -- Marker for where the server said we were
         self:SpawnDebugSphere(self.simulation.state.pos, Color3.fromRGB(255, 170, 0))
@@ -139,7 +153,7 @@ function ClientChickynoid:HandleNewState(state, lastConfirmed, serverTime)
                 -- Add to our state cache, which we can use for skipping resims
                 local cacheRecord = {}
                 cacheRecord.l = command.l
-                cacheRecord.state = self.simulation:WriteState()
+                cacheRecord.stateRecord = self.simulation:WriteState()
         
                 self.stateCache[command.l] = cacheRecord
             end
@@ -179,7 +193,7 @@ function ClientChickynoid:Heartbeat(command, serverTime: number, deltaTime: numb
         -- Add to our state cache, which we can use for skipping resims
         local cacheRecord = {}
         cacheRecord.l = command.l
-        cacheRecord.state = self.simulation:WriteState()
+        cacheRecord.stateRecord = self.simulation:WriteState()
 
         self.stateCache[command.l] = cacheRecord
     end

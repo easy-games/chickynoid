@@ -86,6 +86,8 @@ ChickynoidClient.interpolationBuffer = 20
 ChickynoidClient.OnNetworkEvent = FastSignal.new()
 ChickynoidClient.OnCharacterModelCreated = FastSignal.new()
 
+ChickynoidClient.flags = {}
+
 --Mods
 ChickynoidClient.modules = {}
 
@@ -129,19 +131,22 @@ function ChickynoidClient:Setup()
 
     -- EventType.State
     eventHandler[EventType.State] = function(event)
-        if self.localChickynoid and event.lastConfirmed then
-            local resimulate, ping = self.localChickynoid:HandleNewState(event.state, event.lastConfirmed, event.serverTime)
+        if self.localChickynoid then
+                   
+            local resimulate, ping = self.localChickynoid:HandleNewState(event.stateDelta, event.lastConfirmed, event.serverTime)
           
-            --Keep a rolling history of pings
-            table.insert(self.pings, ping)
-            if #self.pings > 20 then
-                table.remove(self.pings, 1)
-            end
+            if (ping) then
+                --Keep a rolling history of pings
+                table.insert(self.pings, ping)
+                if #self.pings > 20 then
+                    table.remove(self.pings, 1)
+                end
 
-            self.stateCounter += 1
-            
-            if (self.showNetGraph == true) then
-                self:AddPingToNetgraph(resimulate, event.s, event.e, ping)
+                self.stateCounter += 1
+                
+                if (self.showNetGraph == true) then
+                    self:AddPingToNetgraph(resimulate, event.s, event.e, ping)
+                end
             end
         end
     end
@@ -533,9 +538,11 @@ function ChickynoidClient:ProcessFrame(deltaTime)
             end
 
             -- Bind the camera
-            local camera = game.Workspace.CurrentCamera
-            camera.CameraSubject = self.characterModel.model
-            camera.CameraType = Enum.CameraType.Custom
+            if (self.flags.HANDLE_CAMERA ~= false) then
+                local camera = game.Workspace.CurrentCamera
+                camera.CameraSubject = self.characterModel.model
+                camera.CameraType = Enum.CameraType.Custom
+            end
 
             --Bind the local character, which activates all the thumbsticks etc
             game.Players.LocalPlayer.Character = self.characterModel.model

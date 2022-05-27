@@ -46,6 +46,7 @@ interface Simulation {
 	): void;
 
 	GetMoveState(): string;
+	SetMoveState(moveState: string): void;
 }
 
 interface SimulationConstructor {

@@ -49,3 +49,4 @@ export namespace ChickynoidClient {
 
 	export function DebugMarkAllPlayers(this: typeof ChickynoidClient, text: string): void;
 }
+export * from "./CharacterMod";

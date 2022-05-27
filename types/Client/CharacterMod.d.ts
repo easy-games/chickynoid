@@ -1,5 +1,5 @@
 import Simulation from "../Simulation";
 
-export interface CharacterModel {
+export interface CharacterMod {
 	Setup(simulation: Simulation): void;
 }

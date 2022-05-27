@@ -105,14 +105,7 @@ function module:OnPlayerConnected(server, playerRecord)
     end
 
 	-- selene: allow(shadowing)
-    function playerRecord:AddWeaponByName(name, equip)
-        -- for _, weaponRecord in pairs(self.weapons) do
-        --     if weaponRecord.name == "name" then
-        --         print(self.name, "already has weapon", name)
-        --         return
-        --     end
-        -- end
-
+    function playerRecord:AddWeaponByName(name, equip, recordParam)
         local source = path.Custom.Weapons:FindFirstChild(name, true)
 
         if source == nil then
@@ -120,7 +113,7 @@ function module:OnPlayerConnected(server, playerRecord)
             return
         end
 
-        local weaponRecord = require(source).new()
+        local weaponRecord = require(source).new(recordParam)
         weaponRecord.serial = module.weaponSerials
         module.weaponSerials += 1
 

@@ -8,9 +8,11 @@ if IsServer then
     local Antilag = require(script.Server.Antilag)
     Chickynoid.ChickynoidServer = Server
     Chickynoid.Antilag = Antilag
+    Chickynoid.ServerMods = require(script.Server.ServerMods)
 else
     local Client = require(script.Client)
     Chickynoid.ChickynoidClient = Client
+    chickynoid.ClientMods = require(script.Client.ClientMods)
 end
 
 return Chickynoid

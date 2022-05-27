@@ -37,12 +37,12 @@ interface Simulation {
 	RegisterMoveState(
 		name: string,
 		/** Runs while active */
-		activeThink: ThinkFunc,
+		activeThink: unknown,
 		/** Runs every frame. */
-		alwaysThink: ThinkFunc,
-		startState: ThinkFunc,
+		alwaysThink: unknown,
+		startState: unknown,
 		/** Cleanup */
-		lastThink: ThinkFunc | undefined,
+		lastThink: unknown | undefined,
 	): void;
 }
 

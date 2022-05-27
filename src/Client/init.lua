@@ -541,7 +541,7 @@ function ChickynoidClient:ProcessFrame(deltaTime)
             end
 
             -- Bind the camera
-            if (self.flags.HANDLE_CAMERA == true) then
+            if (self.flags.HANDLE_CAMERA ~= false) then
                 local camera = game.Workspace.CurrentCamera
                 camera.CameraSubject = self.characterModel.model
                 camera.CameraType = Enum.CameraType.Custom

@@ -64,7 +64,17 @@ function module:GenerateCommand(command, serverTime: number, dt: number)
     
     -- This approach isn't ideal but it's the easiest right now
     if not UserInputService:GetFocusedTextBox() then
-        command.y = UserInputService:IsKeyDown(Enum.KeyCode.Space) and 1 or 0
+
+        local jump = UserInputService:IsKeyDown(Enum.KeyCode.Space)
+        local crouch = UserInputService:IsKeyDown(Enum.KeyCode.LeftControl)
+        command.y = 0
+        if (jump) then
+            command.y = 1
+        else
+            if (crouch) then
+                command.y = -1
+            end
+        end
 
         --Fire!
         command.f = UserInputService:IsKeyDown(Enum.KeyCode.Q) and 1 or 0

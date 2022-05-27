@@ -50,4 +50,80 @@ function MathUtils:FlatVec(vec)
     return Vector3.new(vec.x, 0, vec.z)
 end
 
+
+--Redirects velocity
+function MathUtils:GroundAccelerate(wishDir, wishSpeed, accel, velocity, dt)
+    --Cap velocity
+    local speed = velocity.Magnitude
+    if speed > wishSpeed then
+        velocity = velocity.unit * wishSpeed
+    end
+
+    local wishVel = wishDir * wishSpeed
+    local pushDir = wishVel - velocity
+
+    local pushLen = pushDir.magnitude
+
+    local canPush = accel * dt * wishSpeed
+
+    if canPush > pushLen then
+        canPush = pushLen
+    end
+    if canPush < 0.00001 then
+        return velocity
+    end
+    return velocity + (canPush * pushDir.Unit)
+end
+
+function MathUtils:Accelerate(wishDir, wishSpeed, accel, velocity, dt)
+    local speed = velocity.magnitude
+
+    local currentSpeed = velocity:Dot(wishDir)
+    local addSpeed = wishSpeed - currentSpeed
+
+    if addSpeed <= 0 then
+        return velocity
+    end
+
+    local accelSpeed = accel * dt * wishSpeed
+    if accelSpeed > addSpeed then
+        accelSpeed = addSpeed
+    end
+
+    velocity = velocity + (accelSpeed * wishDir)
+
+    --if we're already going over max speed, don't go any faster than that
+    --Or you'll get strafe jumping!
+    if speed > wishSpeed and velocity.magnitude > speed then
+        velocity = velocity.unit * speed
+    end
+    return velocity
+end
+
+function MathUtils:CapVelocity(velocity, maxSpeed)
+    local mag = velocity.magnitude
+    mag = math.min(mag, maxSpeed)
+    if mag > 0.01 then
+        return velocity.Unit * mag
+    end
+    return Vector3.zero
+end
+
+
+function MathUtils:ClipVelocity(input, normal, overbounce)
+    local backoff = input:Dot(normal)
+
+    if backoff < 0 then
+        backoff = backoff * overbounce
+    else
+        backoff = backoff / overbounce
+    end
+
+    local changex = normal.x * backoff
+    local changey = normal.y * backoff
+    local changez = normal.z * backoff
+
+    return Vector3.new(input.x - changex, input.y - changey, input.z - changez)
+end
+
 return MathUtils

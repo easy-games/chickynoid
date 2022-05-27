@@ -106,7 +106,7 @@ function ChickynoidClient:Setup()
         print("Chickynoid spawned at", position)
 
         if self.localChickynoid == nil then
-            self.localChickynoid = ClientChickynoid.new(position)
+            self.localChickynoid = ClientChickynoid.new(position, event.humanoidType)
         end
         --Force the position
         self.localChickynoid.simulation.state.pos = position

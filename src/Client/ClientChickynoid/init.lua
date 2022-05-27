@@ -29,13 +29,13 @@ ClientChickynoid.__index = ClientChickynoid
     @param position Vector3 -- The position to spawn this character, provided by the server.
     @return ClientChickynoid
 ]=]
-function ClientChickynoid.new(position: Vector3)
+function ClientChickynoid.new(position: Vector3, humanoidType: string)
     local self = setmetatable({
 
         simulation = Simulation.new(),
         predictedCommands = {},
         stateCache = {},
-
+        humanoidType = humanoidType,
         localFrame = 0,
 
         mispredict = Vector3.new(0, 0, 0),
@@ -49,7 +49,17 @@ function ClientChickynoid.new(position: Vector3)
     }, ClientChickynoid)
 
     self.simulation.state.pos = position
- 
+
+    
+    --Apply the humanoidType
+    if (self.humanoidType) then
+        local module = path.Custom.Character:FindFirstChild(self.humanoidType, true)
+        if (module ~= nil and module:IsA("ModuleScript")) then
+            local loadedModule = require(module)
+            loadedModule:Setup(self.simulation)
+        end
+    end
+
     self:HandleLocalPlayer()
 
     return self

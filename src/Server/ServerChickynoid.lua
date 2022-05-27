@@ -55,6 +55,15 @@ function ServerChickynoid.new(playerRecord)
         self.simulation.debugModel = nil
     end
 
+    --Apply the humanoidType
+    if (self.playerRecord.humanoidType) then
+		local module = path.Custom.Character:FindFirstChild(self.playerRecord.humanoidType, true)
+        if (module ~= nil and module:IsA("ModuleScript")) then
+            local loadedModule = require(module)
+            loadedModule:Setup(self.simulation)
+        end
+    end
+
     return self
 end
 
@@ -310,7 +319,7 @@ function ServerChickynoid:SpawnChickynoid()
         local event = {}
         event.t = EventType.ChickynoidAdded
         event.position = self.simulation.state.pos
-
+        event.humanoidType = self.playerRecord.humanoidType
         self.playerRecord:SendEventToClient(event)
     end
     print("Spawned character and sent event for player:", self.playerRecord.name)

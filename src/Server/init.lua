@@ -192,12 +192,15 @@ function ChickynoidServer:AddConnection(userId, player)
     playerRecord.chickynoid = nil
     playerRecord.frame = 0
     playerRecord.firstSnapshot = false
+    
 
     playerRecord.allowedToSpawn = true
     playerRecord.respawnDelay = 3
     playerRecord.respawnTime = tick() + playerRecord.respawnDelay
 
     playerRecord.OnBeforePlayerSpawn = FastSignal.new()
+
+    playerRecord.humanoidType = "HumanoidChickynoid"
 
     self:AssignSlot(playerRecord)
 
@@ -244,7 +247,6 @@ function ChickynoidServer:AddConnection(userId, player)
 			event.data = ChickynoidServer.collisionRootFolder
 			self:SendEventToClient(event)
         end
-        
     end
 
     -- selene: allow(shadowing)
@@ -265,6 +267,10 @@ function ChickynoidServer:AddConnection(userId, player)
             local event = { t = EventType.ChickynoidRemoving }
             playerRecord:SendEventToClient(event)
         end
+    end
+
+    function playerRecord:SetHumanoidType(humanoidTypeName)
+        self.humanoidType = humanoidTypeName
     end
 
     -- selene: allow(shadowing)
@@ -458,8 +464,10 @@ function ChickynoidServer:Think(deltaTime)
     end
     WeaponsModule:Think(self, deltaTime)
 
-    for _, mod in pairs(self.modules) do
-        mod:Step(self, deltaTime)
+	for _, mod in pairs(self.modules) do
+		if (mod.Step) then
+			mod:Step(self, deltaTime)
+		end
     end
 
     -- 2nd stage: Replicate character state to the player

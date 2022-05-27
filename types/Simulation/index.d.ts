@@ -20,6 +20,11 @@ interface Simulation {
 
 	GetMoveState(): string;
 	SetMoveState(moveState: string): void;
+	ProjectVelocity(
+		startPos: Vector3,
+		startVel: Vector3,
+		deltaTime: number,
+	): LuaTuple<[movePos: Vector3, moveVel: Vector3, hitSomething: boolean]>;
 }
 
 interface SimulationConstructor {

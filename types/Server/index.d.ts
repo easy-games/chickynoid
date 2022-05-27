@@ -53,3 +53,4 @@ export namespace ChickynoidServer {
 }
 
 export { Antilag } from "./Antilag";
+export { ServerMods } from "./ServerMods";

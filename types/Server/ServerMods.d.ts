@@ -1,4 +1,4 @@
-/** @client */
+/** @server */
 export namespace ServerMods {
 	export function RegisterMods(
 		this: typeof ServerMods,

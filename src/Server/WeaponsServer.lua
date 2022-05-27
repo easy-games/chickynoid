@@ -10,6 +10,7 @@ local path = script.Parent.Parent
 local DeltaTable = require(path.Vendor.DeltaTable)
 local Enums = require(path.Enums)
 local Antilag = require(path.Server.Antilag)
+local ServerMods = require(path.Server.ServerMods)
 
 local requiredMethods = {
     "ClientThink",
@@ -22,20 +23,22 @@ local requiredMethods = {
     "ServerDequip",
 }
 
-function module:Setup(_server)
-    for _, name in pairs(path.Custom.Weapons:GetDescendants()) do
-        if name:IsA("ModuleScript") then
-            local customWeapon = require(name).new()
+function module:Setup(server)
 
-            for _, values in pairs(requiredMethods) do
-                if customWeapon[values] == nil then
-                    error("WeaponModule " .. name.Name .. " missing " .. values .. " implementation.")
-                end
+    local weapons = ServerMods:GetMods("weapons")
+    
+    for name, module in pairs(weapons) do
+       
+        local customWeapon = module
+
+        for _, values in pairs(requiredMethods) do
+            if customWeapon[values] == nil then
+                error("WeaponModule " .. name.Name .. " missing " .. values .. " implementation.")
             end
-            table.insert(self.customWeapons, customWeapon)
-            --set the id
-            customWeapon.weaponId = #self.customWeapons
         end
+        table.insert(self.customWeapons, customWeapon)
+        --set the id
+        customWeapon.weaponId = #self.customWeapons
     end
 end
 
@@ -106,14 +109,13 @@ function module:OnPlayerConnected(server, playerRecord)
 
 	-- selene: allow(shadowing)
     function playerRecord:AddWeaponByName(name, equip, recordParam)
-        local source = path.Custom.Weapons:FindFirstChild(name, true)
-
-        if source == nil then
+        local sourceModule = ServerMods:GetMod("weapons", name)
+        if sourceModule == nil then
             warn("Weapon ", name, " not found!")
             return
         end
 
-        local weaponRecord = require(source).new(recordParam)
+        local weaponRecord = sourceModule.new(recordParam)
         weaponRecord.serial = module.weaponSerials
         module.weaponSerials += 1
 

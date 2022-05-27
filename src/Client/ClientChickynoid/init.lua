@@ -12,6 +12,7 @@ local RemoteEvent = ReplicatedStorage:WaitForChild("ChickynoidReplication") :: R
 
 local path = script.Parent.Parent
 local Simulation = require(path.Simulation)
+local ClientMods = require(path.Client.ClientMods)
 local CollisionModule = require(path.Simulation.CollisionModule)
 local DeltaTable = require(path.Vendor.DeltaTable)
 
@@ -29,14 +30,15 @@ ClientChickynoid.__index = ClientChickynoid
     @param position Vector3 -- The position to spawn this character, provided by the server.
     @return ClientChickynoid
 ]=]
-function ClientChickynoid.new(position: Vector3, humanoidType: string)
+function ClientChickynoid.new(position: Vector3, characterMod: string)
     local self = setmetatable({
 
         simulation = Simulation.new(),
         predictedCommands = {},
         stateCache = {},
-        humanoidType = humanoidType,
+        characterMod = characterMod,
         localFrame = 0,
+ 
 
         mispredict = Vector3.new(0, 0, 0),
 
@@ -49,15 +51,11 @@ function ClientChickynoid.new(position: Vector3, humanoidType: string)
     }, ClientChickynoid)
 
     self.simulation.state.pos = position
-
     
-    --Apply the humanoidType
-    if (self.humanoidType) then
-        local module = path.Custom.Character:FindFirstChild(self.humanoidType, true)
-        if (module ~= nil and module:IsA("ModuleScript")) then
-            local loadedModule = require(module)
-            loadedModule:Setup(self.simulation)
-        end
+    --Apply the characterMod
+    if (self.characterMod) then
+        local loadedModule = ClientMods:GetMod("characters", self.characterMod)
+        loadedModule:Setup(self.simulation)
     end
 
     self:HandleLocalPlayer()

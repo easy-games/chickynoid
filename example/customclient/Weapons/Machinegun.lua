@@ -1,8 +1,9 @@
 local MachineGunModule = {}
 MachineGunModule.__index = MachineGunModule
 
-local path = script.Parent.Parent.Parent
+local path = game.ReplicatedFirst.Packages.Chickynoid
 local EffectsModule = require(path.Client.Effects)
+local ServerMods = require(path.Server.ServerMods)
 local Enums = require(path.Enums)
 
 function MachineGunModule.new()
@@ -142,7 +143,7 @@ function MachineGunModule:ServerProcessCommand(command)
                 --Do the damage
                 if otherPlayer then
                     --Use the hitpoints mod to damage them!
-                    local HitPoints = self.server:GetMod("Hitpoints")
+                    local HitPoints = ServerMods:GetMod("servermods", "Hitpoints")
                     if HitPoints then
                         HitPoints:DamagePlayer(otherPlayer, 10)
                     end

@@ -6,8 +6,12 @@
 		"$className": "Workspace",
 		"$path": "example/workspace"
 	},
-	"ReplicatedStorage": {
-		"$className": "ReplicatedStorage",
+	
+	"ReplicatedFirst": {
+		"$className": "ReplicatedFirst",
+		"Examples": {
+			"$path": "example/customclient"
+		},
 		"Packages": {
 			"$className": "Folder",
 			"Chickynoid": {
@@ -15,10 +19,15 @@
 			}
 		}
 	},
+	
 	"ServerScriptService": {
 		"$className": "ServerScriptService",
-		"$path": "example/server"
+		"$path": "example/server",
+		"Examples": {
+			"$path": "example/customserver"
+		}
 	},
+
 	"StarterPlayer": {
 		"$className": "StarterPlayer",
 		"StarterPlayerScripts": {

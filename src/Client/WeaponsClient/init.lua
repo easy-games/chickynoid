@@ -6,6 +6,7 @@ local Enums = require(path.Enums)
 
 local FastSignal = require(path.Vendor.FastSignal)
 local DeltaTable = require(path.Vendor.DeltaTable)
+local ClientMods = require(path.Client.ClientMods)
 
 module.rockets = {}
 module.weapons = {}
@@ -65,9 +66,9 @@ function module:HandleEvent(client, event)
                 error("Weapon already added: " .. event.name .. " " .. event.serial)
                 return
             end
-
-            local source = path.Custom.Weapons:FindFirstChild(event.name, true)
-            local weaponRecord = require(source).new()
+            
+            local sourceModule = ClientMods:GetMod("weapons",event.name)
+            local weaponRecord = sourceModule.new()
             weaponRecord.serial = event.serial
             weaponRecord.name = event.name
             weaponRecord.client = client
@@ -214,13 +215,15 @@ function module:GetWeaponModuleByWeaponId(weaponId)
 end
 
 function module:Setup(_client)
-    for _, name in pairs(path.Custom.Weapons:GetDescendants()) do
-        if name:IsA("ModuleScript") then
-            local customWeapon = require(name).new()
-            table.insert(self.customWeapons, customWeapon)
-            --set the id
-            customWeapon.weaponId = #self.customWeapons
-        end
+
+    local mods = ClientMods:GetMods("weapons")
+    for name,module in pairs(mods) do
+       
+        local customWeapon = module.new()
+        table.insert(self.customWeapons, customWeapon)
+        --set the id
+        customWeapon.weaponId = #self.customWeapons
+    
     end
 end
 

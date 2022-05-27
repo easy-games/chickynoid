@@ -2,6 +2,8 @@ local module = {}
 
 --Implements basic killbrick functionality
 --Any collidable part tagged with kill==true will instantly drop your HP to 0, calculated on the server
+local path = game.ReplicatedFirst.Packages.Chickynoid
+local ServerMods = require(path.Server.ServerMods)
 
 function module:Setup(_server) end
 
@@ -20,7 +22,7 @@ function module:Step(server, _deltaTime)
         if part then
             if part:GetAttribute("kill") == true then
                 --kill!
-                local HitPoints = server:GetMod("Hitpoints")
+                local HitPoints = ServerMods:GetMod("servermods","Hitpoints")
                 if HitPoints then
                     HitPoints:SetPlayerHitPoints(playerRecord, 0)
                 end

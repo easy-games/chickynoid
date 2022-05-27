@@ -19,6 +19,7 @@ local CharacterModel = require(script.CharacterModel)
 local CharacterData = require(path.Simulation.CharacterData)
 local ClientWeaponModule = require(path.Client.WeaponsClient)
 local FastSignal = require(path.Vendor.FastSignal)
+local ClientMods = require(path.Client.ClientMods)
 
 local Enums = require(path.Enums)
 local MathUtils = require(path.Simulation.MathUtils)
@@ -88,9 +89,7 @@ ChickynoidClient.OnCharacterModelCreated = FastSignal.new()
 
 ChickynoidClient.flags = {}
 
---Mods
-ChickynoidClient.modules = {}
-
+ 
 ChickynoidClient.weaponsClient = ClientWeaponModule;
 
 function ChickynoidClient:Setup()
@@ -106,7 +105,7 @@ function ChickynoidClient:Setup()
         print("Chickynoid spawned at", position)
 
         if self.localChickynoid == nil then
-            self.localChickynoid = ClientChickynoid.new(position, event.humanoidType)
+            self.localChickynoid = ClientChickynoid.new(position, event.characterMod)
         end
         --Force the position
         self.localChickynoid.simulation.state.pos = position
@@ -247,7 +246,8 @@ function ChickynoidClient:Setup()
             self:ResetConnection()
         end
 
-        for _, value in pairs(self.modules) do
+        local modules = ClientMods:GetMods("clientmods")
+        for _, value in pairs(modules) do
             value:Step(self, deltaTime)
         end
     end
@@ -270,46 +270,14 @@ function ChickynoidClient:Setup()
     end)
 
     --Load the mods
-    for _, mod in pairs(self.modules) do
+    local mods = ClientMods:GetMods("clientmods")
+    for _, mod in pairs(mods) do
         mod:Setup(self)
 		print("Loaded", _)
     end
 
     --WeaponModule
     ClientWeaponModule:Setup(self)
-end
-
---[=[
-	Registers a single ModuleScript as a mod.
-	@param mod ModuleScript -- Individual ModuleScript to be loaded as a mod.
-]=]
-function ChickynoidClient:RegisterMod(mod: ModuleScript)
-    if not mod:IsA("ModuleScript") then
-        warn("Attempted to load", mod:GetFullName(), "as a mod but it is not a ModuleScript")
-        return
-    end
-
-    local contents = require(mod)
-    -- FIXME: Should `self.modules` be indexed by the module name?
-    self.modules[mod.Name] = contents
-end
-
---[=[
-	Registers all descendants under this container as a mod.
-	@param container Instance -- Container holding mods.
-]=]
-function ChickynoidClient:RegisterModsInContainer(container: Instance)
-    for _, mod in ipairs(container:GetDescendants()) do
-        if not mod:IsA("ModuleScript") then
-            continue
-        end
-
-        ChickynoidClient:RegisterMod(mod)
-    end
-end
-
-function ChickynoidClient:GetMod(name)
-    return self.modules[name]
 end
 
 function ChickynoidClient:GetClientChickynoid()
@@ -836,7 +804,9 @@ function ChickynoidClient:GenerateCommand(serverTime, deltaTime)
     command.y = 0
     command.z = 0
  
-    for key,mod in pairs(self.modules) do
+    local modules = ClientMods:GetMods("clientmods")
+
+    for key,mod in pairs(modules) do
         if (mod.GenerateCommand) then
             command = mod:GenerateCommand(command, serverTime, deltaTime)
         end

@@ -1,9 +1,9 @@
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local ReplicatedFirst = game:GetService("ReplicatedFirst")
 local module = {}
 
 -- FIXME: These should be surfaced to top-level APIs
-local WeaponsClient = require(ReplicatedStorage.Packages.Chickynoid.Client.WeaponsClient)
-local EffectsModule = require(ReplicatedStorage.Packages.Chickynoid.Client.Effects)
+local WeaponsClient = require(ReplicatedFirst.Packages.Chickynoid.Client.WeaponsClient)
+local EffectsModule = require(ReplicatedFirst.Packages.Chickynoid.Client.Effects)
 
 function module:Setup(_client)
     --You can also handle this directly in the weapon, if you feel like it

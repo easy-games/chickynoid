@@ -15,6 +15,8 @@ local Simulation = require(path.Simulation)
 local TrajectoryModule = require(path.Simulation.TrajectoryModule)
 local DeltaTable = require(path.Vendor.DeltaTable)
 
+local ServerMods = require(path.Server.ServerMods)
+
 local ServerChickynoid = {}
 ServerChickynoid.__index = ServerChickynoid
 
@@ -55,11 +57,10 @@ function ServerChickynoid.new(playerRecord)
         self.simulation.debugModel = nil
     end
 
-    --Apply the humanoidType
-    if (self.playerRecord.humanoidType) then
-		local module = path.Custom.Character:FindFirstChild(self.playerRecord.humanoidType, true)
-        if (module ~= nil and module:IsA("ModuleScript")) then
-            local loadedModule = require(module)
+    --Apply the characterMod
+    if (self.playerRecord.characterMod) then
+        local loadedModule = ServerMods:GetMod("characters", self.playerRecord.characterMod)
+        if (loadedModule) then
             loadedModule:Setup(self.simulation)
         end
     end
@@ -319,7 +320,7 @@ function ServerChickynoid:SpawnChickynoid()
         local event = {}
         event.t = EventType.ChickynoidAdded
         event.position = self.simulation.state.pos
-        event.humanoidType = self.playerRecord.humanoidType
+        event.characterMod = self.playerRecord.characterMod
         self.playerRecord:SendEventToClient(event)
     end
     print("Spawned character and sent event for player:", self.playerRecord.name)

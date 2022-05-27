@@ -1,4 +1,4 @@
-local Enums = require(game.ReplicatedStorage.Packages.Chickynoid.Enums)
+local Enums = require(game.ReplicatedFirst.Packages.Chickynoid.Enums)
 local module = {}
 
 

@@ -20,7 +20,7 @@ local WeaponsModule = require(script.WeaponsServer)
 local CollisionModule = require(path.Simulation.CollisionModule)
 local Antilag = require(path.Server.Antilag)
 local FastSignal = require(path.Vendor.FastSignal)
-
+local ServerMods = require(script.ServerMods)
 local RemoteEvent = Instance.new("RemoteEvent")
 RemoteEvent.Name = "ChickynoidReplication"
 RemoteEvent.Parent = ReplicatedStorage
@@ -41,8 +41,6 @@ ChickynoidServer.slots = {}
 ChickynoidServer.collisionRootFolder = nil
 
 ChickynoidServer.playerSize = Vector3.new(2, 5, 2)
-
-ChickynoidServer.modules = {} --Custom modules, for things like hitpoints
 
 --[=[
 	@interface ServerConfig
@@ -115,38 +113,10 @@ function ChickynoidServer:Setup()
     Antilag:Setup(self)
 
     --Load the mods
-    for _, mod in pairs(self.modules) do
+    local modules = ServerMods:GetMods("servermods")
+    for _, mod in pairs(modules) do
         mod:Setup(self)
 		-- print("Loaded", _)
-    end
-end
-
---[=[
-	Registers a single ModuleScript as a mod.
-	@param mod ModuleScript -- Individual ModuleScript to be loaded as a mod.
-]=]
-function ChickynoidServer:RegisterMod(mod: ModuleScript)
-    if not mod:IsA("ModuleScript") then
-        warn("Attempted to load", mod:GetFullName(), "as a mod but it is not a ModuleScript")
-        return
-    end
-
-    local contents = require(mod)
-    -- FIXME: Should `self.modules` be indexed by the module name?
-    self.modules[mod.Name] = contents
-end
-
---[=[
-	Registers all descendants under this container as a mod.
-	@param container Instance -- Container holding mods.
-]=]
-function ChickynoidServer:RegisterModsInContainer(container: Instance)
-    for _, mod in ipairs(container:GetDescendants()) do
-        if not mod:IsA("ModuleScript") then
-            continue
-        end
-
-        ChickynoidServer:RegisterMod(mod)
     end
 end
 
@@ -200,7 +170,7 @@ function ChickynoidServer:AddConnection(userId, player)
 
     playerRecord.OnBeforePlayerSpawn = FastSignal.new()
 
-    playerRecord.humanoidType = "HumanoidChickynoid"
+    playerRecord.characterMod = "HumanoidChickynoid"
 
     self:AssignSlot(playerRecord)
 
@@ -269,8 +239,8 @@ function ChickynoidServer:AddConnection(userId, player)
         end
     end
 
-    function playerRecord:SetHumanoidType(humanoidTypeName)
-        self.humanoidType = humanoidTypeName
+    function playerRecord:SetCharacterMod(characterModName)
+        self.characterMod = characterModName
     end
 
     -- selene: allow(shadowing)
@@ -322,10 +292,6 @@ end
 
 function ChickynoidServer:SendEventToClients(event)
     RemoteEvent:FireAllClients(event)
-end
-
-function ChickynoidServer:GetMod(name)
-    return self.modules[name]
 end
 
 function ChickynoidServer:SendWorldstate(playerRecord)
@@ -464,7 +430,8 @@ function ChickynoidServer:Think(deltaTime)
     end
     WeaponsModule:Think(self, deltaTime)
 
-	for _, mod in pairs(self.modules) do
+    local modules = ServerMods:GetMods("servermods")
+	for _, mod in pairs(modules) do
 		if (mod.Step) then
 			mod:Step(self, deltaTime)
 		end

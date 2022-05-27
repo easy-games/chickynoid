@@ -16,7 +16,7 @@ function module:Setup(simulation)
 	simulation.constants.jumpThrustDecay = 0.25 --Smaller is faster
 
     --Example on adding a flying movement type
-    local MoveTypeFlying = require(script.Parent.Mods.MoveTypeFlying)
+    local MoveTypeFlying = require(script.Parent.utils.MoveTypeFlying)
     MoveTypeFlying:ModifySimulation(simulation)
     
 end

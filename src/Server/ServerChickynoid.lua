@@ -10,6 +10,7 @@ local path = script.Parent.Parent
 
 local Enums = require(path.Enums)
 local EventType = Enums.EventType
+local FastSignal = require(path.Vendor.FastSignal)
 
 local Simulation = require(path.Simulation)
 local TrajectoryModule = require(path.Simulation.TrajectoryModule)
@@ -44,6 +45,8 @@ function ServerChickynoid.new(playerRecord)
 
         bufferedCommandTime = 20 * 0.001, --ms
         serverFrames = 0,
+
+        hitBoxCreated = FastSignal.new(),
 
         debug = {
             processedCommands = 0,
@@ -345,6 +348,7 @@ function ServerChickynoid:UpdateServerCollisionBox(server)
         box.CanQuery = true
         box:SetAttribute("player", self.playerRecord.userId)
         self.hitBox = box
+        self.hitboxCreated:Fire(self.hitBox);
 
         --for streaming enabled games...
         if self.playerRecord.player then

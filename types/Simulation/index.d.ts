@@ -4,6 +4,7 @@ import { SimulationState } from "./simulation-state";
 type ThinkFunc = (simulation: typeof Simulation, command: unknown) => void;
 
 interface Simulation {
+	userId: number | undefined;
 	state: SimulationState;
 	constants: SimulationConstants;
 

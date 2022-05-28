@@ -29,7 +29,7 @@ function ServerChickynoid.new(playerRecord)
     local self = setmetatable({
         playerRecord = playerRecord,
 
-        simulation = Simulation.new(),
+        simulation = Simulation.new(playerRecord.userId),
 
         unprocessedCommands = {},
         commandSerial = 0,
@@ -49,8 +49,7 @@ function ServerChickynoid.new(playerRecord)
             processedCommands = 0,
         },
     }, ServerChickynoid)
-
-    -- TODO: The simulation shouldn't create a debug model like this.
+        -- TODO: The simulation shouldn't create a debug model like this.
     -- For now, just delete it server-side.
     if self.simulation.debugModel then
         self.simulation.debugModel:Destroy()

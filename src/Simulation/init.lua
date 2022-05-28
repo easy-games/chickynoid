@@ -14,8 +14,10 @@ local MathUtils = require(script.MathUtils)
 local Enums = require(script.Parent.Enums)
 local DeltaTable = require(script.Parent.Vendor.DeltaTable)
 
-function Simulation.new()
+function Simulation.new(userId)
     local self = setmetatable({}, Simulation)
+
+    self.userId = userId
 
     self.moveStates = {}
     self.moveStateNames = {}

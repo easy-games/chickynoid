@@ -33,7 +33,7 @@ ClientChickynoid.__index = ClientChickynoid
 function ClientChickynoid.new(position: Vector3, characterMod: string)
     local self = setmetatable({
 
-        simulation = Simulation.new(),
+        simulation = Simulation.new(game.Players.LocalPlayer.UserId),
         predictedCommands = {},
         stateCache = {},
         characterMod = characterMod,

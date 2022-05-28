@@ -5,8 +5,8 @@ local UserInputService = game:GetService("UserInputService")
 
 function module:Setup(_client)
     self.client = _client
-    _client.showFpsGraph = false
-    _client.showNetGraph = false
+    _client.showFpsGraph = true
+    _client.showNetGraph = true
 end
 
 function module:Step(_client, _deltaTime)

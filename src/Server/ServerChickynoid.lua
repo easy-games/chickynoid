@@ -348,7 +348,7 @@ function ServerChickynoid:UpdateServerCollisionBox(server)
         box.CanQuery = true
         box:SetAttribute("player", self.playerRecord.userId)
         self.hitBox = box
-        self.hitboxCreated:Fire(self.hitBox);
+        self.hitBoxCreated:Fire(self.hitBox);
 
         --for streaming enabled games...
         if self.playerRecord.player then

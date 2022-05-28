@@ -14,11 +14,9 @@ local MathUtils = require(script.MathUtils)
 local Enums = require(script.Parent.Enums)
 local DeltaTable = require(script.Parent.Vendor.DeltaTable)
 
--- optional userId if attached to a player
-function Simulation.new(userId)
+function Simulation.new()
     local self = setmetatable({}, Simulation)
 
-    self.userId = userId; -- userId exists if attached to player
     self.moveStates = {}
     self.moveStateNames = {}
 

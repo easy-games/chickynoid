@@ -1,3 +1,4 @@
+import Signal from "@rbxts/signal";
 import { ChickynoidServer } from ".";
 import Simulation from "../Simulation";
 import PlayerRecord from "./PlayerRecord";
@@ -6,6 +7,8 @@ interface ServerChickynoid {
 	playerRecord: PlayerRecord;
 	hitBox: Part;
 	simulation: Simulation;
+
+	hitBoxCreated: Signal<(hitBox: Part) => void>;
 
 	SetPosition(position: Vector3): void;
 	GetPosition(): Vector3;

@@ -713,6 +713,8 @@ function module:MakeWorld(folder, playerSize)
 				print("Collision processing: " .. math.floor(progress * 100) .. "%")
 			end
 	    end
+        module.loadProgress = 1
+        module.OnLoadProgressChanged:Fire(1)
 		print("Collision processing: 100%")
 		self.processing = false
 	end)()

@@ -11,30 +11,6 @@ function module.AlwaysThink(simulation, cmd)
     --Mark if we were onground at the start of the frame
     local startedOnGround = onGround
 
-    if onGround ~= nil then
-        --Check jumpPads
-        if onGround.hullRecord then
-            local instance = onGround.hullRecord.instance
-
-            if instance then
-                local vec3 = instance:GetAttribute("launch")
-                if vec3 then
-                    local dir = instance.CFrame:VectorToWorldSpace(vec3)
-
-                    simulation.state.vel = dir
-
-                    simulation.state.jump = 0.2
-                    simulation.characterData:PlayAnimation(Enums.Anims.Jump, true, 0.2)
-                end
-
-                --For platform standing
-                if simulation.state.jump == 0 then
-                    simulation.lastGround = onGround
-                end
-            end
-        end
-    end
-
     --In air?
     if onGround == nil then
         simulation.state.inAir += cmd.deltaTime

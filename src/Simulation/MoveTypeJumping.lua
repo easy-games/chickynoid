@@ -36,11 +36,16 @@ function module.ActiveThink(simulation, cmd)
                 simulation.constants.jumpPunch,
                 simulation.state.vel.z
             )
-            simulation.state.jump = 0.2 --jumping has a cooldown (think jumping up a staircase)
-            simulation.state.jumpThrust = simulation.constants.jumpThrustPower
-            simulation.characterData:PlayAnimation(Enums.Anims.Jump, true, 0.2)
+
+            module.StartJump(simulation)
         end
     end
+end
+
+function module.StartJump(simulation)
+    simulation.state.jump = 0.2 --jumping has a cooldown (think jumping up a staircase)
+    simulation.state.jumpThrust = simulation.constants.jumpThrustPower
+    simulation.characterData:PlayAnimation(Enums.Anims.Jump, true, 0.2)
 end
 
 return module

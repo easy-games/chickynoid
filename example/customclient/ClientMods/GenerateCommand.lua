@@ -104,11 +104,10 @@ function module:GenerateCommand(command, serverTime: number, dt: number)
     if self:GetIsJumping() == true then
         command.y = 1
     end
-
-    if command.f and command.f > 0 then
-        --fire angles
-        command.fa = self:GetAimPoint()
-    end
+    
+    --fire angles
+     command.fa = self:GetAimPoint()
+    
 
     --Translate the move vector relative to the camera
     local rawMoveVector = self:CalculateRawMoveVector(Vector3.new(command.x, 0, command.z))

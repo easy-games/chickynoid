@@ -16,5 +16,6 @@ else
 end
 
 Chickynoid.MathUtils = require(script.Simulation.MathUtils)
+Chickynoid.CollisionModule = require(script.Simulation.CollisionModule)
 
 return Chickynoid

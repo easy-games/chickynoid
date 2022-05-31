@@ -6,6 +6,7 @@ type ThinkFunc = (simulation: typeof Simulation, command: unknown) => void;
 interface Simulation {
 	state: SimulationState;
 	constants: SimulationConstants;
+	userId: number;
 
 	RegisterMoveState(
 		name: string,

@@ -1,8 +1,11 @@
 local RunService = game:GetService("RunService")
 local CollectionService = game:GetService("CollectionService")
 
+local path = script.Parent.Parent;
+
 local MinkowskiSumInstance = require(script.Parent.MinkowskiSumInstance)
 local TerrainModule = require(script.Parent.TerrainCollision)
+local FastSignal = require(path.Vendor.FastSignal)
 
 local module = {}
 module.hullRecords = {}
@@ -13,6 +16,9 @@ module.planeNum = 0
 module.gridSize = 8
 module.grid = {}
 module.processQueue = {}
+
+module.loadProgress = 0
+module.OnLoadProgressChanged = FastSignal.new()
 
 module.expansionSize = Vector3.new(2, 5, 2)
 
@@ -701,9 +707,14 @@ function module:MakeWorld(folder, playerSize)
 			if (done > 500) then
 				task.wait()
 				done = 0
-				print("Collision processing: " .. math.floor(counter/total * 100) .. "%")
+                local progress = counter/total;
+                module.loadProgress = progress;
+                module.OnLoadProgressChanged:Fire(progress)
+				print("Collision processing: " .. math.floor(progress * 100) .. "%")
 			end
 	    end
+        module.loadProgress = 1
+        module.OnLoadProgressChanged:Fire(1)
 		print("Collision processing: 100%")
 		self.processing = false
 	end)()

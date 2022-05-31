@@ -12,4 +12,5 @@ export interface SimulationConstants {
 	jumpThrustDecay: number;
 	pushSpeed: number;
 	stepSize: number;
+	aimlock: number;
 }

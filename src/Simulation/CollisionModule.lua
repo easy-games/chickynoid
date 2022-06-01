@@ -697,16 +697,16 @@ function module:MakeWorld(folder, playerSize)
 		local list = folder:GetDescendants()
 		local total = #folder:GetDescendants()
 		
-		local done = 0 
+		local lastTime = tick()
 		for counter = 1, total do		
 			local instance = list[counter]
 			if (instance:IsA("BasePart") and instance.CanCollide == true) then
 				self:ProcessCollisionOnInstance(instance, playerSize)
 			end
-			done+=1
-			if (done > 250) then
-				wait()
-				done = 0
+		
+            if (tick() - lastTime > 0.2) then
+                lastTime = tick()
+                task.wait()
                 local progress = counter/total;
                 module.loadProgress = progress;
                 module.OnLoadProgressChanged:Fire(progress)

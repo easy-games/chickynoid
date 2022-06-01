@@ -616,6 +616,15 @@ function ChickynoidClient:SetupTime(serverActualTime)
     end
 end
 
+function ChickynoidClient:GetPlayerDataBySlotId(slotId)
+	local slotString = tostring(slotId)
+	if (self.worldState == nil) then
+		return nil
+	end
+	--worldState.players is indexed by a *STRING* not a int
+	return self.worldState.players[slotString]
+end
+
 function ChickynoidClient:DeserializeSnapshot(event, previousSnapshot)
     local bitBuffer = BitBuffer(event.b)
     local count = bitBuffer.readByte()
@@ -626,9 +635,9 @@ function ChickynoidClient:DeserializeSnapshot(event, previousSnapshot)
         local record = CharacterData.new()
 
         --CharacterData.CopyFrom(self.previous)
-        local slotByte = bitBuffer.readByte()
+        local slotId = bitBuffer.readByte()
 
-        local user = self.worldState.players[slotByte]
+		local user = self:GetPlayerDataBySlotId(slotId)
         if user then
             if previousSnapshot ~= nil then
                 local previousRecord = previousSnapshot.charData[user.userId]
@@ -641,7 +650,7 @@ function ChickynoidClient:DeserializeSnapshot(event, previousSnapshot)
             event.charData[user.userId] = record.serialized
         else
             --So things line up
-            warn("UserId for slot", slotByte, "not found!")
+			warn("UserId for slot", slotId, "not found!")
             record:DeserializeFromBitBuffer(bitBuffer)
         end
     end

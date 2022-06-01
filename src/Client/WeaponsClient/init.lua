@@ -15,8 +15,9 @@ module.currentWeapon = nil
 module.OnBulletImpact = FastSignal.new()
 
 function module:HandleEvent(client, event)
-    if event.t == Enums.EventType.BulletImpact then
-        local player = client.worldState.players[event.s]
+	if event.t == Enums.EventType.BulletImpact then
+		
+		local player = client:GetPlayerDataBySlotId(event.s)
 
         if player == nil then
             return
@@ -218,7 +219,7 @@ function module:Setup(_client)
 
     local mods = ClientMods:GetMods("weapons")
     for name,module in pairs(mods) do
-       
+        
         local customWeapon = module.new()
         table.insert(self.customWeapons, customWeapon)
         --set the id

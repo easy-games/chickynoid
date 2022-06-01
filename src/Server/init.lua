@@ -63,7 +63,7 @@ ChickynoidServer.OnBeforePlayerSpawn = FastSignal.new()
 ChickynoidServer.OnPlayerConnected = FastSignal.new()
 
 ChickynoidServer.flags = {}
-ChickynoidServer.flags.DEBUG_ANTILAG = true
+ChickynoidServer.flags.DEBUG_ANTILAG = false
 
 --[=[
 	Creates connections so that Chickynoid can run on the server.

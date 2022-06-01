@@ -704,8 +704,8 @@ function module:MakeWorld(folder, playerSize)
 				self:ProcessCollisionOnInstance(instance, playerSize)
 			end
 			done+=1
-			if (done > 500) then
-				task.wait()
+			if (done > 250) then
+				wait()
 				done = 0
                 local progress = counter/total;
                 module.loadProgress = progress;

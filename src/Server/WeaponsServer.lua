@@ -161,23 +161,23 @@ function module:OnPlayerConnected(server, playerRecord)
     -- Happens after the command for this frame
 	-- selene: allow(shadowing)
     function playerRecord:WeaponThink(deltaTime)
-        for _, weaponRecord in pairs(self.weapons) do
-            weaponRecord:ServerThink(deltaTime)
+        if self.currentWeapon ~= nil then
+            self.currentWeapon:ServerThink(deltaTime)
 
             --Check if we need updates
-            local deltaTable, numChanges = DeltaTable:MakeDeltaTable(weaponRecord.previousState, weaponRecord.state)
+            local deltaTable, numChanges = DeltaTable:MakeDeltaTable(self.currentWeapon.previousState, self.currentWeapon.state)
 
             if numChanges > 0 then
                 --Send the client the change to the state
                 local event = {}
                 event.t = Enums.EventType.WeaponDataChanged
                 event.s = Enums.WeaponData.WeaponState
-                event.serial = weaponRecord.serial
+                event.serial = self.currentWeapon.serial
                 event.deltaTable = deltaTable
                 playerRecord:SendEventToClient(event)
 
                 --Record what they saw
-                weaponRecord.previousState = DeltaTable:DeepCopy(weaponRecord.state)
+                self.currentWeapon.previousState = DeltaTable:DeepCopy(self.currentWeapon.state)
             end
         end
     end

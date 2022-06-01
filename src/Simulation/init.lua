@@ -564,13 +564,27 @@ function Simulation:MovetypeWalking(cmd)
     end
 
     --Do angles
-    if wishDir ~= nil then
-        self.state.targetAngle = MathUtils:PlayerVecToAngle(wishDir)
-        self.state.angle = MathUtils:LerpAngle(
-            self.state.angle,
-            self.state.targetAngle,
-            self.constants.turnSpeedFrac * cmd.deltaTime
-        )
+    if (self.constants.aimlock == 1) then
+        
+        if (cmd.fa) then
+            local vec = cmd.fa - self.state.pos
+
+			self.state.targetAngle  = MathUtils:PlayerVecToAngle(vec)
+			self.state.angle = MathUtils:LerpAngle(
+				self.state.angle,
+				self.state.targetAngle,
+				self.constants.turnSpeedFrac * cmd.deltaTime
+			)
+        end
+    else    
+        if wishDir ~= nil then
+            self.state.targetAngle = MathUtils:PlayerVecToAngle(wishDir)
+            self.state.angle = MathUtils:LerpAngle(
+                self.state.angle,
+                self.state.targetAngle,
+                self.constants.turnSpeedFrac * cmd.deltaTime
+            )
+        end
     end
 end
 

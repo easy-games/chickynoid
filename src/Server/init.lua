@@ -64,7 +64,7 @@ ChickynoidServer.OnPlayerConnected = FastSignal.new()
 
 ChickynoidServer.flags = {}
 ChickynoidServer.flags.DEBUG_ANTILAG = false
-
+ 
 --[=[
 	Creates connections so that Chickynoid can run on the server.
 ]=]
@@ -306,7 +306,7 @@ function ChickynoidServer:SendWorldstate(playerRecord)
         info.name = data.name
         info.userId = data.userId
 
-        event.worldState.players[data.slot] = info
+        event.worldState.players[tostring(data.slot)] = info
     end
 
     event.worldState.serverHz = self.config.serverHz
@@ -330,7 +330,7 @@ function ChickynoidServer:PlayerDisconnected(userId)
             record.previousCharacterData[userId] = nil
         end
 
-        self.slots[playerRecord.slot] = nil
+        self.slots[tostring(playerRecord.slot)] = nil
     end
 
     --Tell everyone

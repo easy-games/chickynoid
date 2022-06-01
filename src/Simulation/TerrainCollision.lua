@@ -12,7 +12,8 @@ module.boxCorners = {}
 
 module.hullCache = {}
 
-local terrainQuantization = 6
+local cutoff = 0.20
+local terrainQuantization = 8
 local showHulls = false
 local showCells = false
 
@@ -60,8 +61,6 @@ local function Sample(occs, x, y, z)
 	avg = math.floor(avg * terrainQuantization) / terrainQuantization
     return avg
 end
-
-local cutoff = 0.25
 
 
 local function EmitSolidPoint(list, pos, val)

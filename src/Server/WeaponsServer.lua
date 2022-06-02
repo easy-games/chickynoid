@@ -228,7 +228,7 @@ function module:QueryBullet(playerRecord, server, origin, dir, serverTime, debug
     local otherPlayerRecord = nil
     local hitInstance = nil
     if rayCastResult == nil then
-        pos = origin * 1000
+        pos = origin + dir * 1000
     else
         pos = rayCastResult.Position
         normal = rayCastResult.Normal

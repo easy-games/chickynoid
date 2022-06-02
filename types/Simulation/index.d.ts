@@ -7,6 +7,7 @@ interface Simulation {
 	state: SimulationState;
 	constants: SimulationConstants;
 	userId: number;
+	lastGround: unknown | undefined;
 
 	RegisterMoveState(
 		name: string,

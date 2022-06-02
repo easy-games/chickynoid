@@ -17,11 +17,33 @@ local requiredMethods = {
     "ServerThink",
     "ClientProcessCommand",
     "ServerProcessCommand",
-    "ServerSetup",
     "ClientSetup",
+    "ServerSetup",
+    "ClientEquip",
     "ServerEquip",
+    "ClientDequip",
     "ServerDequip",
+    "ClientRemoved",
+    "ServerRemoved",
 }
+
+--Server Lifecycle:
+--  ServerSetup
+--    ServerEquip
+--      ServerProcessCommand (x many?)
+--      ServerThink
+--    ServerDequip 
+--  ServerRemoved
+
+--Client Lifecycle:
+--  ClientSetup
+--    ClientEquip
+--      ClientProcessCommand (x many?)
+--      ClientThink
+--    ClientDequip
+--  ClientRemoved
+
+--Note, ProcesCommand, Think and Dequip all only get called if this is item is equipped
 
 function module:Setup(server)
 
@@ -30,12 +52,18 @@ function module:Setup(server)
     for name, module in pairs(weapons) do
        
         local customWeapon = module
-
+		
+		local doError = false
         for _, values in pairs(requiredMethods) do
             if customWeapon[values] == nil then
-                error("WeaponModule " .. name.Name .. " missing " .. values .. " implementation.")
+				warn("WeaponModule " .. name .. " missing " .. values .. " implementation.")
+				doError = true
             end
-        end
+		end
+		
+		if (doError) then
+			error("Aborting module")
+		end
         table.insert(self.customWeapons, customWeapon)
         --set the id
         customWeapon.weaponId = #self.customWeapons
@@ -91,15 +119,22 @@ function module:OnPlayerConnected(server, playerRecord)
 
 	-- selene: allow(shadowing)
     function playerRecord:RemoveWeaponRecord(weaponRecord)
+
+        if (self.currentWeapon == weaponRecord) then
+            self:DequipWeapon()
+        end
+        
+        weaponRecord:ServerRemoved()
+
         local event = {}
         event.t = Enums.EventType.WeaponDataChanged
         event.s = Enums.WeaponData.WeaponRemove
         event.serial = weaponRecord.serial
         self:SendEventToClient(event)
-
+        
         self.weapons[weaponRecord.serial] = nil
     end
-
+ 
 	-- selene: allow(shadowing)
     function playerRecord:ClearWeapons()
         for _, weaponRecord in pairs(self.weapons) do

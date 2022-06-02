@@ -102,15 +102,9 @@ function module:HandleEvent(client, event)
                     return
                 end
                 print("Removed ", weaponRecord.name)
-
-                --Dequip
-                if self.currentWeapon == weaponRecord then
-                    self.currentWeapon:ClientDequip()
-                    self.currentWeapon = nil
-                end
-                if weaponRecord.ClientRemoved then
-                    weaponRecord:ClientRemoved()
-                end
+              
+                weaponRecord:ClientRemoved()
+              
                 self.weapons[weaponRecord.serial] = nil
             end
         end

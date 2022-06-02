@@ -157,4 +157,9 @@ function MachineGunModule:ServerEquip() end
 
 function MachineGunModule:ServerDequip() end
 
+function MachineGunModule:ClientRemoved() end
+
+function MachineGunModule:ServerRemoved() end
+
+
 return MachineGunModule

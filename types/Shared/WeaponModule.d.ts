@@ -27,6 +27,8 @@ export interface WeaponModule<State = {}, Command = {}> {
 
 	ClientDequip(): void;
 
+	ClientRemoved(): void;
+
 	ClientOnBulletImpact(client: unknown, event: unknown): void;
 
 	ServerThink(deltaTime: number): void;
@@ -38,6 +40,8 @@ export interface WeaponModule<State = {}, Command = {}> {
 	ServerEquip(): void;
 
 	ServerDequip(): void;
+
+	ServerRemoved(): void;
 
 	SetPredictedState(): void;
 }

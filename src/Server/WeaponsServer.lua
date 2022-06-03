@@ -218,10 +218,10 @@ function module:OnPlayerConnected(server, playerRecord)
     end
 end
 
-function module:QueryBullet(playerRecord, server, origin, dir, serverTime, debugText)
+function module:QueryBullet(playerRecord, server, origin, dir, serverTime, debugText, raycastParams)
     Antilag:PushPlayerPositionsToTime(playerRecord, serverTime, debugText)
 
-    local rayCastResult = game.Workspace:Raycast(origin, dir * 1000)
+    local rayCastResult = game.Workspace:Raycast(origin, dir * 1000, raycastParams)
 
     local pos = nil
     local normal = nil

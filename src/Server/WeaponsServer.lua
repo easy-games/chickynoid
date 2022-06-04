@@ -246,7 +246,7 @@ function module:QueryBullet(playerRecord, server, origin, dir, serverTime, debug
     return pos, normal, otherPlayerRecord, hitInstance
 end
 
-function module:QueryShotgun(playerRecord, server, origins, directions, serverTime, debugText)
+function module:QueryShotgun(playerRecord, server, origins, directions, serverTime, debugText, raycastParams)
 
     Antilag:PushPlayerPositionsToTime(playerRecord, serverTime, debugText)
     
@@ -259,7 +259,7 @@ function module:QueryShotgun(playerRecord, server, origins, directions, serverTi
             continue
         end
     
-        local rayCastResult = game.Workspace:Raycast(origin, dir * 1000)
+        local rayCastResult = game.Workspace:Raycast(origin, dir * 1000, raycastParams)
 
         if rayCastResult == nil then
             local record = {}

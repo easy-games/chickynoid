@@ -13,6 +13,21 @@ interface WeaponsServer {
 	): LuaTuple<
 		[pos: Vector3, normal: Vector3, otherPlayerRecord: PlayerRecord | undefined, hitInstance: BasePart | Terrain]
 	>;
+
+	QueryShotgun(
+		playerRecord: PlayerRecord,
+		server: typeof ChickynoidServer,
+		origins: Vector3[],
+		directions: Vector3[],
+		serverTime: number,
+		debugText: string,
+		raycastParams: RaycastParams,
+	): Array<{
+		pos: Vector3;
+		normal: Vector3;
+		hitInstance: BasePart | Terrain;
+		otherPlayerRecord: PlayerRecord | undefined;
+	}>;
 }
 
 interface WeaponsServerConstructor {

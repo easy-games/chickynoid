@@ -246,6 +246,45 @@ function module:QueryBullet(playerRecord, server, origin, dir, serverTime, debug
     return pos, normal, otherPlayerRecord, hitInstance
 end
 
+function module:QueryShotgun(playerRecord, server, origins, directions, serverTime, debugText)
+
+    Antilag:PushPlayerPositionsToTime(playerRecord, serverTime, debugText)
+    
+    local results = {}
+    
+    for counter = 1, #origins do 
+        local origin = origins[counter]
+        local dir = directions[counter]
+        if (dir == nil) then 
+            continue
+        end
+    
+        local rayCastResult = game.Workspace:Raycast(origin, dir * 1000)
+
+        if rayCastResult == nil then
+            local record = {}
+            record.pos =  origin + dir * 1000
+            table.insert(results, record)
+        else
+            local record = {}
+            record.pos = rayCastResult.Position
+            record.normal = rayCastResult.Normal
+            record.hitInstance = rayCastResult.Instance
+
+            --See if its a player
+            local userId = rayCastResult.Instance:GetAttribute("player")
+            if userId then
+                record.otherPlayerRecord = server:GetPlayerByUserId(userId)
+            end
+            table.insert(results, record)
+        end
+    end
+
+    Antilag:Pop() --Don't forget!
+
+    return results
+end
+
 function module:FireRocket(playerRecord, server, _origin, dir)
     local rocket = {}
 

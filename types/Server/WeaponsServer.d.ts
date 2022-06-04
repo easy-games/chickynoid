@@ -27,6 +27,8 @@ interface WeaponsServer {
 		normal: Vector3;
 		hitInstance: BasePart | Terrain;
 		otherPlayerRecord: PlayerRecord | undefined;
+		origin: Vector3;
+		dir: Vector3;
 	}>;
 }
 

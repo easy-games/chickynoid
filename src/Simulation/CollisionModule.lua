@@ -173,6 +173,10 @@ function module:WritePartToHashMap(instance, hullRecord)
 end
 
 function module:RemovePartFromHashMap(instance)
+    if instance:GetAttribute("ChickynoidIgnoreRemoval") then
+        return
+    end
+
     local minx, miny, minz, maxx, maxy, maxz = self:FindAABB(instance)
 
     for x = math.floor(minx / self.gridSize), math.ceil(maxx / self.gridSize) - 1 do

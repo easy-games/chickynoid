@@ -264,12 +264,16 @@ function module:QueryShotgun(playerRecord, server, origins, directions, serverTi
         if rayCastResult == nil then
             local record = {}
             record.pos =  origin + dir * 1000
+            record.origin = origin
+            record.dir = dir
             table.insert(results, record)
         else
             local record = {}
             record.pos = rayCastResult.Position
             record.normal = rayCastResult.Normal
             record.hitInstance = rayCastResult.Instance
+            record.origin = origin
+            record.dir = dir
 
             --See if its a player
             local userId = rayCastResult.Instance:GetAttribute("player")

@@ -13,7 +13,7 @@ module.dynamicRecords = {}
 
 local SKIN_THICKNESS = 0.05 --closest you can get to a wall
 module.planeNum = 0
-module.gridSize = 6
+module.gridSize = 8
 module.grid = {}
 module.processQueue = {}
 

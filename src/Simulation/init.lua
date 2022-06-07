@@ -277,7 +277,7 @@ function Simulation:ProjectVelocity(startPos, startVel, deltaTime)
 
         if moveVel:Dot(startVel) < 0 then
             --we projected back in the opposite direction from where we started. No.
-            moveVel = Vector3.new(0, 0, 0)
+			moveVel = Vector3.new(0, 0, 0)
             break
         end
 
@@ -322,6 +322,42 @@ function Simulation:ProjectVelocity(startPos, startVel, deltaTime)
     end
 
     return movePos, moveVel, hitSomething
+end
+
+function Simulation:CheckGroundSlopes(startPos)
+	
+	local movePos = startPos
+	local moveDir = Vector3.new(0,-1,0)
+	
+	--We only operate on a scaled down version of velocity
+	local result = CollisionModule:Sweep(movePos, movePos + moveDir)
+
+	--Update our position
+	if result.fraction > 0 then
+		movePos = result.endPos
+	end
+	--See if we swept the whole way?
+	if result.fraction == 1 then
+		return false
+	end
+	
+	if result.allSolid == true then
+		return true --stuck
+	end
+	
+	moveDir = MathUtils:ClipVelocity(moveDir, result.normal, 1.0)
+	if (moveDir.Magnitude < 0.001) then
+		return true --stuck
+	end
+	
+	--Try and move it
+	local result = CollisionModule:Sweep(movePos, movePos + moveDir)
+	if (result.fraction == 0) then
+		return true --stuck
+	end
+	
+	--Not stuck
+	return false	
 end
 
 
@@ -391,8 +427,24 @@ function Simulation:MovetypeWalking(cmd)
     onGround = self:DoGroundCheck(self.state.pos)
 
     --If the player is on too steep a slope, its not ground
-    if onGround ~= nil and onGround.normal.Y < self.constants.maxGroundSlope then
-        onGround = nil
+	if (onGround ~= nil and onGround.normal.Y < self.constants.maxGroundSlope) then
+		
+		--See if we can move downwards?
+		if (self.state.vel.y < 0.1) then
+			local stuck = self:CheckGroundSlopes(self.state.pos)
+			
+			if (stuck == false) then
+				--we moved, that means the player is on a slope and can free fall
+				onGround = nil
+			else
+				--we didn't move, it means the ground we're on is sloped, but we can't fall any further
+				--treat it like flat ground
+				onGround.normal = Vector3.new(0,1,0)
+			end
+		else
+			onGround = nil
+		end
+			
     end
  
     --Mark if we were onground at the start of the frame
@@ -587,6 +639,5 @@ function Simulation:MovetypeWalking(cmd)
         end
     end
 end
-
 
 return Simulation

@@ -40,8 +40,8 @@ function ServerChickynoid.new(playerRecord)
 
         errorState = Enums.NetworkProblemState.None,
 
-        speedCheatThreshhold = 150 * 0.001, --milliseconds
-        antiwarpThreshhold = 150 * 0.001, --milliseconds  (was 60)
+        speedCheatThreshhold = 300 * 0.001, --milliseconds
+        antiwarpThreshhold = 300 * 0.001, --milliseconds  (was 60)
 
         bufferedCommandTime = 20 * 0.001, --ms
         serverFrames = 0,

@@ -85,7 +85,8 @@ ChickynoidClient.interpolationBuffer = 20
 
 --Signals
 ChickynoidClient.OnNetworkEvent = FastSignal.new()
-ChickynoidClient.OnCharacterModelCreated = FastSignal.new()
+ChickynoidClient.OnCharacterModelAdded = FastSignal.new()
+ChickynoidClient.OnCharacterModelRemoved = FastSignal.new()
 
 ChickynoidClient.flags = {}
 
@@ -183,7 +184,14 @@ function ChickynoidClient:Setup()
         self.playerSize = event.playerSize
         self.collisionRoot = event.data
         CollisionModule:MakeWorld(self.collisionRoot, self.playerSize)
-    end
+	end
+	
+	eventHandler[EventType.PlayerDisconnected] = function(event)
+		local characterRecord = self.characters[event.userId]
+        if (characterRecord and characterRecord.characterModel) then
+            characterRecord.characterModel:DestroyModel()
+        end
+	end
 
     RemoteEvent.OnClientEvent:Connect(function(event)
         self.timeOfLastData = tick()
@@ -444,9 +452,9 @@ function ChickynoidClient:ProcessFrame(deltaTime)
         if self.characterModel == nil and self.localChickynoid ~= nil then
             --Spawn the character in
             print("Creating local model for UserId", game.Players.LocalPlayer.UserId)
-            self.characterModel = CharacterModel.new()
-			self.characterModel:CreateModel(game.Players.LocalPlayer.UserId)
-            self.OnCharacterModelCreated:Fire(self.characterModel)
+			self.characterModel = CharacterModel.new(game.Players.LocalPlayer.UserId)
+			self.characterModel:AddModel()
+            self.OnCharacterModelAdded:Fire(self.characterModel)
 			
 			local record = {}
 			record.userId = game.Players.LocalPlayer.UserId
@@ -552,9 +560,9 @@ function ChickynoidClient:ProcessFrame(deltaTime)
             if character == nil then
                 local record = {}
                 record.userId = userId
-                record.characterModel = CharacterModel.new()
-                record.characterModel:CreateModel(userId)
-                self.OnCharacterModelCreated:Fire(record.characterModel);
+				record.characterModel = CharacterModel.new(userId)
+                record.characterModel:AddModel()
+                self.OnCharacterModelAdded:Fire(record.characterModel)
 
                 character = record
                 self.characters[userId] = record
@@ -576,7 +584,8 @@ function ChickynoidClient:ProcessFrame(deltaTime)
 			end
 			
             if value.frame ~= self.localFrame then
-                value.characterModel:DestroyModel()
+                self.OnCharacterModelRemoved:Fire(value.characterModel)
+                value.characterModel:RemoveModel()
                 value.characterModel = nil
 
                 self.characters[key] = nil

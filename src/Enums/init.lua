@@ -18,6 +18,8 @@ Enums.EventType = {
     RocketDie = 11,
 
     DebugBox = 12,
+
+    PlayerDisconnected = 13,
 }
 
 Enums.NetworkProblemState = {

@@ -335,7 +335,12 @@ function ChickynoidServer:PlayerDisconnected(userId)
 
     --Tell everyone
     for _, data in pairs(self.playerRecords) do
-        self:SendWorldstate(data)
+		local event = {}
+		event.t = Enums.EventType.PlayerDisconnected
+		event.userId = userId
+		data:SendEventToClient(event)
+		
+		self:SendWorldstate(data)
     end
 end
 

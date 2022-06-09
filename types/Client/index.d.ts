@@ -25,8 +25,8 @@ export namespace ChickynoidClient {
 	export let weaponsClient: typeof WeaponsClient;
 
 	export let OnNetworkEvent: Signal<(event: unknown) => void>;
-	export let OnCharacterModelAdded: Signal<(characterModel: CharacterModel) => void>;
-	export let OnCharacterModelRemoved: Signal<(characterModel: CharacterModel) => void>;
+	export let OnCharacterModelCreated: Signal<(characterModel: CharacterModel) => void>;
+	export let OnCharacterModelDestroyed: Signal<(characterModel: CharacterModel) => void>;
 
 	export const flags: {
 		HANDLE_CAMERA: boolean;

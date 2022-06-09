@@ -741,9 +741,10 @@ function module:MakeWorld(folder, playerSize)
 												
 				local mag = (pos - instance.Position).magnitude
 				if (mag < 100) then
+                    print("instant!")
 					--Do it instantly
-					self:ProcessCollisionOnInstance(instance, playerSize)
-					return
+					-- self:ProcessCollisionOnInstance(instance, playerSize)
+					-- return
 				end
 			end
 			--else add it to a queue
@@ -779,9 +780,15 @@ function module:MakeWorld(folder, playerSize)
 		local startOfFrame = tick()
 		
 		for key,value in pairs(self.processQueue) do
+            local startTime = os.clock()
 			
 			self:ProcessCollisionOnInstance(value, playerSize)
 			self.processQueue[value] = nil
+
+            local timeSpent = os.clock() - startTime
+			if timeSpent > 0.01 then
+				print("TOO SLOW: " .. value:GetFullName() .. " " .. (math.round(timeSpent * 1000) / 1000))
+			end
 		
             --10ms
             if  (tick() - startOfFrame > 0.01) then

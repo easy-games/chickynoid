@@ -880,7 +880,7 @@ function module:MakeWorld(folder, playerSize)
 
             local timeSpent = os.clock() - startTime
 			if timeSpent > 0.01 then
-				print("TOO SLOW: " .. value:GetFullName() .. " " .. (math.round(timeSpent * 1000) / 1000))
+				print("TOO SLOW: " .. value:GetFullName() .. " " .. (math.round(timeSpent * 1000) / 1000) .. "s")
 			end
 		
             --10ms

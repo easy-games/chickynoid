@@ -783,7 +783,8 @@ function module:MakeWorld(folder, playerSize)
 			self:ProcessCollisionOnInstance(value, playerSize)
 			self.processQueue[value] = nil
 		
-            if  (tick() - startOfFrame > 0.1) then
+            --10ms
+            if  (tick() - startOfFrame > 0.01) then
                 break
             end
 		end

@@ -297,6 +297,10 @@ function module:ProcessCollisionOnInstance(instance, playerSize)
             return
         end
 
+        if module.hullRecords[instance] ~= nil then
+            return
+        end
+
         if CollectionService:HasTag(instance, "Dynamic") then
             local record = {}
             record.instance = instance

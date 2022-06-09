@@ -518,8 +518,10 @@ function ChickynoidClient:ProcessFrame(deltaTime)
             -- Bind the camera
             if (self.flags.HANDLE_CAMERA ~= false) then
                 local camera = game.Workspace.CurrentCamera
-                camera.CameraSubject = self.characterModel.model
-                camera.CameraType = Enum.CameraType.Custom
+                if camera.CameraSubject ~= self.characterModel.model then
+                    camera.CameraSubject = self.characterModel.model
+                    camera.CameraType = Enum.CameraType.Custom
+                end
             end
 
             --Bind the local character, which activates all the thumbsticks etc

@@ -1,7 +1,7 @@
 import Signal from "@rbxts/signal";
 
 interface CharacterModel {
-	model: Model;
+	model?: Model;
 	modelReady: boolean;
 	modelOffset: Vector3;
 	userId: number;

@@ -7,6 +7,9 @@ interface CharacterModel {
 	userId: number;
 	animator: Animator;
 	onModelCreated: Signal<(model: Model) => void>;
+	onModelAdded: Signal<(model: Model) => void>;
+	onModelRemoved: Signal<(model: Model) => void>;
+	onModelDestroyed: Signal<() => void>;
 }
 
 interface CharacterModelConstructor {

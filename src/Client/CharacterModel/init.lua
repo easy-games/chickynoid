@@ -28,7 +28,9 @@ end
 function CharacterModel.new(userId)
     local self = setmetatable({
 		model = nil,
-        modelData = nil,
+		tracks = {},
+		animator = nil,
+		modelData = nil,
         playingTrack = nil,
         playingTrackNum = nil,
         animCounter = -1,
@@ -39,26 +41,25 @@ function CharacterModel.new(userId)
 		
         mispredict = Vector3.new(0, 0, 0),
 		onModelCreated = FastSignal.new(),
-		onModelAdded = FastSignal.new(),
-		onModelRemoved = FastSignal.new(),
 		onModelDestroyed = FastSignal.new(),
+		
     }, CharacterModel)
 
     return self
 end
 
-function CharacterModel:AddModel()
+function CharacterModel:CreateModel()
     		
-	local created = false
-
-    print("AddModel ", self.userId)
+	self:DestroyModel()
+	
+    --print("CreateModel ", self.userId)
     coroutine.wrap(function()
 				
 		if (self.modelPool[self.userId] == nil) then
-			self.model = self.template:Clone()
-			self.model.Parent = game.Lighting -- must happen to load animations		
-		 			
-			created = true
+			
+			local srcModel = self.template:Clone() 
+		 	srcModel.Parent = game.Lighting --needs to happen so loadAppearance works
+ 
 			local userId = ""
 			local result, err = pcall(function()
 				
@@ -70,9 +71,9 @@ function CharacterModel:AddModel()
 				end
 				
                 local description = game.Players:GetHumanoidDescriptionFromUserId(userId)
-				self.model.Humanoid:ApplyDescription(description)
+				srcModel.Humanoid:ApplyDescription(description)
 
-				print("Loaded character appearance ", userId)
+				--print("Loaded character appearance ", userId)
 				
 			end)
 			if (result == false) then
@@ -80,71 +81,52 @@ function CharacterModel:AddModel()
 			end
  
 			--setup the hip
-			local hip = (self.model.HumanoidRootPart.Size.y
-				* 0.5) + self.model.Humanoid.hipHeight
-			self.modelOffset = Vector3.new(0, hip - 2.5, 0)
-
-			--Load on the animations			
-			local animator = self.model:FindFirstChild("Animator", true)
-			local trackData = {}
-			
-			for _, value in pairs(animator:GetChildren()) do
-				if value:IsA("Animation") then
-					local track = animator:LoadAnimation(value)
-					trackData[value.Name] = track
-				end
-			end
+			local hip = (srcModel.HumanoidRootPart.Size.y
+				* 0.5) +srcModel.Humanoid.hipHeight
 			
 			self.modelData =  { 
-				model =	self.model, 
-				tracks = trackData, 
-				animator = self.animator 
-			} 
+				model =	srcModel, 
+				modelOffset =  Vector3.new(0, hip - 2.5, 0)
+			}
 			self.modelPool[self.userId] = self.modelData
-			
-		else
-			self.modelData = self.modelPool[self.userId]
-			self.model = self.modelData.model
 		end
 
+		self.modelData = self.modelPool[self.userId]
+		self.model = self.modelData.model:Clone()
+		self.model.Parent = game.Lighting -- must happen to load animations		
+
+		--Load on the animations			
+		self.animator = self.model:FindFirstChild("Animator", true)
+		self.tracks = {}
+
+		for _, value in pairs(self.animator:GetChildren()) do
+			if value:IsA("Animation") then
+				local track = self.animator:LoadAnimation(value)
+				self.tracks[value.Name] = track
+			end
+		end
+	
         self.modelReady = true
         self:PlayAnimation(self.startingAnimation, true)
 		self.model.Parent = game.Workspace
-		
-		if (created == true) then
-			self.onModelCreated:Fire(self.model)
-		end
-		self.onModelAdded:Fire(self.model)
+		self.onModelCreated:Fire(self.model)
  
     end)()
 end
 
-function CharacterModel:RemoveModel()
-		
-	self.onModelRemoved:Fire(self.model)
-	if (self.modelData) then
-		self.modelData.model.Parent = game.Lighting
-		
-		local animator = self.modelData.animator
-		if (animator) then
-			
-			local tracks = animator:GetPlayingAnimationTracks()
-			for key,value in pairs(tracks) do
-				value:Stop()
-			end
-		end
-	end
-	self.model = nil
-	self.modelData = nil
-	self.playingTrack = nil
-	
-    self.modelReady = false
-end
 
 function CharacterModel:DestroyModel()
-	
-	self:RemoveModel()
+
+	if (self.model == nil) then
+		return
+	end
 	self.onModelDestroyed:Fire()
+
+	self.playingTrack = nil
+	self.modelData = nil
+	self.animator = nil
+	self.tracks = {}
+	self.model:Destroy()
 	
 	if self.modelData and self.modelData.model then
 		self.modelData.model:Destroy()
@@ -153,6 +135,14 @@ function CharacterModel:DestroyModel()
 	self.modelData = nil
 	self.modelPool[self.userId] = nil
 	self.modelReady = false
+end
+
+function CharacterModel:PlayerDisconnected(userId)
+	
+	local modelData = self.modelPool[self.userId]
+	if (modelData and modelData.model) then
+		modelData.model:Destroy()
+	end
 end
 
 
@@ -172,7 +162,7 @@ function CharacterModel:PlayAnimation(enum, force)
 	else
 		if (self.modelData) then
 			
-			local tracks = self.modelData.tracks
+			local tracks = self.tracks
 			local track = tracks[name]
 	        if track then
 	            if self.playingTrack ~= track or force == true then
@@ -215,14 +205,16 @@ function CharacterModel:Think(_deltaTime, dataRecord)
         self.playingTrack:AdjustSpeed(playbackSpeed)
     end
 
-    if self.model.Humanoid.Health <= 0 then
+	local humanoid = self.model:FindFirstChild("Humanoid")
+	
+    if (humanoid and humanoid.Health <= 0) then
         --its dead! Really this should never happen
 		self:DestroyModel()
-		self:AddModel(self.userId)
+		self:CreateModel(self.userId)
         return
     end
 
-    local newCF = CFrame.new(dataRecord.pos + self.modelOffset + self.mispredict + Vector3.new(0, dataRecord.stepUp, 0))
+    local newCF = CFrame.new(dataRecord.pos + self.modelData.modelOffset + self.mispredict + Vector3.new(0, dataRecord.stepUp, 0))
         * CFrame.fromEulerAnglesXYZ(0, dataRecord.angle, 0)
     self.model:PivotTo(newCF)
 end

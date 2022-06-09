@@ -21,6 +21,7 @@ local CollisionModule = require(path.Simulation.CollisionModule)
 local Antilag = require(path.Server.Antilag)
 local FastSignal = require(path.Vendor.FastSignal)
 local ServerMods = require(script.ServerMods)
+
 local RemoteEvent = Instance.new("RemoteEvent")
 RemoteEvent.Name = "ChickynoidReplication"
 RemoteEvent.Parent = ReplicatedStorage
@@ -275,6 +276,7 @@ function ChickynoidServer:AddConnection(userId, player)
     end
     
     self.OnPlayerConnected:Fire(self, playerRecord)
+    
     --Connect!
     WeaponsModule:OnPlayerConnected(self, playerRecord)
 
@@ -441,7 +443,15 @@ function ChickynoidServer:Think(deltaTime)
 			mod:Step(self, deltaTime)
 		end
     end
+	
+	local visiblityCallbacks = {}
+	for key,mod in pairs(modules) do
+		if (mod.CanPlayerSee ~= nil) then
+			table.insert(visiblityCallbacks, mod)
+		end
+	end
 
+	
     -- 2nd stage: Replicate character state to the player
     self.serverStepTimer += deltaTime
     self.serverTotalFrames += 1
@@ -479,19 +489,35 @@ function ChickynoidServer:Think(deltaTime)
             local snapshot = {}
             snapshot.t = EventType.Snapshot
 
+
             local count = 0
+            local currentlyVisible = {}
+
             for otherUserId, otherPlayerRecord in pairs(self.playerRecords) do
                 if otherUserId ~= userId and otherPlayerRecord.chickynoid ~= nil then
-                    count += 1
+
+                    local canSee = true
+                    for key,callback in pairs(visiblityCallbacks) do
+                        canSee = callback:CanPlayerSee(playerRecord, otherPlayerRecord)
+                        if (canSee == false) then
+                            break
+                        end
+                    end
+                    if (canSee) then
+                        count += 1
+                        currentlyVisible[otherUserId] = true
+                    end
                 end
             end
 
             local bitBuffer = BitBuffer()
             bitBuffer.writeByte(count)
 
+	
             for otherUserId, otherPlayerRecord in pairs(self.playerRecords) do
                 if otherUserId ~= userId then
-                    if otherPlayerRecord.chickynoid == nil then
+                    
+                    if (currentlyVisible[otherUserId] ~= true) then
                         continue
                     end
 

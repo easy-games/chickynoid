@@ -85,8 +85,8 @@ ChickynoidClient.interpolationBuffer = 20
 
 --Signals
 ChickynoidClient.OnNetworkEvent = FastSignal.new()
-ChickynoidClient.OnCharacterModelAdded = FastSignal.new()
-ChickynoidClient.OnCharacterModelRemoved = FastSignal.new()
+ChickynoidClient.OnCharacterModelCreated = FastSignal.new()
+ChickynoidClient.OnCharacterModelDestroyed = FastSignal.new()
 
 ChickynoidClient.flags = {}
 
@@ -191,6 +191,8 @@ function ChickynoidClient:Setup()
         if (characterRecord and characterRecord.characterModel) then
             characterRecord.characterModel:DestroyModel()
         end
+        --Final Cleanup
+        CharacterModel:PlayerDisconnected(event.userId)
 	end
 
     RemoteEvent.OnClientEvent:Connect(function(event)
@@ -453,8 +455,8 @@ function ChickynoidClient:ProcessFrame(deltaTime)
             --Spawn the character in
             print("Creating local model for UserId", game.Players.LocalPlayer.UserId)
 			self.characterModel = CharacterModel.new(game.Players.LocalPlayer.UserId)
-			self.characterModel:AddModel()
-            self.OnCharacterModelAdded:Fire(self.characterModel)
+			self.characterModel:CreateModel()
+            self.OnCharacterModelCreated:Fire(self.characterModel)
 			
 			local record = {}
 			record.userId = game.Players.LocalPlayer.UserId
@@ -561,8 +563,8 @@ function ChickynoidClient:ProcessFrame(deltaTime)
                 local record = {}
                 record.userId = userId
 				record.characterModel = CharacterModel.new(userId)
-                record.characterModel:AddModel()
-                self.OnCharacterModelAdded:Fire(record.characterModel)
+                record.characterModel:CreateModel()
+                self.OnCharacterModelCreated:Fire(record.characterModel)
 
                 character = record
                 self.characters[userId] = record
@@ -584,8 +586,8 @@ function ChickynoidClient:ProcessFrame(deltaTime)
 			end
 			
             if value.frame ~= self.localFrame then
-                self.OnCharacterModelRemoved:Fire(value.characterModel)
-                value.characterModel:RemoveModel()
+                self.OnCharacterModelDestroyed:Fire(value.characterModel)
+                value.characterModel:DestroyModel()
                 value.characterModel = nil
 
                 self.characters[key] = nil

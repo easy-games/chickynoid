@@ -14,8 +14,14 @@ module.dynamicRecords = {}
 local SKIN_THICKNESS = 0.05 --closest you can get to a wall
 module.planeNum = 0
 module.gridSize = 4
+module.fatGridSize = 16
+module.fatPartSize = 64
+module.profile = false
+
 module.grid = {}
+module.fatGrid = {}
 module.processQueue = {}
+
 
 module.loadProgress = 0
 module.OnLoadProgressChanged = FastSignal.new()
@@ -48,11 +54,43 @@ function module:FetchCell(x, y, z)
     return gz[y]
 end
 
+function module:FetchFatCell(x, y, z)
+    --store in x,z,y order
+    local gx = self.fatGrid[x]
+    if gx == nil then
+        return nil
+    end
+    local gz = gx[z]
+    if gz == nil then
+        return nil
+    end
+    return gz[y]
+end
+
 function module:CreateAndFetchCell(x, y, z)
     local gx = self.grid[x]
     if gx == nil then
         gx = {}
         self.grid[x] = gx
+    end
+    local gz = gx[z]
+    if gz == nil then
+        gz = {}
+        gx[z] = gz
+    end
+    local gy = gz[y]
+    if gy == nil then
+        gy = {}
+        gz[y] = gy
+    end
+    return gy
+end
+
+function module:CreateAndFetchFatCell(x, y, z)
+    local gx = self.fatGrid[x]
+    if gx == nil then
+        gx = {}
+        self.fatGrid[x] = gx
     end
     local gz = gx[z]
     if gz == nil then
@@ -133,32 +171,45 @@ function module:FindPointsAABB(points)
     return minx, miny, minz, maxx, maxy, maxz
 end
 
-function module:WritePointsToHashMap(hullRecord, points)
-    local minx, miny, minz, maxx, maxy, maxz = self:FindPointsAABB(points)
-
-    for x = math.floor(minx / self.gridSize), math.ceil(maxx / self.gridSize) - 1 do
-        for z = math.floor(minz / self.gridSize), math.ceil(maxz / self.gridSize) - 1 do
-            for y = math.floor(miny / self.gridSize), math.ceil(maxy / self.gridSize) - 1 do
-                local cell = self:CreateAndFetchCell(x, y, z)
-                cell[hullRecord] = hullRecord
-            end
-        end
-    end
-end
-
+ 
 function module:WritePartToHashMap(instance, hullRecord)
     local minx, miny, minz, maxx, maxy, maxz = self:FindAABB(instance)
 
-    for x = math.floor(minx / self.gridSize), math.ceil(maxx / self.gridSize) - 1 do
-        for z = math.floor(minz / self.gridSize), math.ceil(maxz / self.gridSize) - 1 do
-            for y = math.floor(miny / self.gridSize), math.ceil(maxy / self.gridSize) - 1 do
-                local cell = self:CreateAndFetchCell(x, y, z)
-                cell[instance] = hullRecord
+	if (maxx-minx > self.fatPartSize or maxy-miny > self.fatPartSize or maxz-minz > self.fatPartSize) then
+        
+        --Part is fat
+        for x = math.floor(minx / self.fatGridSize), math.ceil(maxx / self.fatGridSize) - 1 do
+            for z = math.floor(minz / self.fatGridSize), math.ceil(maxz / self.fatGridSize) - 1 do
+                for y = math.floor(miny / self.fatGridSize), math.ceil(maxy / self.fatGridSize) - 1 do
+                    local cell = self:CreateAndFetchFatCell(x, y, z)
+                    cell[instance] = hullRecord
+                end
             end
         end
-    end
+		--print("Fat part", instance.Name)
+		
+		--[[
+		if (game["Run Service"]:IsClient() and instance:GetAttribute("showdebug")) then
+			for x = math.floor(minx / self.fatGridSize), math.ceil(maxx/self.fatGridSize)-1 do
+				for z = math.floor(minz / self.fatGridSize), math.ceil(maxz/self.fatGridSize)-1 do
+					for y = math.floor(miny / self.fatGridSize), math.ceil(maxy/self.fatGridSize)-1 do
 
-    --[[
+						self:SpawnDebugFatGridBox(x,y,z, Color3.new(math.random(),1,1))
+					end
+				end
+			end
+		end
+		]]--
+    else
+        for x = math.floor(minx / self.gridSize), math.ceil(maxx / self.gridSize) - 1 do
+            for z = math.floor(minz / self.gridSize), math.ceil(maxz / self.gridSize) - 1 do
+                for y = math.floor(miny / self.gridSize), math.ceil(maxy / self.gridSize) - 1 do
+                    local cell = self:CreateAndFetchCell(x, y, z)
+                    cell[instance] = hullRecord
+                end
+            end
+        end
+        --[[
 	if (game["Run Service"]:IsClient() and instance:GetAttribute("showdebug")) then
 		for x = math.floor(minx / self.gridSize), math.ceil(maxx/self.gridSize)-1 do
 			for z = math.floor(minz / self.gridSize), math.ceil(maxz/self.gridSize)-1 do
@@ -170,7 +221,10 @@ function module:WritePartToHashMap(instance, hullRecord)
 		end
 	end]]
     --
+    end
 end
+
+ 
 
 function module:RemovePartFromHashMap(instance)
     if instance:GetAttribute("ChickynoidIgnoreRemoval") then
@@ -179,12 +233,27 @@ function module:RemovePartFromHashMap(instance)
 
     local minx, miny, minz, maxx, maxy, maxz = self:FindAABB(instance)
 
-    for x = math.floor(minx / self.gridSize), math.ceil(maxx / self.gridSize) - 1 do
-        for z = math.floor(minz / self.gridSize), math.ceil(maxz / self.gridSize) - 1 do
-            for y = math.floor(miny / self.gridSize), math.ceil(maxy / self.gridSize) - 1 do
-                local cell = self:FetchCell(x, y, z)
-                if cell then
-                    cell[instance] = nil
+	if (maxx-minx > self.fatPartSize or maxy-miny > self.fatPartSize or maxz-minz > self.fatPartSize) then
+        
+        for x = math.floor(minx / self.fatGridSize), math.ceil(maxx / self.fatGridSize) - 1 do
+            for z = math.floor(minz / self.fatGridSize), math.ceil(maxz / self.fatGridSize) - 1 do
+                for y = math.floor(miny / self.fatGridSize), math.ceil(maxy / self.fatGridSize) - 1 do
+                    local cell = self:FetchFatCell(x, y, z)
+                    if cell then
+                        cell[instance] = nil
+                    end
+                end
+            end
+        end
+
+    else
+        for x = math.floor(minx / self.gridSize), math.ceil(maxx / self.gridSize) - 1 do
+            for z = math.floor(minz / self.gridSize), math.ceil(maxz / self.gridSize) - 1 do
+                for y = math.floor(miny / self.gridSize), math.ceil(maxy / self.gridSize) - 1 do
+                    local cell = self:FetchCell(x, y, z)
+                    if cell then
+                        cell[instance] = nil
+                    end
                 end
             end
         end
@@ -203,6 +272,19 @@ function module:FetchHullsForPoint(point)
             hullRecords[hull] = hull
         end
     end
+
+    local cell = self:FetchFatCell(
+        math.floor(point.x / self.fatGridSize),
+        math.floor(point.y / self.fatGridSize),
+        math.floor(point.z / self.fatGridSize)
+    )
+    local hullRecords = {}
+    if cell then
+        for _, hull in pairs(cell :: table) do
+            hullRecords[hull] = hull
+        end
+    end
+
     return hullRecords
 end
 
@@ -252,6 +334,21 @@ function module:FetchHullsForBox(min, max)
             end
         end
     end
+
+    --Expanded by 1, so objects right on borders will be in the appropriate query
+    for x = math.floor(minx / self.fatGridSize) - 1, math.ceil(maxx / self.fatGridSize) do
+        for z = math.floor(minz / self.fatGridSize) - 1, math.ceil(maxz / self.fatGridSize) do
+            for y = math.floor(miny / self.fatGridSize) - 1, math.ceil(maxy / self.fatGridSize) do
+                local cell = self:FetchFatCell(x, y, z)
+                if cell then
+                    for _, hull in pairs(cell :: table) do
+                        hullRecords[hull] = hull
+                    end
+                end
+            end
+        end
+    end
+
     return hullRecords
 end
 
@@ -346,6 +443,19 @@ function module:SpawnDebugGridBox(x, y, z, color)
     instance.Anchored = true
     instance.TopSurface = Enum.SurfaceType.Smooth
     instance.BottomSurface = Enum.SurfaceType.Smooth
+end
+
+function module:SpawnDebugFatGridBox(x, y, z, color)
+	local instance = Instance.new("Part")
+	instance.Size = Vector3.new(self.fatGridSize, self.fatGridSize, self.fatGridSize)
+	instance.Position = (Vector3.new(x, y, z) * self.fatGridSize)
+		+ (Vector3.new(self.fatGridSize, self.fatGridSize, self.fatGridSize) * 0.5)
+	instance.Transparency = 0.75
+	instance.Color = color
+	instance.Parent = game.Workspace
+	instance.Anchored = true
+	instance.TopSurface = Enum.SurfaceType.Smooth
+	instance.BottomSurface = Enum.SurfaceType.Smooth
 end
 
 function module:SimpleRayTest(a, b, hull)
@@ -608,8 +718,9 @@ function module:Sweep(startPos, endPos)
     if (startPos - endPos).magnitude > 1000 then
         return data
     end
-
-    debug.profilebegin("Sweep")
+    if (self.profile == true) then
+        debug.profilebegin("Sweep")
+    end
     --calc bounds of sweep
     local hullRecords = self:FetchHullsForBox(startPos, endPos)
 
@@ -646,7 +757,9 @@ function module:Sweep(startPos, endPos)
         data.endPos = startPos + (vec * data.fraction)
     end
 
-    debug.profileend()
+    if (self.profile == true) then
+        debug.profileend()
+    end
     return data
 end
 
@@ -735,23 +848,12 @@ function module:MakeWorld(folder, playerSize)
 	else
 		folder.DescendantAdded:Connect(function(instance)
 			--On the client, put it in a queue if the part is far away
-			
 			if (instance:IsA("BasePart") == false) then
 				return	
 			end
-			
-			if (game.Workspace.CurrentCamera) then
-				local pos = game.Workspace.CurrentCamera.CFrame.Position
-												
-				local mag = (pos - instance.Position).magnitude
-				if (mag < 100) then
-                    print("instant!")
-					--Do it instantly
-					-- self:ProcessCollisionOnInstance(instance, playerSize)
-					-- return
-				end
-			end
-			--else add it to a queue
+            if (instance.CanCollide == false) then
+                return
+            end
 			self.processQueue[instance] = instance
 		end)
 	end
@@ -763,20 +865,7 @@ function module:MakeWorld(folder, playerSize)
             self:RemovePartFromHashMap(instance)
         end
     end)
-    --[[
-	if (game["Run Service"]:IsClient()) then
-		for x,row in pairs(self.grid) do
-			print("X is ",x)
-			for z,col in pairs(row) do
-				for y,depth in pairs(col) do
-					
-					self:SpawnDebugGridBox(x,y,z, Color3.new(0.5,math.random(),0.5))
-				end
-			end
-		end
-	end
-	]]
-	--
+    
 	
 	game["Run Service"].Heartbeat:Connect(function()
 		

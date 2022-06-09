@@ -738,8 +738,7 @@ function module:MakeWorld(folder, playerSize)
 			
 			if (game.Workspace.CurrentCamera) then
 				local pos = game.Workspace.CurrentCamera.CFrame.Position
-				
-								
+												
 				local mag = (pos - instance.Position).magnitude
 				if (mag < 100) then
 					--Do it instantly
@@ -777,22 +776,16 @@ function module:MakeWorld(folder, playerSize)
 	game["Run Service"].Heartbeat:Connect(function()
 		
 		local counter = 0
-		local perFrame = 10
-		for key,value in pairs(self.processQueue) do
-			counter+=1
-		end
+		local startOfFrame = tick()
 		
 		for key,value in pairs(self.processQueue) do
 			
 			self:ProcessCollisionOnInstance(value, playerSize)
 			self.processQueue[value] = nil
-			perFrame-=1
-			if (perFrame == 0) then
-				break
-			end
-		end
-		if (counter > 0) then
-			--print( counter)
+		
+            if  (tick() - startOfFrame > 0.1) then
+                break
+            end
 		end
 		
 	end)

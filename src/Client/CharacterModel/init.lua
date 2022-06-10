@@ -187,10 +187,10 @@ function CharacterModel:Think(_deltaTime, dataRecord)
     end
 
     --Flag that something has changed
-    if self.animCounter ~= dataRecord.animCounter then
-        self.animCounter = dataRecord.animCounter
+    if self.animCounter ~= dataRecord.animCounter0 then
+        self.animCounter = dataRecord.animCounter0
 
-        self:PlayAnimation(dataRecord.animNum, true)
+        self:PlayAnimation(dataRecord.animNum0, true)
     end
 
     if self.playingTrackNum == Enums.Anims.Run or self.playingTrackNum == Enums.Anims.Walk then

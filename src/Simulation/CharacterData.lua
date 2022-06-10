@@ -77,19 +77,33 @@ function CharacterData:ModuleSetup()
     self.packFunctions = {
         pos = "Vector3",
         angle = "Float16",
-        animCounter = "Byte",
-        animNum = "Byte",
         stepUp = "Float16",
-        flatSpeed = "Float16",
+		flatSpeed = "Float16",
+		
+		animCounter0 = "Byte",
+		animNum0 = "Byte",
+		animCounter1 = "Byte",
+		animNum1 = "Byte",
+		animCounter2 = "Byte",
+		animNum2 = "Byte",
+		animCounter3 = "Byte",
+		animNum3 = "Byte",
     }
 
     self.lerpFunctions = {
         pos = Lerp,
         angle = AngleLerp,
-        animCounter = Raw,
-        animNum = Raw,
         stepUp = NumberLerp,
-        flatSpeed = NumberLerp,
+		flatSpeed = NumberLerp,
+		
+		animCounter0 = Raw,
+		animNum0 = Raw,
+		animCounter1 = Raw,
+		animNum1 = Raw,
+		animCounter2 = Raw,
+		animNum2 = Raw,
+		animCounter3 = Raw,
+		animNum3 = Raw,
     }
 end
 
@@ -99,10 +113,16 @@ function CharacterData.new()
 
             pos = Vector3.zero,
             angle = 0,
-            animCounter = 0,
-            animNum = 0,
             stepUp = 0,
-            flatSpeed = 0,
+			flatSpeed = 0,
+			animCounter0 = 0,
+			animNum0 = 0,
+			animCounter1 = 0,
+			animNum1 = 0,
+			animCounter2 = 0,
+			animNum2 = 0,
+			animCounter3 = 0,
+			animNum3 = 0,
         },
 
         --Be extremely careful about having any kind of persistant nonserialized data!
@@ -142,10 +162,10 @@ function CharacterData:PlayAnimation(animNum, forceRestart, exclusiveTime)
     end
 
     --Restart this anim, or its a different anim than we're currently playing
-    if forceRestart == true or animNum ~= self.serialized.animNum then
-        self.serialized.animCounter += 1
-        if self.serialized.animCounter > 255 then
-            self.serialized.animCounter = 0
+    if forceRestart == true or self.serialized.animNum0 ~= animNum then
+        self.serialized.animCounter0 += 1
+        if self.serialized.animCounter0 > 255 then
+            self.serialized.animCounter0 = 0
         end
     end
 
@@ -153,7 +173,7 @@ function CharacterData:PlayAnimation(animNum, forceRestart, exclusiveTime)
         self.animationExclusiveTime = tick() + exclusiveTime
     end
 
-    self.serialized.animNum = animNum
+    self.serialized.animNum0 = animNum
 end
 
 function CharacterData:Serialize()

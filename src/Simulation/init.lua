@@ -4,6 +4,7 @@
 ]=]
 
 local RunService = game:GetService("RunService")
+local IsClient = RunService:IsClient()
 
 local Simulation = {}
 Simulation.__index = Simulation
@@ -400,7 +401,7 @@ function Simulation:DoPlatformMove(lastGround, deltaTime)
 end
 
 function Simulation:DoPushingTimer(cmd)
-    if RunService:IsClient() then
+    if IsClient == true then
         return
     end
 

@@ -392,6 +392,9 @@ function ChickynoidServer:GetDoNotReplicate()
 end
 
 function ChickynoidServer:Think(deltaTime)
+
+    debug.profilebegin("ChickynoidServer")
+
     self.framesPerSecondCounter += 1
     self.framesPerSecondTimer += deltaTime
     if self.framesPerSecondTimer > 1 then
@@ -457,7 +460,10 @@ function ChickynoidServer:Think(deltaTime)
     self.serverTotalFrames += 1
 
     local fraction = (1 / self.config.serverHz)
+
+    
     if self.serverStepTimer > fraction then
+        debug.profilebegin("CreateSnapshots")
         while self.serverStepTimer > fraction do -- -_-'
             self.serverStepTimer -= fraction
         end
@@ -553,7 +559,10 @@ function ChickynoidServer:Think(deltaTime)
             snapshot.serverTime = self.serverSimulationTime
             playerRecord:SendEventToClient(snapshot)
         end
+        debug.profileend()
     end
+
+    debug.profileend()
 end
 
 function ChickynoidServer:RecreateCollisions(rootFolder)

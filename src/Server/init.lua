@@ -356,6 +356,7 @@ end
 
 function ChickynoidServer:RobloxHeartbeat(deltaTime)
 
+    --[[
     self.accumulatedTime += deltaTime
     local frac = 1 / 60
     local maxSteps = 0
@@ -370,11 +371,19 @@ function ChickynoidServer:RobloxHeartbeat(deltaTime)
         end
     end
 
-    --Discard accumulated time if its a tiny fraction
+      --Discard accumulated time if its a tiny fraction
     local errorSize = 0.001 --1ms
     if self.accumulatedTime > -errorSize then
         self.accumulatedTime = 0
     end
+    ]]--
+    
+    --Much simpler - assumes server runs at 60.
+    self.accumulatedTime = 0
+    local frac = 1 / 60
+    self:Think(frac)
+
+  
 end
 
 function ChickynoidServer:RobloxPhysicsStep(deltaTime)

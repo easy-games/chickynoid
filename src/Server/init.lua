@@ -355,15 +355,19 @@ function ChickynoidServer:GetPlayers()
 end
 
 function ChickynoidServer:RobloxHeartbeat(deltaTime)
-    if self.accumulatedTime > 0.5 then
-        self.accumulatedTime = 0
-    end
 
     self.accumulatedTime += deltaTime
     local frac = 1 / 60
+    local maxSteps = 0
     while self.accumulatedTime > 0 do
         self.accumulatedTime -= frac
         self:Think(frac)
+        
+        maxSteps+=1
+        if (maxSteps > 2) then
+            self.accumulatedTime = 0
+            break
+        end
     end
 
     --Discard accumulated time if its a tiny fraction

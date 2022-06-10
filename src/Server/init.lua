@@ -32,6 +32,7 @@ local ChickynoidServer = {}
 
 ChickynoidServer.playerRecords = {}
 ChickynoidServer.serverStepTimer = 0
+ChickynoidServer.serverLastSnapshotFrame = -1 --Frame we last sent snapshots on
 ChickynoidServer.serverTotalFrames = 0
 ChickynoidServer.serverSimulationTime = 0
 ChickynoidServer.framesPerSecondCounter = 0 --Purely for stats
@@ -176,7 +177,7 @@ function ChickynoidServer:AddConnection(userId, player)
     playerRecord.OnBeforePlayerSpawn = FastSignal.new()
 
     playerRecord.characterMod = "HumanoidChickynoid"
-	
+	playerRecord.lastSeenFrames = {} --frame we last saw a given player on, for delta compression
 	
 	
     self:AssignSlot(playerRecord)
@@ -518,6 +519,10 @@ function ChickynoidServer:Think(deltaTime)
 		
 		
 		debug.profilebegin("Write deltas")
+		
+		
+		local fullSnapshotPool = {}
+		
 		--precalculate all the character datas
 		for userId, playerRecord in pairs(self.playerRecords) do
 			
@@ -532,7 +537,7 @@ function ChickynoidServer:Think(deltaTime)
 			local previousRecord = playerRecord.previousCharacterData
 			playerRecord.chickynoid.simulation.characterData:SerializeToBitBuffer(previousRecord, bitBuffer)
 			playerRecord.chickynoid.currentCharacterDataDeltaString = bitBuffer.dumpString()
-			
+						
 			--make a copy for compression against
 			local previousRecord = CharacterData.new()
 			previousRecord:CopySerialized(playerRecord.chickynoid.simulation.characterData.serialized)
@@ -575,10 +580,11 @@ function ChickynoidServer:Think(deltaTime)
 			table.insert(list, string.char(count))
 				
 		 	local fullSnapshot = false
-
+			
+			--have not sent first snapshot??
 			if (playerRecord.firstSnapshot == false) then
 				
-				--send a whole one
+				--send a whole one!
 				fullSnapshot = true
 	            for otherUserId, otherPlayerRecord in pairs(self.playerRecords) do
 	                if otherUserId ~= userId then
@@ -587,14 +593,21 @@ function ChickynoidServer:Think(deltaTime)
 	                    	continue
 	                    end
 						
-						--Write the full thing - this happens rarely so no point caching it (?)
-						local bitBuffer = BitBuffer()
-						otherPlayerRecord.chickynoid.simulation.characterData:SerializeToBitBuffer(nil, bitBuffer)
-						local str = bitBuffer.dumpString()
+						local record = fullSnapshotPool[otherUserId]
+						if (record == nil) then
+							--Write the full thing - this happens rarely so no point caching it (?)
+							local bitBuffer = BitBuffer()
+							otherPlayerRecord.chickynoid.simulation.characterData:SerializeToBitBuffer(nil, bitBuffer)
+							record = bitBuffer.dumpString()
+							fullSnapshotPool[otherUserId] = record
+						end
 						
 						table.insert(list, string.char(otherPlayerRecord.slot))
-						table.insert(list, str)
-
+						table.insert(list, record)
+						--print("sending full for ", otherPlayerRecord.userId)
+						
+						--mark when we saw them last
+						playerRecord.lastSeenFrames[otherPlayerRecord.userId] = self.serverTotalFrames
 					end
 				end
 			else
@@ -607,11 +620,32 @@ function ChickynoidServer:Think(deltaTime)
 							continue
 						end
 						
-						table.insert(list, string.char(otherPlayerRecord.slot))
-						table.insert(list, otherPlayerRecord.chickynoid.currentCharacterDataDeltaString)
+						if (playerRecord.lastSeenFrames[otherPlayerRecord.userId] == self.serverLastSnapshotFrame) then
+							--if we saw them last frame, we can just send the delta
+							table.insert(list, string.char(otherPlayerRecord.slot))
+							table.insert(list, otherPlayerRecord.chickynoid.currentCharacterDataDeltaString)
+						else
+							--send full snapshot
+							local record = fullSnapshotPool[otherUserId]
+							if (record == nil) then
+								--Write the full thing - this happens rarely so no point caching it (?)
+								local bitBuffer = BitBuffer()
+								otherPlayerRecord.chickynoid.simulation.characterData:SerializeToBitBuffer(nil, bitBuffer)
+								record = bitBuffer.dumpString()
+								fullSnapshotPool[otherUserId] = record
+							end
+							--print("sending full for ", otherPlayerRecord.userId, playerRecord.lastSeenFrames[otherPlayerRecord.userId],self.serverLastSnapshotFrame )
+							table.insert(list, string.char(otherPlayerRecord.slot))
+							table.insert(list, record)
+						end
+						
+						--mark when we saw them last
+						playerRecord.lastSeenFrames[otherPlayerRecord.userId] = self.serverTotalFrames
 					end
 				end
 			end
+			
+			
 			
 			local resultString = table.concat(list, "")
 									
@@ -630,7 +664,9 @@ function ChickynoidServer:Think(deltaTime)
 				playerRecord:SendEventToClient(snapshot)
 			end
         end
-        debug.profileend()
+		debug.profileend()
+		
+		self.serverLastSnapshotFrame = self.serverTotalFrames
     end
 
     debug.profileend()

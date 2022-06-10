@@ -100,12 +100,12 @@ local function bitBuffer(stream)
         return table.concat(output, " ")
     end
 
-    local function dumpString()
+    local function dumpStringOld()
         -- This function is for accessing the total contents of the bitbuffer.
         -- This function combines all the bytes, including the last byte, into a string of binary data.
         -- Thus, bytes [97, 101] and bits [1, 1, 0] would become (in hex) "0x61 0x65 0x06"
 
-        -- It's substantially faster to create several smaller strings before using table.concat.
+        -- It's substantially faster to create several smaller strings before using table.concat. (well maybe it was, but it isn't now post 2022)
         local output = table.create(math.ceil(byteCount / 4096)) --!
         local c = 1
         for i = 1, byteCount, 4096 do -- groups of 4096 bytes is the point at which there are diminishing returns
@@ -114,8 +114,14 @@ local function bitBuffer(stream)
         end
 
         return table.concat(output, "")
-    end
-
+	end
+	
+	--Let lua be lua	
+	local function dumpString()
+		return string.char(table.unpack(bytes))
+	end
+	
+ 
     local function dumpHex()
         -- This function is for getting the hex of the bitbuffer's contents, should that be desired
         local output = table.create(byteCount) --!
@@ -363,9 +369,10 @@ local function bitBuffer(stream)
     end
 
     local function writeByte(n)
-        assert(type(n) == "number", "argument #1 to BitBuffer.writeByte should be a number")
-        assert(n >= 0 and n <= 255, "argument #1 to BitBuffer.writeByte should be in the range [0, 255]")
-        assert(n % 1 == 0, "argument #1 to BitBuffer.writeByte should be an integer")
+        --assert(type(n) == "number", "argument #1 to BitBuffer.writeByte should be a number")
+        --assert(n >= 0 and n <= 255, "argument #1 to BitBuffer.writeByte should be in the range [0, 255]")
+		--assert(n % 1 == 0, "argument #1 to BitBuffer.writeByte should be an integer")
+		
         -- The second of two main functions for the actual 'writing' of the bitbuffer.
         -- This function takes a byte (an 8-bit integer) and writes it to the buffer.
         if bits == 0 then
@@ -380,7 +387,15 @@ local function bitBuffer(stream)
             bytes[byteCount] = lastByte
         end
         bitCount = bitCount + 8 -- Increment the bit counter
-    end
+	end
+	
+	local function writeBytesFast(tab)
+		assert(bits == 0, "writeBytesFast can only work for whole byte streams")
+		local count = #tab
+		table.move(tab, 1 , count, byteCount + 1, bytes)
+		byteCount+= count
+		bitCount += count * 8
+	end
 
     local function writeUnsigned(width, n)
         assert(type(width) == "number", "argument #1 to BitBuffer.writeUnsigned should be a number")
@@ -728,7 +743,7 @@ local function bitBuffer(stream)
     end
 
     local function writeFloat16(n)
-        assert(type(n) == "number", "argument #1 to BitBuffer.writeFloat16 should be a number")
+        --assert(type(n) == "number", "argument #1 to BitBuffer.writeFloat16 should be a number")
 
         local sign = n < 0
         n = math.abs(n)
@@ -775,7 +790,7 @@ local function bitBuffer(stream)
     end
 
     local function writeFloat32(n)
-        assert(type(n) == "number", "argument #1 to BitBuffer.writeFloat32 should be a number")
+        --assert(type(n) == "number", "argument #1 to BitBuffer.writeFloat32 should be a number")
 
         local sign = n < 0
         n = math.abs(n)
@@ -995,7 +1010,7 @@ local function bitBuffer(stream)
     end
 
     local function writeVector3(v3)
-        assert(typeof(v3) == "Vector3", "argument #1 to BitBuffer.writeVector3 should be a Vector3")
+        --assert(typeof(v3) == "Vector3", "argument #1 to BitBuffer.writeVector3 should be a Vector3")
 
         writeFloat32(v3.X)
         writeFloat32(v3.Y)
@@ -1135,7 +1150,21 @@ local function bitBuffer(stream)
         end
         pointer = pointer + n -- Move the pointer forward
         return output
-    end
+	end
+	
+	--Skip to the end of the current byte
+	local function skipStrayBits()
+		local c = pointer % 8
+		if (c > 0) then
+			pointer += 8 - c
+			pointerByte += 1
+		end
+	end
+
+	local function readBytesFast()
+		return bytes
+	end
+
 
     local function readByte()
         assert(pointer + 8 <= bitCount, "BitBuffer.readByte cannot read past the end of the stream")
@@ -1707,7 +1736,8 @@ local function bitBuffer(stream)
         isFinished = isFinished,
 
         writeBits = writeBits,
-        writeByte = writeByte,
+		writeByte = writeByte,
+		writeBytesFast = writeBytesFast,
         writeUnsigned = writeUnsigned,
         writeSigned = writeSigned,
         writeFloat = writeFloat,
@@ -1751,7 +1781,9 @@ local function bitBuffer(stream)
         readString = readString,
         readTerminatedString = readTerminatedString,
         readSetLengthString = readSetLengthString,
-        readField = readField,
+		readField = readField,
+		readBytesFast = readBytesFast,
+		skipStrayBits = skipStrayBits,
 
         readUInt8 = readUInt8,
         readUInt16 = readUInt16,

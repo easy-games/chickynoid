@@ -34,6 +34,10 @@ local function ValidateVector3(input)
     return input
 end
 
+local function ValidateNumber(input)
+    return input
+end
+
 local function CompareVector3(a, b)
     if math.abs(a.x - b.x) > EPSILION or math.abs(a.y - b.y) > EPSILION or math.abs(a.z - b.z) > EPSILION then
         return false
@@ -48,6 +52,11 @@ end
 local function CompareFloat16(a, b)
     return a == b
 end
+
+local function CompareNumber(a, b)
+    return a == b
+end
+
 
 function CharacterData:SetIsResimulating(bool)
     self.isResimulating = bool
@@ -67,6 +76,13 @@ function CharacterData:ModuleSetup()
         validate = ValidateFloat16,
         compare = CompareFloat16,
     }
+    CharacterData.methods["Number"] = {
+        write = "writeFloat32",
+        read = "readFloat32",
+        validate = ValidateNumber,
+        compare = CompareNumber,
+    }
+
     CharacterData.methods["Byte"] = {
         write = "writeByte",
         read = "readByte",
@@ -79,7 +95,8 @@ function CharacterData:ModuleSetup()
         angle = "Float16",
         stepUp = "Float16",
 		flatSpeed = "Float16",
-		
+        exclusiveAnimTime = "Number",
+
 		animCounter0 = "Byte",
 		animNum0 = "Byte",
 		animCounter1 = "Byte",
@@ -95,6 +112,7 @@ function CharacterData:ModuleSetup()
         angle = AngleLerp,
         stepUp = NumberLerp,
 		flatSpeed = NumberLerp,
+        exclusiveAnimTime = Raw,
 		
 		animCounter0 = Raw,
 		animNum0 = Raw,
@@ -115,6 +133,8 @@ function CharacterData.new()
             angle = 0,
             stepUp = 0,
 			flatSpeed = 0,
+            exclusiveAnimTime = 0,
+
 			animCounter0 = 0,
 			animNum0 = 0,
 			animCounter1 = 0,
@@ -127,7 +147,6 @@ function CharacterData.new()
 
         --Be extremely careful about having any kind of persistant nonserialized data!
         --If in doubt, stick it in the serialized!
-        animationExclusiveTime = 0,
         isResimulating = false,
     }, CharacterData)
 
@@ -150,31 +169,59 @@ function CharacterData:SetStepUp(amount)
     self.serialized.stepUp = amount
 end
 
-function CharacterData:PlayAnimation(animNum, forceRestart, exclusiveTime)
+function CharacterData:PlayAnimation(animNum, animChannel, forceRestart, exclusiveTime)
     --Dont change animations during resim
     if self.isResimulating == true then
         return
     end
 
-    --If we're in an exclusive window of having an animation play, ignore this request
-    if tick() < self.animationExclusiveTime and forceRestart == false then
+    if (animChannel < 0 or animChannel > 3) then
         return
     end
 
+    --If we're in an exclusive window of having an animation play, ignore this request
+    if tick() < self.serialized.exclusiveAnimTime and forceRestart == false then
+        return
+    end
+    if exclusiveTime ~= nil and exclusiveTime > 0 then
+        self.serialized.exclusiveAnimTime = tick() + exclusiveTime
+    end
+
+    local counterString = "animCounter"..animChannel
+    local slotString = "animNum"..animChannel
+
     --Restart this anim, or its a different anim than we're currently playing
-    if forceRestart == true or self.serialized.animNum0 ~= animNum then
-        self.serialized.animCounter0 += 1
-        if self.serialized.animCounter0 > 255 then
-            self.serialized.animCounter0 = 0
+    if forceRestart == true or self.serialized[slotString] ~= animNum then
+        self.serialized[counterString] += 1
+        if self.serialized[counterString] > 255 then
+            self.serialized[counterString] = 0
         end
     end
-
-    if exclusiveTime ~= nil and exclusiveTime > 0 then
-        self.animationExclusiveTime = tick() + exclusiveTime
-    end
-
-    self.serialized.animNum0 = animNum
+    self.serialized[slotString] = animNum
 end
+
+function CharacterData:InternalSetAnim(animChannel, animNum)
+    local counterString = "animCounter"..animChannel
+    local slotString = "animNum"..animChannel
+
+    self.serialized[counterString] += 1
+    if self.serialized[counterString] > 255 then
+        self.serialized[counterString] = 0
+    end
+    self.serialized[slotString] = 0
+end
+function CharacterData:StopAnimation(animChannel)
+    self:InternalSetAnim(animChannel, 0)
+end
+
+function CharacterData:StopAllAnimation()
+    self.serialized.exclusiveAnimTime = 0
+    self:InternalSetAnim(0, 0)
+    self:InternalSetAnim(1, 0)
+    self:InternalSetAnim(2, 0)
+    self:InternalSetAnim(3, 0)
+end
+
 
 function CharacterData:Serialize()
     local ret = {}
@@ -193,7 +240,6 @@ function CharacterData:SerializeToBitBuffer(previousData, bitBuffer)
             local func = CharacterData.methods[self.packFunctions[key]]
             if func then
                 bitBuffer.writeBits(1)
-                value = func.validate(value)
                 bitBuffer[func.write](value)
             else
                 warn("Missing serializer for ", key)
@@ -204,8 +250,8 @@ function CharacterData:SerializeToBitBuffer(previousData, bitBuffer)
         for key, value in pairs(self.serialized) do
             local func = CharacterData.methods[self.packFunctions[key]]
             if func then
-                local valueA = func.validate(previousData.serialized[key])
-                local valueB = func.validate(value)
+                local valueA = previousData.serialized[key]
+                local valueB = value
 
                 if func.compare(valueA, valueB) == true then
                     bitBuffer.writeBits(0)
@@ -220,6 +266,40 @@ function CharacterData:SerializeToBitBuffer(previousData, bitBuffer)
     end
 end
 
+function CharacterData:SerializeToBitBufferValidate(previousData, bitBuffer)
+	if previousData == nil then
+		--calculate bits
+		for key, value in pairs(self.serialized) do
+			local func = CharacterData.methods[self.packFunctions[key]]
+			if func then
+				bitBuffer.writeBits(1)
+				value = func.validate(value)
+				bitBuffer[func.write](value)
+			else
+				warn("Missing serializer for ", key)
+			end
+		end
+	else
+		--calculate bits
+		for key, value in pairs(self.serialized) do
+			local func = CharacterData.methods[self.packFunctions[key]]
+			if func then
+				local valueA = func.validate(previousData.serialized[key])
+				local valueB = func.validate(value)
+
+				if func.compare(valueA, valueB) == true then
+					bitBuffer.writeBits(0)
+				else
+					bitBuffer.writeBits(1)
+					bitBuffer[func.write](value)
+				end
+			else
+				warn("Missing serializer for ", key)
+			end
+		end
+	end
+end
+
 function CharacterData:DeserializeFromBitBuffer(bitBuffer)
     for key, _ in pairs(self.serialized) do
         local set = bitBuffer.readBits(1)
@@ -227,7 +307,12 @@ function CharacterData:DeserializeFromBitBuffer(bitBuffer)
             local func = CharacterData.methods[self.packFunctions[key]]
             self.serialized[key] = bitBuffer[func.read]()
         end
-    end
+	end
+	
+	--Skip any stray bits
+	bitBuffer.skipStrayBits()
+	
+
 end
 function CharacterData:CopySerialized(otherSerialized)
     for key, value in pairs(otherSerialized) do
@@ -249,6 +334,7 @@ function CharacterData:Interpolate(dataA, dataB, fraction)
 
     return dataRecord
 end
+ 
 
 CharacterData:ModuleSetup()
 return CharacterData

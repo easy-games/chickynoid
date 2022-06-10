@@ -479,9 +479,9 @@ function Simulation:MovetypeWalking(cmd)
 
             --Good time to trigger our walk anim
             if self.state.pushing > 0 then
-                self.characterData:PlayAnimation(Enums.Anims.Push, false)
+                self.characterData:PlayAnimation(Enums.Anims.Push, Enums.AnimChannel.Channel0, false)
             else
-                self.characterData:PlayAnimation(Enums.Anims.Walk, false)
+                self.characterData:PlayAnimation(Enums.Anims.Walk, Enums.AnimChannel.Channel0, false)
             end
         else
             --Moving through the air under player control
@@ -493,7 +493,7 @@ function Simulation:MovetypeWalking(cmd)
             flatVel = MathUtils:VelocityFriction(flatVel, self.constants.brakeFriction, cmd.deltaTime)
 
             --Enter idle
-            self.characterData:PlayAnimation(Enums.Anims.Idle, false)
+            self.characterData:PlayAnimation(Enums.Anims.Idle, Enums.AnimChannel.Channel0, false)
         -- else
             --moving through the air with no input
         end
@@ -516,7 +516,7 @@ function Simulation:MovetypeWalking(cmd)
             self.state.vel = Vector3.new(self.state.vel.x, self.constants.jumpPunch, self.state.vel.z)
             self.state.jump = 0.2 --jumping has a cooldown (think jumping up a staircase)
             self.state.jumpThrust = self.constants.jumpThrustPower
-            self.characterData:PlayAnimation(Enums.Anims.Jump, true, 0.2)
+            self.characterData:PlayAnimation(Enums.Anims.Jump, Enums.AnimChannel.Channel0, true, 0.2)
         end
 
         --Check jumpPads
@@ -529,7 +529,7 @@ function Simulation:MovetypeWalking(cmd)
                     local dir = instance.CFrame:VectorToWorldSpace(vec3)
                     self.state.vel = dir
                     self.state.jump = 0.2
-                    self.characterData:PlayAnimation(Enums.Anims.Jump, true, 0.2)
+                    self.characterData:PlayAnimation(Enums.Anims.Jump, Enums.AnimChannel.Channel0, true, 0.2)
                 end
 
                 --For platform standing
@@ -569,7 +569,7 @@ function Simulation:MovetypeWalking(cmd)
 
         --Switch to falling if we've been off the ground for a bit
         if self.state.vel.y <= 0.01 and self.state.inAir > 0.5 then
-            self.characterData:PlayAnimation(Enums.Anims.Fall, false)
+            self.characterData:PlayAnimation(Enums.Anims.Fall, Enums.AnimChannel.Channel0, false)
         end
     else
         self.state.inAir = 0

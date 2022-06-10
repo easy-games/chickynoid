@@ -525,12 +525,8 @@ function ChickynoidServer:Think(deltaTime)
 			if (playerRecord.chickynoid == nil) then
 				continue
 			end
-			
-			--Write the full thing
-			local bitBuffer = BitBuffer()
-			playerRecord.chickynoid.simulation.characterData:SerializeToBitBuffer(nil, bitBuffer)
-			playerRecord.chickynoid.currentCharacterDataString = bitBuffer.dumpString()
-			
+		
+		
 			--write the delta - note that previousRecord wont exist on the first frame but thats nil, and acceptable
 			local bitBuffer = BitBuffer()
 			local previousRecord = playerRecord.previousCharacterData
@@ -546,7 +542,6 @@ function ChickynoidServer:Think(deltaTime)
 		
 		debug.profilebegin("Write")
         for userId, playerRecord in pairs(self.playerRecords) do
-			
 			
 			--Bots dont generate snapshots, unless we're testing for performance
 			if (self.flags.DEBUG_BOT_BANDWIDTH ~= true) then
@@ -591,8 +586,15 @@ function ChickynoidServer:Think(deltaTime)
 	                    if (currentlyVisible[otherUserId] ~= true) then
 	                    	continue
 	                    end
+						
+						--Write the full thing - this happens rarely so no point caching it (?)
+						local bitBuffer = BitBuffer()
+						otherPlayerRecord.chickynoid.simulation.characterData:SerializeToBitBuffer(nil, bitBuffer)
+						local str = bitBuffer.dumpString()
+						
 						table.insert(list, string.char(otherPlayerRecord.slot))
-						table.insert(list, otherPlayerRecord.chickynoid.currentCharacterDataString)
+						table.insert(list, str)
+
 					end
 				end
 			else
@@ -600,9 +602,11 @@ function ChickynoidServer:Think(deltaTime)
 				fullSnapshot = false
 				for otherUserId, otherPlayerRecord in pairs(self.playerRecords) do
 					if otherUserId ~= userId then
+						
 						if (currentlyVisible[otherUserId] ~= true) then
 							continue
 						end
+						
 						table.insert(list, string.char(otherPlayerRecord.slot))
 						table.insert(list, otherPlayerRecord.chickynoid.currentCharacterDataDeltaString)
 					end

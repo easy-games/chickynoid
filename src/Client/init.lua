@@ -789,7 +789,7 @@ function ChickynoidClient:AddPingToNetgraph(resimulate, serverHealthFps, network
     if serverHealthFps < 60 then
         NetGraph:AddPoint(serverHealthFps, Color3.new(1, 0, 0), 2)
     else
-        NetGraph:AddPoint(serverHealthFps, Color3.new(0.5, 0.0, 0.0), 2)
+        NetGraph:AddPoint(serverHealthFps, Color3.new(0, 1, 0), 2)
     end
 
     --Blue bar

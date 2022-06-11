@@ -160,6 +160,21 @@ function Simulation:ProcessCommand(cmd)
     debug.profileend()
 end
 
+function Simulation:SetAngle(angle, teleport)
+    self.state.angle = angle
+    if (teleport == true) then
+        self.state.targetAngle = angle
+        self.characterData:SetAngle(self.state.angle, true)
+    end
+end
+
+function Simulation:SetPosition(position, teleport)
+    self.state.position = position
+    if (teleport == true) then
+        self.characterData:SetPosition(self.state.pos, true)
+    end
+end
+
 function Simulation:CrashLand(vel)
     --Current behaviour, cap velocity
     local returnVel = Vector3.new(vel.x, 0, vel.z)

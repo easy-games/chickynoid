@@ -108,8 +108,8 @@ function ChickynoidClient:Setup()
         if self.localChickynoid == nil then
             self.localChickynoid = ClientChickynoid.new(position, event.characterMod)
         end
-        --Force the position
-        self.localChickynoid.simulation.state.pos = position
+        --Force the state
+        self.localChickynoid.simulation:ReadState(event.state)
         self.prevLocalCharacterData = nil
     end
 

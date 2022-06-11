@@ -316,12 +316,12 @@ end
     @private
 ]=]
 function ServerChickynoid:SpawnChickynoid()
-    self.simulation.state.vel = Vector3.zero
-
+    
+    --If you need to change anything about the chickynoid initial state like pos or rotation, use OnBeforePlayerSpawn
     if self.playerRecord.dummy == false then
         local event = {}
         event.t = EventType.ChickynoidAdded
-        event.position = self.simulation.state.pos
+        event.state = self.simulation:WriteState()
         event.characterMod = self.playerRecord.characterMod
         self.playerRecord:SendEventToClient(event)
     end

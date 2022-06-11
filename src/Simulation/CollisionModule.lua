@@ -1,7 +1,7 @@
 local RunService = game:GetService("RunService")
 local CollectionService = game:GetService("CollectionService")
 
-local path = script.Parent.Parent;
+local path = script.Parent.Parent
 
 local MinkowskiSumInstance = require(script.Parent.MinkowskiSumInstance)
 local TerrainModule = require(script.Parent.TerrainCollision)
@@ -21,7 +21,9 @@ module.profile = false
 module.grid = {}
 module.fatGrid = {}
 module.processQueue = {}
-
+module.cache = {}
+module.cacheCount = 0
+module.maxCacheCount = 10000
 
 module.loadProgress = 0
 module.OnLoadProgressChanged = FastSignal.new()
@@ -310,7 +312,19 @@ function module:FetchHullsForBox(min, max)
         local t = minz
         minz = maxz
         maxz = t
-    end
+	end
+	
+	local key = (16000+math.floor(minx/self.gridSize)) + ((16000+math.floor(minz/self.gridSize)) * 32000) + ((16000+math.floor(miny/self.gridSize)) * 32000*32000)  
+	local otherKey = (16000+math.floor(maxx/self.gridSize)) + ((16000+math.floor(maxz/self.gridSize)) * 32000) + ((16000+math.floor(maxy/self.gridSize)) * 32000*32000)
+		
+	local cached = self.cache[key]
+	if (cached) then
+		local rec = cached[otherKey]
+		if (rec) then
+			return rec
+		end
+	end
+			
 
     local hullRecords = {}
 
@@ -348,8 +362,25 @@ function module:FetchHullsForBox(min, max)
             end
         end
     end
-
-    return hullRecords
+	
+	
+	self.cacheCount+=1
+	if (self.cacheCount > self.maxCacheCount) then
+		self.cacheCount = 0
+		self.cache = {}
+	end
+	
+	--Store it
+	local cached = self.cache[key]
+	if (cached == nil) then
+		cached = {}
+		self.cache[key] = cached
+	end
+	cached[otherKey] = hullRecords
+	
+	
+		
+	return hullRecords
 end
 
 function module:GenerateConvexHullAccurate(part, expansionSize, cframe)
@@ -721,9 +752,18 @@ function module:Sweep(startPos, endPos)
     if (self.profile == true) then
         debug.profilebegin("Sweep")
     end
-    --calc bounds of sweep
+	--calc bounds of sweep
+	if (self.profile == true) then
+		debug.profilebegin("Fetch")
+	end
     local hullRecords = self:FetchHullsForBox(startPos, endPos)
-
+	if (self.profile==true) then
+		debug.profileend()
+	end
+	
+	if (self.profile == true) then
+		debug.profilebegin("Collide")
+	end
     for _, hullRecord in pairs(hullRecords) do
         data.checks += 1
         self:CheckBrushNoStuck(data, hullRecord)
@@ -734,7 +774,10 @@ function module:Sweep(startPos, endPos)
         if data.fraction < SKIN_THICKNESS then
             break
         end
-    end
+	end
+	if (self.profile == true) then
+		debug.profileend()
+	end
 
     --Collide with dynamic objects
     if data.fraction >= SKIN_THICKNESS or data.allSolid == false then
@@ -805,6 +848,7 @@ end
 function module:MakeWorld(folder, playerSize)
     self.expansionSize = playerSize
 	self.hulls = {}
+	self:ClearCache()
 	
 	if (self.processing == true) then
 		return
@@ -843,6 +887,7 @@ function module:MakeWorld(folder, playerSize)
 	
 	if (game["Run Service"]:IsServer()) then
 		folder.DescendantAdded:Connect(function(instance)
+			self:ClearCache()
 			self:ProcessCollisionOnInstance(instance, playerSize)
 		end)
 	else
@@ -861,7 +906,8 @@ function module:MakeWorld(folder, playerSize)
     folder.DescendantRemoving:Connect(function(instance)
         local record = module.hullRecords[instance]
 
-        if record then
+		if record then
+			self:ClearCache()
             self:RemovePartFromHashMap(instance)
         end
     end)
@@ -874,7 +920,7 @@ function module:MakeWorld(folder, playerSize)
 		
 		for key,value in pairs(self.processQueue) do
             local startTime = os.clock()
-			
+			self:ClearCache()
 			self:ProcessCollisionOnInstance(value, playerSize)
 			self.processQueue[value] = nil
 
@@ -892,6 +938,9 @@ function module:MakeWorld(folder, playerSize)
 	end)
 end
 
-
+function module:ClearCache()
+	self.cached = {}
+	self.cacheCount = 0	
+end
 
 return module

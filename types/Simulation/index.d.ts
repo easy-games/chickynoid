@@ -20,7 +20,9 @@ interface Simulation {
 		lastThink: unknown | undefined,
 	): void;
 
-	GetMoveState(): string;
+	GetMoveState(): {
+		name: string;
+	};
 	SetMoveState(moveState: string): void;
 
 	SetPosition(position: Vector3, teleport: boolean): void;

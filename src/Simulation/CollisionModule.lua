@@ -941,7 +941,6 @@ end
 function module:ClearCache()
 	self.cache = {}
 	self.cacheCount = 0	
-    print("Clearing collision cache")
 end
 
 return module

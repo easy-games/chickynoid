@@ -939,7 +939,7 @@ function module:MakeWorld(folder, playerSize)
 end
 
 function module:ClearCache()
-	self.cached = {}
+	self.cache = {}
 	self.cacheCount = 0	
 end
 

@@ -7,6 +7,7 @@ local Enums = require(path.Enums)
 local FastSignal = require(path.Vendor.FastSignal)
 local DeltaTable = require(path.Vendor.DeltaTable)
 local ClientMods = require(path.Client.ClientMods)
+local BitBuffer = require(path.Vendor.BitBuffer)
 
 module.rockets = {}
 module.weapons = {}
@@ -17,44 +18,33 @@ module.OnBulletImpact = FastSignal.new()
 function module:HandleEvent(client, event)
 	if event.t == Enums.EventType.BulletImpact then
 		
-		local player = client:GetPlayerDataBySlotId(event.s)
+        --partially decode this packet so we can route it..
+        local bitBuffer = BitBuffer(event.b)
 
+        --these two first!
+        event.weaponId = bitBuffer:readInt16()
+        event.slot = bitBuffer:readByte()
+
+        event.weaponModule = self:GetWeaponModuleByWeaponId(event.weaponId)
+        if (event.weaponModule == nil) then
+            return
+        end
+        if (event.weaponModule.UnpackPacket) then
+            event = event.weaponModule:UnpackPacket(event)
+        end
+        
+        --Append player
+		local player = client:GetPlayerDataBySlotId(event.slot)
         if player == nil then
             return
         end
-
         event.player = player
-        event.weaponModule = self:GetWeaponModuleByWeaponId(event.w)
-
         self.OnBulletImpact:Fire(client, event)
 
         if event.weaponModule and event.weaponModule.ClientOnBulletImpact then
             event.weaponModule:ClientOnBulletImpact(client, event)
         end
 
-        return
-    end
-
-    --Todo: recode these
-    if event.t == Enums.EventType.RocketSpawn then
-        --fired a rocket
-        self.rockets[event.s] = event
-        EffectsModule:SpawnEffect("RocketShoot", event.p)
-        return
-    end
-
-    if event.t == Enums.EventType.RocketDie then
-        --Kill the rocket
-        local rocket = self.rockets[event.s]
-        if rocket.part then
-            local effect = EffectsModule:SpawnEffect("Impact", rocket.part.Position)
-
-            local cframe = CFrame.lookAt(rocket.part.Position, rocket.part.Position + event.n)
-            effect.CFrame = cframe
-
-            rocket.part:Destroy()
-        end
-        self.rockets[event.s] = nil
         return
     end
 

@@ -5,6 +5,7 @@ local path = game.ReplicatedFirst.Packages.Chickynoid
 local EffectsModule = require(path.Client.Effects)
 local ServerMods = require(path.Server.ServerMods)
 local Enums = require(path.Enums)
+local BitBuffer = require(path.Vendor.BitBuffer)
 
 function MachineGunModule.new()
     local self = setmetatable({
@@ -123,21 +124,16 @@ function MachineGunModule:ServerProcessCommand(command)
                     command.serverTime,
                     debugText
                 )
+                local surface = 0 --Surface type
+                if otherPlayer then
+                    surface = 1 --(blood!)
+                end
 
                 --Send an event to render this firing
-                --Todo: rewrite this to use packed bytes- this could get very data heavy in a fire fight!
                 local event = {}
-                event.o = origin --Origin
-                event.p = pos --Impact point
-                event.n = normal --Impact normal (no normal means we hit the sky)
                 event.t = Enums.EventType.BulletImpact --Event identifier
-                event.s = self.playerRecord.slot --Which player fired this
-                event.w = self.weaponId --Id of this weapon (Machinegun?)
+                event.b = self:BuildPacketString(origin, pos, normal, surface)
 
-                event.m = 0 --Surface type
-                if otherPlayer then
-                    event.m = 1 --(blood!)
-                end
                 self.playerRecord:SendEventToClients(event)
 
                 --Do the damage
@@ -152,6 +148,48 @@ function MachineGunModule:ServerProcessCommand(command)
         end
     end
 end
+
+function MachineGunModule:BuildPacketString(origin, position, normal, surface)
+    local bitBuffer = BitBuffer()
+    
+    --these two first always
+    bitBuffer.writeInt16(self.weaponId)
+    bitBuffer.writeByte(self.playerRecord.slot)
+    
+    bitBuffer.writeVector3(origin)
+    bitBuffer.writeVector3(position)
+    bitBuffer.writeByte(surface)
+
+    if (normal) then
+        bitBuffer.writeByte(1)
+        bitBuffer.writeVector3(normal)
+    else
+        bitBuffer.writeByte(0)
+    end
+    return bitBuffer.dumpString()
+end
+
+function MachineGunModule:UnpackPacket(event)
+
+    local bitBuffer = BitBuffer(event.b)
+    
+    --these two first always
+    event.weaponID = bitBuffer.readInt16()
+    event.slot = bitBuffer.readByte()
+
+    event.origin = bitBuffer.readVector3()
+    event.position = bitBuffer.readVector3()
+    event.surface = bitBuffer.readByte()
+
+    hasNormal = bitBuffer.readByte()
+    if (hasNormal > 0) then
+        event.normal = bitBuffer.readVector3()
+    end
+
+    return event
+end
+
+ 
 
 function MachineGunModule:ServerEquip() end
 

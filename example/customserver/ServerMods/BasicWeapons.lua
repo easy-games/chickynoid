@@ -7,7 +7,15 @@ function module:Setup(server)
                 
         --Give a machine gun
         playerRecord:AddWeaponByName("Machinegun", true)
+        
     end)
+
+    server.OnBeforePlayerSpawn:Connect(function(playerRecord)
+    
+        playerRecord.chickynoid.simulation:SetAngle(math.rad(90), true)
+    
+    end)
+
 
     server.OnPlayerDespawn:Connect(function(playerRecord)
         --Remove all guns

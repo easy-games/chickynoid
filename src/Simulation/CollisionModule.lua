@@ -846,6 +846,9 @@ function module:UpdateDynamicParts()
 end
 
 function module:MakeWorld(folder, playerSize)
+	
+	debug.setmemorycategory("ChickynoidCollision")
+	
     self.expansionSize = playerSize
 	self.hulls = {}
 	self:ClearCache()
@@ -916,27 +919,43 @@ function module:MakeWorld(folder, playerSize)
         end
     end)
     
+	local timeSinceLastExecution = 0
 	
 	game["Run Service"].Heartbeat:Connect(function()
 		
-		local counter = 0
-		local startOfFrame = tick()
+		if (tick() - timeSinceLastExecution < 0.2) then
+			return
+		end
 		
+		local counter = 0
+		timeSinceLastExecution = tick()
+		local startOfFrame = tick()
+				
 		for key,value in pairs(self.processQueue) do
             local startTime = os.clock()
 			self:ClearCache()
 			self:ProcessCollisionOnInstance(value, playerSize)
+			counter+=1
 			self.processQueue[value] = nil
 
             local timeSpent = os.clock() - startTime
 			if timeSpent > 0.01 then
 				print("TOO SLOW: " .. value:GetFullName() .. " " .. (math.round(timeSpent * 1000) / 1000) .. "s")
 			end
-		
+			
             --10ms
             if  (tick() - startOfFrame > 0.01) then
                 break
-            end
+			end
+			
+			
+		end
+		if (counter > 0) then
+			local count = 0
+			for key,value in pairs(self.processQueue) do
+				count += 1
+			end
+			print("Remaining:", count)
 		end
 		
 	end)

@@ -18,6 +18,11 @@ export namespace ChickynoidClient {
 	}
 
 	export let config: ClientConfig;
+
+	export let fpsMax: number;
+	export let fpsMin: number;
+	export let fpsIsCapped: boolean;
+
 	export let characterModel: CharacterModel | undefined;
 	export let estimatedServerTime: number;
 	export let estimatedServerTimeOffset: number;

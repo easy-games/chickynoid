@@ -955,7 +955,7 @@ function module:MakeWorld(folder, playerSize)
 			for key,value in pairs(self.processQueue) do
 				count += 1
 			end
-			print("Remaining:", count)
+			-- print("Remaining:", count)
 		end
 		
 	end)

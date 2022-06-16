@@ -874,7 +874,11 @@ function module:MakeWorld(folder, playerSize)
 		
             if (tick() - lastTime > 0.2) then
                 lastTime = tick()
-                task.wait()
+                if RunService:IsServer() then
+					task.wait()
+				else
+					wait()	
+				end
                 local progress = counter/total;
                 module.loadProgress = progress;
                 module.OnLoadProgressChanged:Fire(progress)
@@ -951,7 +955,7 @@ function module:MakeWorld(folder, playerSize)
 			for key,value in pairs(self.processQueue) do
 				count += 1
 			end
-			print("Remaining:", count)
+			-- print("Remaining:", count)
 		end
 		
 	end)

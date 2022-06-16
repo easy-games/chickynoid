@@ -86,6 +86,7 @@ function CharacterModel:CreateModel()
 			
 			self.modelData =  { 
 				model =	srcModel, 
+				
 				modelOffset =  Vector3.new(0, hip - 2.5, 0)
 			}
 			self.modelPool[self.userId] = self.modelData
@@ -93,6 +94,7 @@ function CharacterModel:CreateModel()
 
 		self.modelData = self.modelPool[self.userId]
 		self.model = self.modelData.model:Clone()
+		self.primaryPart = self.model.PrimaryPart
 		self.model.Parent = game.Lighting -- must happen to load animations		
 
 		--Load on the animations			
@@ -205,20 +207,25 @@ function CharacterModel:Think(_deltaTime, dataRecord, bulkMoveToList)
         self.playingTrack:AdjustSpeed(playbackSpeed)
     end
 
-	local humanoid = self.model:FindFirstChild("Humanoid")
 	
-    if (humanoid and humanoid.Health <= 0) then
+	--[[
+	if (self.humanoid == nil) then
+		self.humanoid = self.model:FindFirstChild("Humanoid")
+	end]]--
+	
+	--[[
+    if (self.humanoid and self.humanoid.Health <= 0) then
         --its dead! Really this should never happen
 		self:DestroyModel()
 		self:CreateModel(self.userId)
         return
-    end
+    end]]--
 
 	local newCF = CFrame.new(dataRecord.pos + self.modelData.modelOffset + self.mispredict + Vector3.new(0, dataRecord.stepUp, 0))
         * CFrame.fromEulerAnglesXYZ(0, dataRecord.angle, 0)
     
 	if (bulkMoveToList) then
-		table.insert(bulkMoveToList.parts, self.model.PrimaryPart)
+		table.insert(bulkMoveToList.parts, self.primaryPart)
 		table.insert(bulkMoveToList.cframes, newCF)
     else
 		self.model:PivotTo(newCF)

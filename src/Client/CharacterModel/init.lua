@@ -188,6 +188,10 @@ function CharacterModel:Think(_deltaTime, dataRecord, bulkMoveToList)
         return
     end
 
+	if self.modelData == nil then
+		return
+	end
+
     --Flag that something has changed
     if self.animCounter ~= dataRecord.animCounter0 then
         self.animCounter = dataRecord.animCounter0

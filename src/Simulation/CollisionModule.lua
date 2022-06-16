@@ -15,7 +15,7 @@ local SKIN_THICKNESS = 0.05 --closest you can get to a wall
 module.planeNum = 0
 module.gridSize = 4
 module.fatGridSize = 16
-module.fatPartSize = 64
+module.fatPartSize = 32
 module.profile = false
 
 module.grid = {}
@@ -859,7 +859,8 @@ function module:MakeWorld(folder, playerSize)
 	self.processing = true
     TerrainModule:Setup(self.gridSize, playerSize)
 	
-	 
+	local startTime = tick()
+	local meshTime = 0
 	coroutine.wrap(function()
 		
 		local list = folder:GetDescendants()
@@ -868,8 +869,20 @@ function module:MakeWorld(folder, playerSize)
 		local lastTime = tick()
 		for counter = 1, total do		
 			local instance = list[counter]
+			
+			
 			if (instance:IsA("BasePart") and instance.CanCollide == true) then
+				
+				if (instance.Name == "LootSpawn") then
+					continue
+				end
+				
+				local begin = tick()
 				self:ProcessCollisionOnInstance(instance, playerSize)
+				local timeTaken = tick()- begin
+				if (instance:IsA("MeshPart")) then
+					meshTime += timeTaken
+				end				
 			end
 		
             local maxTime = 0.2
@@ -893,6 +906,16 @@ function module:MakeWorld(folder, playerSize)
         module.OnLoadProgressChanged:Fire(1)
 		print("Collision processing: 100%")
 		self.processing = false
+		
+		if (game["Run Service"]:IsServer()) then
+			print("Server Time Taken: ", math.floor(tick() - startTime), "seconds")
+			
+		else
+			print("Client Time Taken: ", math.floor(tick() - startTime), "seconds")
+		end
+		print("Mesh time: ", meshTime, "seconds")
+		print("Tracing time:", MinkowskiSumInstance.timeSpentTracing, "seconds")
+		self:ClearCache()
 	end)()
 	
 	

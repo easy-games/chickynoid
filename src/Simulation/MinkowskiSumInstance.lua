@@ -6,6 +6,7 @@ local QuickHull2 = require(Vendor.QuickHull2)
 
 local module = {}
 module.meshCache = {}
+module.timeSpentTracing = 0
 
 local corners = {
     Vector3.new(0.5, 0.5, 0.5),
@@ -29,6 +30,18 @@ local function IsUnique(list, normal, d)
     end
     return true
 end
+
+local function IsUniquePoint(list, point)
+	local EPS = 0.001
+
+	for _, src in pairs(list) do
+		if (src-point).magnitude < EPS then
+			return false
+		end
+	end
+	return true
+end
+
 
 local function IsUniqueTri(list, normal, d)
 	local EPS = 0.001
@@ -218,6 +231,7 @@ end
 --And return this array of points to build a convex hull out of
 function module:GetRaytraceInstancePoints(instance, cframe)
 	
+	local start = tick()
 	local points = self.meshCache[instance.MeshId]
 	
 	if (points == nil) then
@@ -239,8 +253,7 @@ function module:GetRaytraceInstancePoints(instance, cframe)
 		meshCopy.Size = Vector3.one
 		meshCopy.Parent = game.Workspace
 		meshCopy.CanQuery = true
-		
-		
+				
 		local raycastParam = RaycastParams.new()
 		raycastParam.FilterType = Enum.RaycastFilterType.Whitelist
 		raycastParam.FilterDescendantsInstances = { meshCopy }
@@ -304,6 +317,38 @@ function module:GetRaytraceInstancePoints(instance, cframe)
 		
 		meshCopy:Destroy()
 		
+		
+		--Optimize the points down 
+		local hull = QuickHull2:GenerateHull(points)
+		local recs = {}
+		
+		for _, tri in pairs(hull) do
+			local normal = (tri[1] - tri[2]):Cross(tri[1] - tri[3]).unit
+			local ed = tri[1]:Dot(normal) --expanded distance
+			 
+			if IsUnique(recs, normal, ed) then
+				table.insert(recs, {
+					n = normal,
+					ed = ed, --expanded
+					tri = tri
+				})
+			end
+		end
+		local points = {}
+		for key,record in pairs(recs) do
+			
+			if (IsUniquePoint(points, record.tri[1])) then
+				table.insert(points,record.tri[1])
+			end
+			if (IsUniquePoint(points, record.tri[2])) then
+				table.insert(points,record.tri[2])
+			end
+			if (IsUniquePoint(points, record.tri[3])) then
+				table.insert(points,record.tri[3])
+			end
+		end
+				
+		
 		self.meshCache[instance.MeshId] = points
 	end
 	
@@ -315,7 +360,8 @@ function module:GetRaytraceInstancePoints(instance, cframe)
 		local p = cframe:PointToWorldSpace(point * size)
 		table.insert(finals, p)	
 	end
-
+	
+	
 	
  
 	if (false and game["Run Service"]:IsClient()) then
@@ -333,7 +379,8 @@ function module:GetRaytraceInstancePoints(instance, cframe)
 		self:VisualizePlanesForPoints(finals, game.Workspace)
 	end
  
-
+	self.timeSpentTracing += tick() - start
+	
     return finals
 end
 

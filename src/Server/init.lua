@@ -673,13 +673,13 @@ function ChickynoidServer:Think(deltaTime)
 end
 
 function ChickynoidServer:RecreateCollisions(rootFolder)
-
     self.collisionRootFolder = rootFolder
-    CollisionModule:MakeWorld(self.collisionRootFolder, self.playerSize)
 
     for _, playerRecord in pairs(self.playerRecords) do
         playerRecord:SendCollisionData()
     end
+
+    CollisionModule:MakeWorld(self.collisionRootFolder, self.playerSize) 
 end
 
 return ChickynoidServer

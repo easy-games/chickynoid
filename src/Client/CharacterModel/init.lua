@@ -181,7 +181,7 @@ function CharacterModel:PlayAnimation(enum, force)
     end
 end
 
-function CharacterModel:Think(_deltaTime, dataRecord)
+function CharacterModel:Think(_deltaTime, dataRecord, bulkMoveToList)
     if self.model == nil then
         return
     end
@@ -214,9 +214,15 @@ function CharacterModel:Think(_deltaTime, dataRecord)
         return
     end
 
-    local newCF = CFrame.new(dataRecord.pos + self.modelData.modelOffset + self.mispredict + Vector3.new(0, dataRecord.stepUp, 0))
+	local newCF = CFrame.new(dataRecord.pos + self.modelData.modelOffset + self.mispredict + Vector3.new(0, dataRecord.stepUp, 0))
         * CFrame.fromEulerAnglesXYZ(0, dataRecord.angle, 0)
-    self.model:PivotTo(newCF)
+    
+	if (bulkMoveToList) then
+		table.insert(bulkMoveToList.parts, self.model.PrimaryPart)
+		table.insert(bulkMoveToList.cframes, newCF)
+    else
+		self.model:PivotTo(newCF)
+	end
 end
 
 

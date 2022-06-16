@@ -872,7 +872,11 @@ function module:MakeWorld(folder, playerSize)
 				self:ProcessCollisionOnInstance(instance, playerSize)
 			end
 		
-            if (tick() - lastTime > 0.2) then
+            local maxTime = 0.2
+			if RunService:IsClient() then
+				maxTime = 0.2
+			end
+            if (tick() - lastTime > maxTime) then
                 lastTime = tick()
                 if RunService:IsServer() then
 					task.wait()

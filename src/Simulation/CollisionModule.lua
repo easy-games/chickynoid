@@ -20,7 +20,6 @@ module.profile = false
 
 module.grid = {}
 module.fatGrid = {}
-module.processQueue = {}
 module.cache = {}
 module.cacheCount = 0
 module.maxCacheCount = 10000
@@ -379,6 +378,14 @@ function module:FetchHullsForBox(min, max)
 	cached[otherKey] = hullRecords
 	
 	
+	--Inflate missing hulls
+	for key,record in pairs(hullRecords) do
+		
+		if (record.hull == nil) then
+			record.hull = self:GenerateConvexHullAccurate(record.instance, module.expansionSize, self:GenerateSnappedCFrame(record.instance))
+		end
+	end
+	
 		
 	return hullRecords
 end
@@ -428,7 +435,8 @@ function module:ProcessCollisionOnInstance(instance, playerSize)
         if module.hullRecords[instance] ~= nil then
             return
         end
-
+		
+		--[[
         if CollectionService:HasTag(instance, "Dynamic") then
             local record = {}
             record.instance = instance
@@ -452,11 +460,11 @@ function module:ProcessCollisionOnInstance(instance, playerSize)
             table.insert(module.dynamicRecords, record)
 
             return
-        end
+        end]]--
 
         local record = {}
         record.instance = instance
-        record.hull = self:GenerateConvexHullAccurate(instance, playerSize, self:GenerateSnappedCFrame(instance))
+        --record.hull = self:GenerateConvexHullAccurate(instance, playerSize, self:GenerateSnappedCFrame(instance))
         self:WritePartToHashMap(record.instance, record)
 
         module.hullRecords[instance] = record
@@ -861,22 +869,17 @@ function module:MakeWorld(folder, playerSize)
 	
 	local startTime = tick()
 	local meshTime = 0
+
 	coroutine.wrap(function()
-		
 		local list = folder:GetDescendants()
 		local total = #folder:GetDescendants()
 		
 		local lastTime = tick()
 		for counter = 1, total do		
 			local instance = list[counter]
-			
-			
+						
 			if (instance:IsA("BasePart") and instance.CanCollide == true) then
-				
-				if (instance.Name == "LootSpawn") then
-					continue
-				end
-				
+						
 				local begin = tick()
 				self:ProcessCollisionOnInstance(instance, playerSize)
 				local timeTaken = tick()- begin
@@ -886,16 +889,12 @@ function module:MakeWorld(folder, playerSize)
 			end
 		
             local maxTime = 0.2
-			if RunService:IsClient() then
-				maxTime = 0.2
-			end
+ 
             if (tick() - lastTime > maxTime) then
                 lastTime = tick()
-                if RunService:IsServer() then
-					task.wait()
-				else
-					wait()	
-				end
+      
+				wait()	
+		
                 local progress = counter/total;
                 module.loadProgress = progress;
                 module.OnLoadProgressChanged:Fire(progress)
@@ -916,27 +915,16 @@ function module:MakeWorld(folder, playerSize)
 		print("Mesh time: ", meshTime, "seconds")
 		print("Tracing time:", MinkowskiSumInstance.timeSpentTracing, "seconds")
 		self:ClearCache()
+ 
 	end)()
 	
 	
-	if (game["Run Service"]:IsServer()) then
-		folder.DescendantAdded:Connect(function(instance)
-			self:ClearCache()
-			self:ProcessCollisionOnInstance(instance, playerSize)
-		end)
-	else
-		folder.DescendantAdded:Connect(function(instance)
-			--On the client, put it in a queue if the part is far away
-			if (instance:IsA("BasePart") == false) then
-				return	
-			end
-            if (instance.CanCollide == false) then
-                return
-            end
-			self.processQueue[instance] = instance
-		end)
-	end
-
+	 
+    folder.DescendantAdded:Connect(function(instance)
+        self:ClearCache()
+        self:ProcessCollisionOnInstance(instance, playerSize)
+    end)
+    
     folder.DescendantRemoving:Connect(function(instance)
         local record = module.hullRecords[instance]
 
@@ -945,47 +933,6 @@ function module:MakeWorld(folder, playerSize)
             self:RemovePartFromHashMap(instance)
         end
     end)
-    
-	local timeSinceLastExecution = 0
-	
-	game["Run Service"].Heartbeat:Connect(function()
-		
-		if (tick() - timeSinceLastExecution < 0.2) then
-			return
-		end
-		
-		local counter = 0
-		timeSinceLastExecution = tick()
-		local startOfFrame = tick()
-				
-		for key,value in pairs(self.processQueue) do
-            local startTime = os.clock()
-			self:ClearCache()
-			self:ProcessCollisionOnInstance(value, playerSize)
-			counter+=1
-			self.processQueue[value] = nil
-
-            local timeSpent = os.clock() - startTime
-			if timeSpent > 0.01 then
-				print("TOO SLOW: " .. value:GetFullName() .. " " .. (math.round(timeSpent * 1000) / 1000) .. "s")
-			end
-			
-            --10ms
-            if  (tick() - startOfFrame > 0.01) then
-                break
-			end
-			
-			
-		end
-		if (counter > 0) then
-			local count = 0
-			for key,value in pairs(self.processQueue) do
-				count += 1
-			end
-			-- print("Remaining:", count)
-		end
-		
-	end)
 end
 
 function module:ClearCache()

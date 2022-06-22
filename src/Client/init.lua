@@ -812,10 +812,14 @@ function ChickynoidClient:AddPingToNetgraph(resimulate, serverHealthFps, network
     if networkProblem == Enums.NetworkProblemState.TooFarAhead then
         NetGraph:AddBar(100, Color3.new(1, 1, 0), 0)
     end
-    --Orange bar
+    --Red bar
     if networkProblem == Enums.NetworkProblemState.TooManyCommands then
-        NetGraph:AddBar(100, Color3.new(1, 0.5, 0), 0)
-    end
+        NetGraph:AddBar(100, Color3.new(1, 0, 0), 0)
+	end
+	--teal bar
+	if networkProblem == Enums.NetworkProblemState.CommandUnderrun then
+		NetGraph:AddBar(100, Color3.new(0, 1, 1), 0)
+	end
 
     NetGraph:SetFpsText("Effective Ping: " .. math.floor(total) .. "ms")
 end

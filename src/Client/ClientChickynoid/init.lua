@@ -171,8 +171,9 @@ function ClientChickynoid:HandleNewState(stateDelta, lastConfirmed, serverTime)
 
         -- Did we make a misprediction? We can tell if our predicted position isn't the same after reconstructing everything
         local delta = oldPos - self.simulation.state.pos
-        --Add the offset to mispredict so we can blend it off
-        self.mispredict += delta
+		--Add the offset to mispredict so we can blend it off
+		
+        self.mispredict = delta
     end
     
     return resimulate, self.ping

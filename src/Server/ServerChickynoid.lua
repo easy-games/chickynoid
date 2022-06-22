@@ -36,16 +36,20 @@ function ServerChickynoid.new(playerRecord)
         commandSerial = 0,
         lastConfirmedCommand = nil,
         elapsedTime = 0,
-        playerElapsedTime = 0,
-
+		playerElapsedTime = 0,
+		playerPredictedElapsedTime = 0,
+		
+		processedTimeSinceLastSnapshot = 0,
+		fakeCommandDebt = 0, --seconds of commands to ignore because we made a fake command
+		
         errorState = Enums.NetworkProblemState.None,
 
-        speedCheatThreshhold = 300 * 0.001, --milliseconds
-        antiwarpThreshhold = 300 * 0.001, --milliseconds  (was 60)
+        speedCheatThreshhold = 150  , --milliseconds
+       
 
-        bufferedCommandTime = 20 * 0.001, --ms
-        serverFrames = 0,
-
+        bufferedCommandTime = 0, --ms
+		serverFrames = 0,
+		
         hitBoxCreated = FastSignal.new(),
 
         debug = {
@@ -91,7 +95,7 @@ function ServerChickynoid:Destroy()
 end
 
 function ServerChickynoid:HandleEvent(server, event)
-    self:HandleClientEvent(server, event)
+    self:HandleClientEvent(server, event, false)
 end
 
 --[=[
@@ -108,21 +112,25 @@ function ServerChickynoid:GetPosition()
     return self.simulation.state.pos
 end
 
-function ServerChickynoid:GenerateFakeCommand(deltaTime)
-    local command = {}
-    command.deltaTime = deltaTime
-    command.x = 0
-    command.y = 0
-    command.z = 0
-    command.f = 0
+function ServerChickynoid:GenerateFakeCommand(server, deltaTime)
+	
+	if (self.lastProcessedCommand == nil) then
+		return
+	end
 
-    command.serial = self.commandSerial
-    self.commandSerial += 1
+	local command = DeltaTable:DeepCopy(self.lastProcessedCommand)
+	command.deltaTime = deltaTime
+	
+	local event = {}
+	event.t = EventType.Command
+	event.command = command
+	self:HandleClientEvent(server, event, true)
+	
+	self.fakeCommandDebt += deltaTime
+	if (self.fakeCommandDebt > 1) then
+		self.fakeCommandDebt = 1 --sanity
+	end
 
-    self.playerElapsedTime += command.deltaTime
-    command.serverTime = self.elapsedTime --this is wrong
-    command.totalTime = self.elapsedTime
-    table.insert(self.unprocessedCommands, command)
 end
 
 --[=[
@@ -133,35 +141,46 @@ function ServerChickynoid:Think(_server, _serverSimulationTime, deltaTime)
     --  Anticheat methods
     --  We keep X ms of commands unprocessed, so that if players stop sending upstream, we have some commands to keep going with
     --  We only allow the player to get +150ms ahead of the servers estimated sim time (Speed cheat), if they're over this, we discard commands
-    --  We only allow the player to get -150ms behind the servers estimated sim time (Lag cheat), if they're under this, we generate fake commands to catch them up
-    --  We only allow 15 commands per server tick (ratio of 5:1) if the user somehow has more than 15 commands that are legitimately needing processing, we discard them all
+    --  The server will generate a fake command if you underrun (do not have any commands during time between snapshots)
+    --  todo: We only allow 15 commands per server tick (ratio of 5:1) if the user somehow has more than 15 commands that are legitimately needing processing, we discard them all
 
-    self.elapsedTime += deltaTime
-
+	self.elapsedTime += deltaTime
+	self.playerPredictedElapsedTime += deltaTime
+	
+	
+	
     --Once a player has connected, monitor their total elapsed time
-    --If it falls behind, catch them up!
-    if self.playerElapsedTime > 0 and self.playerRecord.dummy == false then
-        if self.playerElapsedTime < self.elapsedTime - self.antiwarpThreshhold then
+	--If it falls behind, catch them up!
+	
+
+	
+	--[[
+	if self.playerElapsedTime > 0 and self.playerRecord.dummy == false then
+		
+		local delta = ( self.playerPredictedElapsedTime - self.playerElapsedTime  ) * 1000
+		print(delta)
+        if (delta > self.antiwarpThreshhold) then
             self.errorState = Enums.NetworkProblemState.TooFarAhead
             --Generate some commands
-            local timeToCover = (self.elapsedTime - self.antiwarpThreshhold) - self.playerElapsedTime
+            local timeToCover = (self.elapsedTime - (self.antiwarpThreshhold / 1000)) - self.playerElapsedTime
 
             while timeToCover > 0 do
                 timeToCover -= 1 / 60
                 self:GenerateFakeCommand(1 / 60)
             end
         end
-    end
+    end]]--
 
     --Sort commands by their serial
     table.sort(self.unprocessedCommands, function(a, b)
         return a.serial < b.serial
     end)
-
+	
+	--[[
     local maxCommandsPerFrame = 15
 
     for _, command in pairs(self.unprocessedCommands) do
-        if command.totalTime > self.elapsedTime - self.bufferedCommandTime then
+        if command.totalTime > self.elapsedTime - (self.bufferedCommandTime/1000) then
             --Can't process this yet, its our buffer
             continue
         end
@@ -191,7 +210,77 @@ function ServerChickynoid:Think(_server, _serverSimulationTime, deltaTime)
             self.lastConfirmedCommand = command.l
         end
     end
+    ]]--
+	
+	--[[local delta = (self.playerElapsedTime - self.elapsedTime) * 1000
+	if (delta > 150) then
+		--player sim time too far behind
+		print("Resetting elapsed time")
+		self.playerElapsedTime = self.elapsedTime
+	end]]--
+	
+	--print(self.playerRecord.name, " buffer ", #self.unprocessedCommands)
+	
+	--[[
+	if (#self.unprocessedCommands == 0) then
+		self.errorState = Enums.NetworkProblemState.CommandUnderrun
+		
+		--Repeat the previous command
+		if (self.lastProcessedCommand) then
+			
+			local newCommand = DeltaTable:DeepCopy(self.lastProcessedCommand)
+			--Fudge the copy of the previous command 
+			newCommand.elapsedTime = 0 --make sure it gets processed
+			
+			print("old dt ", newCommand.deltaTime, " vs ", deltaTime)
+			newCommand.deltaTime = deltaTime
+			
+			newCommand.serial = self.commandSerial
+			self.commandSerial += 1
+			table.insert(self.unprocessedCommands, newCommand)
+		end
+	end
+	]]--
+	
+	
+	local timeToProcessTo = self.elapsedTime - (self.bufferedCommandTime/1000)
+	 
+	
+	for _, command in pairs(self.unprocessedCommands) do
+		if command.elapsedTime > timeToProcessTo then
+			--Can't process this yet, its our buffer
+		 --	continue
+		end
+		 
+		--print("server", command.l, command.serverTime)
+		TrajectoryModule:PositionWorld(command.serverTime, command.deltaTime)
+		self.debug.processedCommands += 1
 
+		--Step simulation!
+		self.simulation:ProcessCommand(command)
+
+		--Fire weapons!
+		self.playerRecord:ProcessWeaponCommand(command)
+
+		command.processed = true
+
+		if command.l and tonumber(command.l) ~= nil then
+			self.lastConfirmedCommand = command.l
+			self.lastProcessedCommand = command
+		end
+		
+		self.processedTimeSinceLastSnapshot += command.deltaTime
+	end
+	
+
+	
+	--local delta = (timeToProcessTo - timeOfLastCommand) * 1000
+	--print(delta)
+	--if (delta > 50) then
+		--self.errorState = Enums.NetworkProblemState.CommandUnderrun
+		
+--	end
+	
     local newList = {}
     for _, command in pairs(self.unprocessedCommands) do
         if command.processed ~= true then
@@ -199,7 +288,8 @@ function ServerChickynoid:Think(_server, _serverSimulationTime, deltaTime)
         end
     end
 
-    self.unprocessedCommands = newList
+	self.unprocessedCommands = newList
+ 
 end
 
 --[=[
@@ -208,11 +298,15 @@ end
 	@param event table -- The event sent by the client.
 	@private
 ]=]
-function ServerChickynoid:HandleClientEvent(server, event)
-    if event.t == EventType.Command then
-        local command = event.command
+function ServerChickynoid:HandleClientEvent(server, event, fakeCommand)
+	
+	if event.t == EventType.Command then
+		
+	    local command = event.command
 
-        if command and typeof(command) == "table" then
+		if command and typeof(command) == "table" then
+		
+			
             --Sanitize
             --todo: clean this into a function per type
             if command.x == nil or typeof(command.x) ~= "number" or command.x ~= command.x then
@@ -250,8 +344,6 @@ function ServerChickynoid:HandleClientEvent(server, event)
                 command.fa = nil
             end
 
-            command.serial = self.commandSerial
-            self.commandSerial += 1
 
             --sanitize
 
@@ -286,17 +378,39 @@ function ServerChickynoid:HandleClientEvent(server, event)
             if command.deltaTime then
                 --On the first command, init
                 if self.playerElapsedTime == 0 then
-                    self.playerElapsedTime = self.elapsedTime
+					self.playerElapsedTime = self.elapsedTime
+					self.playerPredictedElapsedTime = self.playerElapsedTime
                 end
-
-                if self.playerElapsedTime > self.elapsedTime + self.speedCheatThreshhold then
-                    --print("Player too far ahead", self.playerRecord.name)
+				
+				--test if this is wthin speed cheat range?
+                if self.playerElapsedTime > self.elapsedTime + (self.speedCheatThreshhold / 1000) then
+					--print("Player too far ahead", self.playerRecord.name)
+					--Skipping this command
                     self.errorState = Enums.NetworkProblemState.TooFarAhead
-                else
-                    self.playerElapsedTime += command.deltaTime
-                    command.totalTime = self.elapsedTime
-                    table.insert(self.unprocessedCommands, command)
-                end
+				else
+					
+					--discard this if there is fake command debt (we generated fake commands due to underrun)
+					if (self.fakeCommandDebt > 0 and fakeCommand == nil) then
+						self.fakeCommandDebt -= command.deltaTime
+						
+						print("discarding ", command.deltaTime, fakeCommand)
+						if (self.fakeCommandDebt < 0) then
+							self.fakeCommandDebt = 0
+						end
+					else
+						--write it!
+						self.playerElapsedTime += command.deltaTime
+						self.playerPredictedElapsedTime = self.playerElapsedTime
+						
+						command.elapsedTime = self.elapsedTime
+						command.playerElapsedTime = self.playerElapsedTime
+						command.fakeCommand = fakeCommand
+						command.serial = self.commandSerial
+						self.commandSerial += 1
+						table.insert(self.unprocessedCommands, command)
+					end
+				end
+				
             end
         end
     end

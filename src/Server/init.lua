@@ -58,7 +58,7 @@ ChickynoidServer.config = {
     maxPlayers = 255,
     fpsMode = Enums.FpsMode.Hybrid,
 	serverHz = 20,
-	
+	antiWarp = true,
 }
 
 --API
@@ -171,7 +171,7 @@ function ChickynoidServer:AddConnection(userId, player)
     
 
     playerRecord.allowedToSpawn = true
-    playerRecord.respawnDelay = 3
+    playerRecord.respawnDelay = 0
     playerRecord.respawnTime = tick() + playerRecord.respawnDelay
 
     playerRecord.OnBeforePlayerSpawn = FastSignal.new()
@@ -489,7 +489,8 @@ function ChickynoidServer:Think(deltaTime)
 
         debug.profilebegin("movement")
         Antilag:WritePlayerPositions(self.serverSimulationTime)
-        
+						
+		
         for userId, playerRecord in pairs(self.playerRecords) do
 			
 			--Bots dont generate snapshots, unless we're testing for performance
@@ -498,9 +499,33 @@ function ChickynoidServer:Think(deltaTime)
 					continue
 				end
 			end
-            
-            --Send results of server move
-            if playerRecord.chickynoid ~= nil then
+			
+			
+			if playerRecord.chickynoid ~= nil then
+				
+				--see if we need to antiwarp people
+
+				if (self.config.antiWarp == true) then
+					local timeElapsed = playerRecord.chickynoid.processedTimeSinceLastSnapshot
+					if (timeElapsed == 0) then
+						--This player didn't move this snapshot
+						playerRecord.chickynoid.errorState = Enums.NetworkProblemState.CommandUnderrun
+						
+						local timeToPatchOver = 1 / self.config.serverHz
+						playerRecord.chickynoid:GenerateFakeCommand(self, timeToPatchOver)
+						
+						print("Adding fake command ", timeToPatchOver)
+						
+						--Move them.
+						playerRecord.chickynoid:Think(self, self.serverSimulationTime, timeToPatchOver)
+					end
+					--print("e:" , timeElapsed * 1000)
+				end
+				
+								
+				playerRecord.chickynoid.processedTimeSinceLastSnapshot = 0
+					
+            	--Send results of server move
                 local event = {}
                 event.t = EventType.State
                 event.lastConfirmed = playerRecord.chickynoid.lastConfirmedCommand
@@ -513,7 +538,9 @@ function ChickynoidServer:Think(deltaTime)
 
                 playerRecord:SendEventToClient(event)
                 playerRecord.chickynoid.errorState = Enums.NetworkProblemState.None
-            end
+			end
+			
+			
         end
 		debug.profileend()
 		
@@ -530,8 +557,7 @@ function ChickynoidServer:Think(deltaTime)
 			if (playerRecord.chickynoid == nil) then
 				continue
 			end
-		
-		
+				
 			--write the delta - note that previousRecord wont exist on the first frame but thats nil, and acceptable
 			local bitBuffer = BitBuffer()
 			local previousRecord = playerRecord.previousCharacterData

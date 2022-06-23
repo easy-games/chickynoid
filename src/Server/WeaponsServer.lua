@@ -218,17 +218,21 @@ function module:OnPlayerConnected(server, playerRecord)
     end
 end
 
-function module:QueryBullet(playerRecord, server, origin, dir, serverTime, debugText, raycastParams)
+function module:QueryBullet(playerRecord, server, origin, dir, serverTime, debugText, raycastParams, range)
     Antilag:PushPlayerPositionsToTime(playerRecord, serverTime, debugText)
 
-    local rayCastResult = game.Workspace:Raycast(origin, dir * 1000, raycastParams)
+    if range == nil then
+        range = 1000
+    end
+
+    local rayCastResult = game.Workspace:Raycast(origin, dir * range, raycastParams)
 
     local pos = nil
     local normal = nil
     local otherPlayerRecord = nil
     local hitInstance = nil
     if rayCastResult == nil then
-        pos = origin + dir * 1000
+        pos = origin + dir * range
     else
         pos = rayCastResult.Position
         normal = rayCastResult.Normal
@@ -246,9 +250,13 @@ function module:QueryBullet(playerRecord, server, origin, dir, serverTime, debug
     return pos, normal, otherPlayerRecord, hitInstance
 end
 
-function module:QueryShotgun(playerRecord, server, origins, directions, serverTime, debugText, raycastParams)
+function module:QueryShotgun(playerRecord, server, origins, directions, serverTime, debugText, raycastParams, range)
 
     Antilag:PushPlayerPositionsToTime(playerRecord, serverTime, debugText)
+
+    if range == nil then
+        range = 1000
+    end
     
     local results = {}
     
@@ -259,11 +267,11 @@ function module:QueryShotgun(playerRecord, server, origins, directions, serverTi
             continue
         end
     
-        local rayCastResult = game.Workspace:Raycast(origin, dir * 1000, raycastParams)
+        local rayCastResult = game.Workspace:Raycast(origin, dir * range, raycastParams)
 
         if rayCastResult == nil then
             local record = {}
-            record.pos =  origin + dir * 1000
+            record.pos =  origin + dir * range
             record.origin = origin
             record.dir = dir
             table.insert(results, record)

@@ -10,6 +10,7 @@ interface WeaponsServer {
 		serverTime: number,
 		debugText: string,
 		raycastParams: RaycastParams,
+		range: number,
 	): LuaTuple<
 		[pos: Vector3, normal: Vector3, otherPlayerRecord: PlayerRecord | undefined, hitInstance: BasePart | Terrain]
 	>;
@@ -22,6 +23,7 @@ interface WeaponsServer {
 		serverTime: number,
 		debugText: string,
 		raycastParams: RaycastParams,
+		range: number,
 	): Array<{
 		pos: Vector3;
 		normal: Vector3;

@@ -37,7 +37,7 @@ function ServerChickynoid.new(playerRecord)
         lastConfirmedCommand = nil,
         elapsedTime = 0,
 		playerElapsedTime = 0,
-		playerPredictedElapsedTime = 0,
+		 
 		
 		processedTimeSinceLastSnapshot = 0,
 		fakeCommandDebt = 0, --seconds of commands to ignore because we made a fake command
@@ -46,8 +46,7 @@ function ServerChickynoid.new(playerRecord)
 
         speedCheatThreshhold = 150  , --milliseconds
        
-
-        bufferedCommandTime = 0, --ms
+        bufferedCommandTime = 20, --ms  ~1 frame
 		serverFrames = 0,
 		
         hitBoxCreated = FastSignal.new(),
@@ -127,8 +126,8 @@ function ServerChickynoid:GenerateFakeCommand(server, deltaTime)
 	self:HandleClientEvent(server, event, true)
 	
 	self.fakeCommandDebt += deltaTime
-	if (self.fakeCommandDebt > 1) then
-		self.fakeCommandDebt = 1 --sanity
+	if (self.fakeCommandDebt > 0.2) then
+		self.fakeCommandDebt = 0.2 --sanity
 	end
 
 end
@@ -145,111 +144,19 @@ function ServerChickynoid:Think(_server, _serverSimulationTime, deltaTime)
     --  todo: We only allow 15 commands per server tick (ratio of 5:1) if the user somehow has more than 15 commands that are legitimately needing processing, we discard them all
 
 	self.elapsedTime += deltaTime
-	self.playerPredictedElapsedTime += deltaTime
-	
-	
-	
-    --Once a player has connected, monitor their total elapsed time
-	--If it falls behind, catch them up!
-	
-
-	
-	--[[
-	if self.playerElapsedTime > 0 and self.playerRecord.dummy == false then
-		
-		local delta = ( self.playerPredictedElapsedTime - self.playerElapsedTime  ) * 1000
-		print(delta)
-        if (delta > self.antiwarpThreshhold) then
-            self.errorState = Enums.NetworkProblemState.TooFarAhead
-            --Generate some commands
-            local timeToCover = (self.elapsedTime - (self.antiwarpThreshhold / 1000)) - self.playerElapsedTime
-
-            while timeToCover > 0 do
-                timeToCover -= 1 / 60
-                self:GenerateFakeCommand(1 / 60)
-            end
-        end
-    end]]--
-
+ 
     --Sort commands by their serial
     table.sort(self.unprocessedCommands, function(a, b)
         return a.serial < b.serial
-    end)
-	
-	--[[
-    local maxCommandsPerFrame = 15
-
-    for _, command in pairs(self.unprocessedCommands) do
-        if command.totalTime > self.elapsedTime - (self.bufferedCommandTime/1000) then
-            --Can't process this yet, its our buffer
-            continue
-        end
-
-        maxCommandsPerFrame -= 1
-        if maxCommandsPerFrame < 0 then
-            --print("Player send too many commands at once:", self.playerRecord.name)
-            self.errorState = Enums.NetworkProblemState.TooManyCommands
-            self.playerElapsedTime = self.elapsedTime
-            self.unprocessedCommands = {}
-            break --Discard all buffered commands
-        end
-
-        --print("server", command.l, command.serverTime)
-        TrajectoryModule:PositionWorld(command.serverTime, command.deltaTime)
-        self.debug.processedCommands += 1
-
-        --Step simulation!
-        self.simulation:ProcessCommand(command)
-
-        --Fire weapons!
-        self.playerRecord:ProcessWeaponCommand(command)
-
-        command.processed = true
-
-        if command.l and tonumber(command.l) ~= nil then
-            self.lastConfirmedCommand = command.l
-        end
-    end
-    ]]--
-	
-	--[[local delta = (self.playerElapsedTime - self.elapsedTime) * 1000
-	if (delta > 150) then
-		--player sim time too far behind
-		print("Resetting elapsed time")
-		self.playerElapsedTime = self.elapsedTime
-	end]]--
-	
-	--print(self.playerRecord.name, " buffer ", #self.unprocessedCommands)
-	
-	--[[
-	if (#self.unprocessedCommands == 0) then
-		self.errorState = Enums.NetworkProblemState.CommandUnderrun
-		
-		--Repeat the previous command
-		if (self.lastProcessedCommand) then
-			
-			local newCommand = DeltaTable:DeepCopy(self.lastProcessedCommand)
-			--Fudge the copy of the previous command 
-			newCommand.elapsedTime = 0 --make sure it gets processed
-			
-			print("old dt ", newCommand.deltaTime, " vs ", deltaTime)
-			newCommand.deltaTime = deltaTime
-			
-			newCommand.serial = self.commandSerial
-			self.commandSerial += 1
-			table.insert(self.unprocessedCommands, newCommand)
-		end
-	end
-	]]--
+	end)
 	
 	
 	local timeToProcessTo = self.elapsedTime - (self.bufferedCommandTime/1000)
-	 
 	
 	for _, command in pairs(self.unprocessedCommands) do
-		if command.elapsedTime > timeToProcessTo then
+		if command.fakeCommand == false and command.elapsedTime > timeToProcessTo then
 			--Can't process this yet, its our buffer
-		 --	continue
+			continue
 		end
 		 
 		--print("server", command.l, command.serverTime)
@@ -271,15 +178,7 @@ function ServerChickynoid:Think(_server, _serverSimulationTime, deltaTime)
 		
 		self.processedTimeSinceLastSnapshot += command.deltaTime
 	end
-	
-
-	
-	--local delta = (timeToProcessTo - timeOfLastCommand) * 1000
-	--print(delta)
-	--if (delta > 50) then
-		--self.errorState = Enums.NetworkProblemState.CommandUnderrun
-		
---	end
+ 
 	
     local newList = {}
     for _, command in pairs(self.unprocessedCommands) do
@@ -346,43 +245,51 @@ function ServerChickynoid:HandleClientEvent(server, event, fakeCommand)
 
 
             --sanitize
+			if (fakeCommand == false) then
+	            if server.config.fpsMode == Enums.FpsMode.Uncapped then
+	                --Todo: really slow players need to be penalized harder.
+	                if command.deltaTime > 0.5 then
+	                    command.deltaTime = 0.5
+	                end
 
-            if server.config.fpsMode == Enums.FpsMode.Uncapped then
-                --Todo: really slow players need to be penalized harder.
-                if command.deltaTime > 0.5 then
-                    command.deltaTime = 0.5
-                end
+	                --500fps cap
+	                if command.deltaTime < 1 / 500 then
+	                    command.deltaTime = 1 / 500
+	                    --print("Player over 500fps:", self.playerRecord.name)
+	                end
+	            elseif server.config.fpsMode == Enums.FpsMode.Hybrid then
+	                --Players under 30fps are simualted at 30fps
+	                if command.deltaTime > 1 / 30 then
+	                    command.deltaTime = 1 / 30
+	                end
 
-                --500fps cap
-                if command.deltaTime < 1 / 500 then
-                    command.deltaTime = 1 / 500
-                    --print("Player over 500fps:", self.playerRecord.name)
-                end
-            elseif server.config.fpsMode == Enums.FpsMode.Hybrid then
-                --Players under 30fps are simualted at 30fps
-                if command.deltaTime > 1 / 30 then
-                    command.deltaTime = 1 / 30
-                end
-
-                --500fps cap
-                if command.deltaTime < 1 / 500 then
-                    command.deltaTime = 1 / 500
-                    --print("Player over 500fps:", self.playerRecord.name)
-                end
-            elseif server.config.fpsMode == Enums.FpsMode.Fixed60 then
-                command.deltaTime = 1 / 60
-            else
-                warn("Unhandled FPS mode")
-            end
+	                --500fps cap
+	                if command.deltaTime < 1 / 500 then
+	                    command.deltaTime = 1 / 500
+	                    --print("Player over 500fps:", self.playerRecord.name)
+	                end
+	            elseif server.config.fpsMode == Enums.FpsMode.Fixed60 then
+	                command.deltaTime = 1 / 60
+	            else
+	                warn("Unhandled FPS mode")
+				end
+			end
 
             if command.deltaTime then
                 --On the first command, init
                 if self.playerElapsedTime == 0 then
 					self.playerElapsedTime = self.elapsedTime
-					self.playerPredictedElapsedTime = self.playerElapsedTime
-                end
+				end
+				local delta = self.playerElapsedTime - self.elapsedTime
 				
+				--see if they've fallen too far behind
+				if (delta < -(self.speedCheatThreshhold / 1000)) then
+					self.playerElapsedTime = self.elapsedTime
+					self.errorState = Enums.NetworkProblemState.TooFarBehind
+				end
+								
 				--test if this is wthin speed cheat range?
+				--print("delta", self.playerElapsedTime - self.elapsedTime)
                 if self.playerElapsedTime > self.elapsedTime + (self.speedCheatThreshhold / 1000) then
 					--print("Player too far ahead", self.playerRecord.name)
 					--Skipping this command
@@ -390,23 +297,25 @@ function ServerChickynoid:HandleClientEvent(server, event, fakeCommand)
 				else
 					
 					--discard this if there is fake command debt (we generated fake commands due to underrun)
-					if (self.fakeCommandDebt > 0 and fakeCommand == nil) then
+					if (false and self.fakeCommandDebt > 0 and fakeCommand == false) then
 						self.fakeCommandDebt -= command.deltaTime
-						
-						print("discarding ", command.deltaTime, fakeCommand)
 						if (self.fakeCommandDebt < 0) then
 							self.fakeCommandDebt = 0
-						end
+						end		
+						print("discarding ", command.deltaTime, math.floor(self.fakeCommandDebt * 1000))
+				
 					else
 						--write it!
 						self.playerElapsedTime += command.deltaTime
-						self.playerPredictedElapsedTime = self.playerElapsedTime
+				
+						command.elapsedTime = self.elapsedTime --Players real time when this was written.
 						
-						command.elapsedTime = self.elapsedTime
 						command.playerElapsedTime = self.playerElapsedTime
 						command.fakeCommand = fakeCommand
 						command.serial = self.commandSerial
 						self.commandSerial += 1
+						
+						--This is the only place where commands get written
 						table.insert(self.unprocessedCommands, command)
 					end
 				end

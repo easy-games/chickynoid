@@ -173,7 +173,7 @@ function ClientChickynoid:HandleNewState(stateDelta, lastConfirmed, serverTime)
         local delta = oldPos - self.simulation.state.pos
 		--Add the offset to mispredict so we can blend it off
 		
-        self.mispredict = delta
+        self.mispredict += delta
     end
     
     return resimulate, self.ping

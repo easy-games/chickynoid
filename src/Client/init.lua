@@ -478,7 +478,7 @@ function ChickynoidClient:ProcessFrame(deltaTime)
 
             self.localChickynoid.mispredict = MathUtils:VelocityFriction(
                 self.localChickynoid.mispredict,
-                0.05,
+                0.1,
                 deltaTime
             )
             self.characterModel.mispredict = self.localChickynoid.mispredict

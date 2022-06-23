@@ -507,17 +507,20 @@ function ChickynoidServer:Think(deltaTime)
 
 				if (self.config.antiWarp == true) then
 					local timeElapsed = playerRecord.chickynoid.processedTimeSinceLastSnapshot
-					if (timeElapsed == 0) then
+					
+					local possibleStep = playerRecord.chickynoid.elapsedTime - playerRecord.chickynoid.playerElapsedTime
+										
+					if (timeElapsed == 0 and playerRecord.chickynoid.lastProcessedCommand ~= nil) then
 						--This player didn't move this snapshot
 						playerRecord.chickynoid.errorState = Enums.NetworkProblemState.CommandUnderrun
 						
 						local timeToPatchOver = 1 / self.config.serverHz
 						playerRecord.chickynoid:GenerateFakeCommand(self, timeToPatchOver)
 						
-						print("Adding fake command ", timeToPatchOver)
-						
+						--print("Adding fake command ", timeToPatchOver)
+						 
 						--Move them.
-						playerRecord.chickynoid:Think(self, self.serverSimulationTime, timeToPatchOver)
+						playerRecord.chickynoid:Think(self, self.serverSimulationTime, 0)
 					end
 					--print("e:" , timeElapsed * 1000)
 				end

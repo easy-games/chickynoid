@@ -8,6 +8,7 @@ export namespace ChickynoidServer {
 		maxPlayers: number;
 		fpsMode: FpsMode;
 		serverHz: number;
+		antiWarp: boolean;
 	}
 
 	export const enum FpsMode {

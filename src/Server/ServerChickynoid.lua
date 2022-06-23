@@ -40,13 +40,14 @@ function ServerChickynoid.new(playerRecord)
 		 
 		
 		processedTimeSinceLastSnapshot = 0,
-		fakeCommandDebt = 0, --seconds of commands to ignore because we made a fake command
 		
         errorState = Enums.NetworkProblemState.None,
 
         speedCheatThreshhold = 150  , --milliseconds
        
-        bufferedCommandTime = 20, --ms  ~1 frame
+		bufferedCommandTime = 20, --ms  ~1 frame
+		maxCommandsPerThink = 8,  --things have gone wrong if this is hit!
+		
 		serverFrames = 0,
 		
         hitBoxCreated = FastSignal.new(),
@@ -124,12 +125,6 @@ function ServerChickynoid:GenerateFakeCommand(server, deltaTime)
 	event.t = EventType.Command
 	event.command = command
 	self:HandleClientEvent(server, event, true)
-	
-	self.fakeCommandDebt += deltaTime
-	if (self.fakeCommandDebt > 0.2) then
-		self.fakeCommandDebt = 0.2 --sanity
-	end
-
 end
 
 --[=[
@@ -152,13 +147,15 @@ function ServerChickynoid:Think(_server, _serverSimulationTime, deltaTime)
 	
 	
 	local timeToProcessTo = self.elapsedTime - (self.bufferedCommandTime/1000)
-	
+	local processCounter = 0
 	for _, command in pairs(self.unprocessedCommands) do
 		if command.fakeCommand == false and command.elapsedTime > timeToProcessTo then
 			--Can't process this yet, its our buffer
 			continue
 		end
-		 
+		
+		processCounter += 1
+		
 		--print("server", command.l, command.serverTime)
 		TrajectoryModule:PositionWorld(command.serverTime, command.deltaTime)
 		self.debug.processedCommands += 1
@@ -177,6 +174,13 @@ function ServerChickynoid:Think(_server, _serverSimulationTime, deltaTime)
 		end
 		
 		self.processedTimeSinceLastSnapshot += command.deltaTime
+		
+		if (processCounter > self.maxCommandsPerThink) then
+			--dump the remaining commands
+			self.errorState = Enums.NetworkProblemState.TooManyCommands
+			self.unprocessedCommands = {}
+			break
+		end
 	end
  
 	
@@ -296,28 +300,20 @@ function ServerChickynoid:HandleClientEvent(server, event, fakeCommand)
                     self.errorState = Enums.NetworkProblemState.TooFarAhead
 				else
 					
-					--discard this if there is fake command debt (we generated fake commands due to underrun)
-					if (false and self.fakeCommandDebt > 0 and fakeCommand == false) then
-						self.fakeCommandDebt -= command.deltaTime
-						if (self.fakeCommandDebt < 0) then
-							self.fakeCommandDebt = 0
-						end		
-						print("discarding ", command.deltaTime, math.floor(self.fakeCommandDebt * 1000))
-				
-					else
-						--write it!
-						self.playerElapsedTime += command.deltaTime
-				
-						command.elapsedTime = self.elapsedTime --Players real time when this was written.
-						
-						command.playerElapsedTime = self.playerElapsedTime
-						command.fakeCommand = fakeCommand
-						command.serial = self.commandSerial
-						self.commandSerial += 1
-						
-						--This is the only place where commands get written
-						table.insert(self.unprocessedCommands, command)
-					end
+					
+					--write it!
+					self.playerElapsedTime += command.deltaTime
+			
+					command.elapsedTime = self.elapsedTime --Players real time when this was written.
+					
+					command.playerElapsedTime = self.playerElapsedTime
+					command.fakeCommand = fakeCommand
+					command.serial = self.commandSerial
+					self.commandSerial += 1
+					
+					--This is the only place where commands get written
+					table.insert(self.unprocessedCommands, command)
+		
 				end
 				
             end

@@ -161,20 +161,22 @@ function module:GetPlanesForPoints(points, basePlaneNum)
     local r = QuickHull2:GenerateHull(points)
     local recs = {}
 
-    --Generate unique planes in n+d format
-    for _, tri in pairs(r) do
-        local normal = (tri[1] - tri[2]):Cross(tri[1] - tri[3]).unit
-        local ed = tri[1]:Dot(normal) --expanded distance
-        basePlaneNum += 1
+	--Generate unique planes in n+d format
+	if (r ~= nil) then
+	    for _, tri in pairs(r) do
+	        local normal = (tri[1] - tri[2]):Cross(tri[1] - tri[3]).unit
+	        local ed = tri[1]:Dot(normal) --expanded distance
+	        basePlaneNum += 1
 
-        if IsUnique(recs, normal, ed) then
-            table.insert(recs, {
-                n = normal,
-                ed = ed, --expanded
-                planeNum = basePlaneNum,
-            })
-        end
-    end
+	        if IsUnique(recs, normal, ed) then
+	            table.insert(recs, {
+	                n = normal,
+	                ed = ed, --expanded
+	                planeNum = basePlaneNum,
+	            })
+	        end
+		end
+	end
 
     return recs, basePlaneNum
 end
@@ -186,12 +188,14 @@ function module:GetPlanePointForPoints(points)
 	local recs = {}
 
 	--Generate unique planes in n+d format
-	for _, tri in pairs(r) do
-		local normal = (tri[1] - tri[2]):Cross(tri[1] - tri[3]).unit
-		local ed = tri[1]:Dot(normal) --expanded distance
-		
-		if IsUniqueTri(recs, normal, ed) then
-			table.insert(recs, { tri[1],tri[2], tri[3], normal, ed }) 
+	if (r ~= nil) then
+		for _, tri in pairs(r) do
+			local normal = (tri[1] - tri[2]):Cross(tri[1] - tri[3]).unit
+			local ed = tri[1]:Dot(normal) --expanded distance
+			
+			if IsUniqueTri(recs, normal, ed) then
+				table.insert(recs, { tri[1],tri[2], tri[3], normal, ed }) 
+			end
 		end
 	end
 
@@ -318,38 +322,43 @@ function module:GetRaytraceInstancePoints(instance, cframe)
 		meshCopy:Destroy()
 		
 		
+		
 		--Optimize the points down 
 		local hull = QuickHull2:GenerateHull(points)
-		local recs = {}
-		
-		for _, tri in pairs(hull) do
-			local normal = (tri[1] - tri[2]):Cross(tri[1] - tri[3]).unit
-			local ed = tri[1]:Dot(normal) --expanded distance
-			 
-			if IsUnique(recs, normal, ed) then
-				table.insert(recs, {
-					n = normal,
-					ed = ed, --expanded
-					tri = tri
-				})
-			end
-		end
-		local points = {}
-		for key,record in pairs(recs) do
+
+		if (hull ~= nil) then
+			local recs = {}
 			
-			if (IsUniquePoint(points, record.tri[1])) then
-				table.insert(points,record.tri[1])
-			end
-			if (IsUniquePoint(points, record.tri[2])) then
-				table.insert(points,record.tri[2])
-			end
-			if (IsUniquePoint(points, record.tri[3])) then
-				table.insert(points,record.tri[3])
-			end
-		end
+			for _, tri in pairs(hull) do
+				local normal = (tri[1] - tri[2]):Cross(tri[1] - tri[3]).unit
+				local ed = tri[1]:Dot(normal) --expanded distance
 				
+				if IsUnique(recs, normal, ed) then
+					table.insert(recs, {
+						n = normal,
+						ed = ed, --expanded
+						tri = tri
+					})
+				end
+			end
+			local points = {}
+			for key,record in pairs(recs) do
+				
+				if (IsUniquePoint(points, record.tri[1])) then
+					table.insert(points,record.tri[1])
+				end
+				if (IsUniquePoint(points, record.tri[2])) then
+					table.insert(points,record.tri[2])
+				end
+				if (IsUniquePoint(points, record.tri[3])) then
+					table.insert(points,record.tri[3])
+				end
+			end
+			self.meshCache[instance.MeshId] = points
+		else
+			self.meshCache[instance.MeshId] = {}
+		end
 		
-		self.meshCache[instance.MeshId] = points
 	end
 	
 	
@@ -360,10 +369,7 @@ function module:GetRaytraceInstancePoints(instance, cframe)
 		local p = cframe:PointToWorldSpace(point * size)
 		table.insert(finals, p)	
 	end
-	
-	
-	
- 
+
 	if (false and game["Run Service"]:IsClient()) then
 		for key,point in pairs(finals) do
 
@@ -402,7 +408,6 @@ function module:GetPlanesForInstanceMeshPart(instance, playerSize, cframe, baseP
 	--Generate unique planes in n+d format
 	if (r == nil) then 
 		return nil, basePlaneNum
-		
 	end
 	for _, tri in pairs(r) do
 		local normal = (tri[1] - tri[2]):Cross(tri[1] - tri[3]).unit

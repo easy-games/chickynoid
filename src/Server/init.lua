@@ -167,13 +167,14 @@ function ChickynoidServer:AddConnection(userId, player)
     self.playerRecords[userId] = playerRecord
 
     playerRecord.userId = userId
-
+	
+	playerRecord.slot = 0 -- starts 0, 0 is an invalid slot.
+	
     playerRecord.previousCharacterData = nil
     playerRecord.chickynoid = nil
     playerRecord.frame = 0
     playerRecord.firstSnapshot = false
     
-
     playerRecord.allowedToSpawn = true
     playerRecord.respawnDelay = 0
     playerRecord.respawnTime = tick() + playerRecord.respawnDelay
@@ -184,14 +185,16 @@ function ChickynoidServer:AddConnection(userId, player)
 	playerRecord.lastSeenFrames = {} --frame we last saw a given player on, for delta compression
 		
 	local assignedSlot = self:AssignSlot(playerRecord)
-	if (assignedSlot == false) then
+    self:DebugSlots()
+    if (assignedSlot == false) then
 		if (player ~= nil) then
 			player:Kick("Server full, no free chickynoid slots")
 		end
 		self.playerRecords[userId] = nil
 		return nil
 	end
-	
+
+
     playerRecord.player = player
     if playerRecord.player ~= nil then
         playerRecord.dummy = false
@@ -344,10 +347,12 @@ function ChickynoidServer:PlayerDisconnected(userId)
 		
 		--nil this out
 		playerRecord.previousCharacterData = nil
-
+		self.slots[playerRecord.slot] = nil
+		playerRecord.slot = nil
+		
         self.playerRecords[userId] = nil
 
-        self.slots[tostring(playerRecord.slot)] = nil
+        self:DebugSlots()
     end
 
     --Tell everyone
@@ -359,6 +364,23 @@ function ChickynoidServer:PlayerDisconnected(userId)
 		
 		self:SendWorldstate(data)
     end
+end
+
+function ChickynoidServer:DebugSlots()
+    
+
+    --print a count
+    local free = 0
+    local used = 0
+    for j = 1, self.config.maxPlayers do
+        if self.slots[j] == nil then
+            free += 1
+            
+        else
+            used += 1
+        end
+    end
+    print("Players:", used, " (Free:", free, ")")
 end
 
 function ChickynoidServer:GetPlayerByUserId(userId)
@@ -598,7 +620,7 @@ function ChickynoidServer:Think(deltaTime)
             local currentlyVisible = {}
 		 
             for otherUserId, otherPlayerRecord in pairs(self.playerRecords) do
-                if otherUserId ~= userId and otherPlayerRecord.chickynoid ~= nil then
+                if otherUserId ~= userId and otherPlayerRecord.chickynoid ~= nil and otherPlayerRecord.slot ~= 0 then
 
                     local canSee = true
                     for key,callback in pairs(visiblityCallbacks) do
@@ -683,9 +705,7 @@ function ChickynoidServer:Think(deltaTime)
 					end
 				end
 			end
-			
-			
-			
+		
 			local resultString = table.concat(list, "")
 									
 			--mark that we've sent a snapshot

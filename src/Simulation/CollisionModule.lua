@@ -380,9 +380,12 @@ function module:FetchHullsForBox(min, max)
 	
 	--Inflate missing hulls
 	for key,record in pairs(hullRecords) do
-		
-		if (record.hull == nil) then
+       
+    	if (record.hull == nil) then
 			record.hull = self:GenerateConvexHullAccurate(record.instance, module.expansionSize, self:GenerateSnappedCFrame(record.instance))
+            if (record.hull == nil) then
+                hullRecords[key] = nil
+            end
 		end
 	end
 	

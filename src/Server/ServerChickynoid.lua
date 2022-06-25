@@ -46,7 +46,7 @@ function ServerChickynoid.new(playerRecord)
         speedCheatThreshhold = 150  , --milliseconds
        
 		bufferedCommandTime = 0, --ms  ~1 frame - THis does not appear to work
-		maxCommandsPerThink = 8,  --things have gone wrong if this is hit!
+		maxCommandsPerThink = 15,  --things have gone wrong if this is hit!
 		
 		serverFrames = 0,
 		
@@ -201,8 +201,10 @@ function ServerChickynoid:Think(_server, _serverSimulationTime, deltaTime)
 	self.unprocessedCommands = newList
 	
 	
-	--debug stuff
+	--debug stuff, too many commands a second stuff
 	if (tick() > self.debug.timeOfNextSecond) then
+	
+		
 		self.debug.timeOfNextSecond = tick() + 1
 		self.debug.antiwarpPerSecond = self.debug.fakeCommandsThisSecond
 		self.debug.fakeCommandsThisSecond = 0

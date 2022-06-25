@@ -60,9 +60,9 @@ function module.ActiveThink(simulation, cmd)
             cmd.deltaTime
         )
 
-        simulation.characterData:PlayAnimation(Enums.Anims.Walk, false)
+		simulation.characterData:PlayAnimation(Enums.Anims.Walk,Enums.AnimChannel.Channel0, false)
     else
-        simulation.characterData:PlayAnimation(Enums.Anims.Idle, false)
+		simulation.characterData:PlayAnimation(Enums.Anims.Idle,Enums.AnimChannel.Channel0, false)
     end
 
     simulation.state.vel = MathUtils:VelocityFriction(simulation.state.vel, simulation.constants.flyFriction, cmd.deltaTime)

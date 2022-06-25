@@ -7,6 +7,7 @@ interface ServerChickynoid {
 	playerRecord: PlayerRecord;
 	hitBox: Part;
 	simulation: Simulation;
+	bufferedCommandTime: number;
 
 	hitBoxCreated: Signal<(hitBox: Part) => void>;
 

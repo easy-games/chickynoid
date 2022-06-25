@@ -51,7 +51,11 @@ function module:MakeBots(Server, numBots)
 				
 		
 		local playerRecord = Server:AddConnection(userId, nil)
-
+		
+		if (playerRecord == nil) then
+			continue
+		end
+		
 		playerRecord.name = "RandomBot" .. counter
 		playerRecord.respawnTime = tick() + counter * 0.1
 		

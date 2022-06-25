@@ -128,19 +128,23 @@ end
 
 function ChickynoidServer:PlayerConnected(player)
     local playerRecord = self:AddConnection(player.UserId, player)
-
-    --Spawn the gui
-    for _, child in pairs(game.StarterGui:GetChildren()) do
-        local clone = child:Clone() :: ScreenGui
-        if clone:IsA("ScreenGui") then
-            clone.ResetOnSpawn = false
-        end
-        clone.Parent = playerRecord.player.PlayerGui
-    end
+	
+	if (playerRecord) then
+	    --Spawn the gui
+	    for _, child in pairs(game.StarterGui:GetChildren()) do
+	        local clone = child:Clone() :: ScreenGui
+	        if clone:IsA("ScreenGui") then
+	            clone.ResetOnSpawn = false
+	        end
+	        clone.Parent = playerRecord.player.PlayerGui
+		end
+	end
 
 end
 
 function ChickynoidServer:AssignSlot(playerRecord)
+	
+	--Only place this is assigned
     for j = 1, self.config.maxPlayers do
         if self.slots[j] == nil then
             self.slots[j] = playerRecord
@@ -178,10 +182,16 @@ function ChickynoidServer:AddConnection(userId, player)
 
     playerRecord.characterMod = "HumanoidChickynoid"
 	playerRecord.lastSeenFrames = {} --frame we last saw a given player on, for delta compression
+		
+	local assignedSlot = self:AssignSlot(playerRecord)
+	if (assignedSlot == false) then
+		if (player ~= nil) then
+			player:Kick("Server full, no free chickynoid slots")
+		end
+		self.playerRecords[userId] = nil
+		return nil
+	end
 	
-	
-    self:AssignSlot(playerRecord)
-
     playerRecord.player = player
     if playerRecord.player ~= nil then
         playerRecord.dummy = false

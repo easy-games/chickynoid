@@ -650,7 +650,7 @@ function module:CheckBrushNoStuck(data, hullRecord)
 
     local nearestStart = -math.huge
     local nearestEnd = -math.huge
-
+	
     for _, p in pairs(hullRecord.hull) do
         local startDistance = data.startPos:Dot(p.n) - p.ed
         local endDistance = data.endPos:Dot(p.n) - p.ed
@@ -776,15 +776,18 @@ function module:Sweep(startPos, endPos)
 		debug.profilebegin("Collide")
 	end
     for _, hullRecord in pairs(hullRecords) do
-        data.checks += 1
-        self:CheckBrushNoStuck(data, hullRecord)
-        if data.allSolid == true then
-            data.fraction = 0
-            break
-        end
-        if data.fraction < SKIN_THICKNESS then
-            break
-        end
+		data.checks += 1
+		
+		if (hullRecord.hull ~= nil) then
+	        self:CheckBrushNoStuck(data, hullRecord)
+	        if data.allSolid == true then
+	            data.fraction = 0
+	            break
+	        end
+	        if data.fraction < SKIN_THICKNESS then
+	            break
+			end
+		end
 	end
 	if (self.profile == true) then
 		debug.profileend()

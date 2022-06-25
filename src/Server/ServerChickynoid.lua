@@ -45,7 +45,7 @@ function ServerChickynoid.new(playerRecord)
 
         speedCheatThreshhold = 150  , --milliseconds
        
-		bufferedCommandTime = 20, --ms  ~1 frame
+		bufferedCommandTime = 0, --ms  ~1 frame - THis does not appear to work
 		maxCommandsPerThink = 8,  --things have gone wrong if this is hit!
 		
 		serverFrames = 0,
@@ -53,7 +53,11 @@ function ServerChickynoid.new(playerRecord)
         hitBoxCreated = FastSignal.new(),
 
         debug = {
-            processedCommands = 0,
+			processedCommands = 0,
+			fakeCommandsThisSecond = 0,
+			antiwarpPerSecond = 0,
+			timeOfNextSecond = 0,
+			ping = 0
         },
     }, ServerChickynoid)
         -- TODO: The simulation shouldn't create a debug model like this.
@@ -125,6 +129,9 @@ function ServerChickynoid:GenerateFakeCommand(server, deltaTime)
 	event.t = EventType.Command
 	event.command = command
 	self:HandleClientEvent(server, event, true)
+	
+	
+	self.debug.fakeCommandsThisSecond += 1
 end
 
 --[=[
@@ -192,7 +199,18 @@ function ServerChickynoid:Think(_server, _serverSimulationTime, deltaTime)
     end
 
 	self.unprocessedCommands = newList
- 
+	
+	
+	--debug stuff
+	if (tick() > self.debug.timeOfNextSecond) then
+		self.debug.timeOfNextSecond = tick() + 1
+		self.debug.antiwarpPerSecond = self.debug.fakeCommandsThisSecond
+		self.debug.fakeCommandsThisSecond = 0
+		
+		if (self.debug.antiwarpPerSecond  > 0) then
+			print("Lag: ",self.debug.antiwarpPerSecond )
+		end
+	end
 end
 
 --[=[
@@ -313,9 +331,14 @@ function ServerChickynoid:HandleClientEvent(server, event, fakeCommand)
 					
 					--This is the only place where commands get written
 					table.insert(self.unprocessedCommands, command)
-		
+					
 				end
 				
+				--Debug ping
+				if (command.serverTime ~= nil and fakeCommand == false and self.playerRecord.dummy == false) then
+					self.debug.ping = math.floor((server.serverSimulationTime - command.serverTime) * 1000)
+					self.debug.ping -= ( (1 / server.config.serverHz) * 1000)
+				end
             end
         end
     end

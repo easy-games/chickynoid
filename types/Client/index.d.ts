@@ -12,8 +12,6 @@ export namespace ChickynoidClient {
 		/** Think carefully about changing this! Every extra frame clients make, puts load on the server. */
 		fpsMax: number;
 
-		interpolationBuffer: number;
-
 		useSubFrameInterpolation: boolean;
 		/** Show movement debug in FPS graph. */
 		showDebugMovement: boolean;
@@ -24,6 +22,7 @@ export namespace ChickynoidClient {
 	export let fpsMax: number;
 	export let fpsMin: number;
 	export let fpsIsCapped: boolean;
+	export let interpolationBuffer: number;
 
 	export let characterModel: CharacterModel | undefined;
 	export let estimatedServerTime: number;

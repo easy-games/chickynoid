@@ -18,7 +18,7 @@ function module:WritePlayerPositions(serverTime)
     for _, playerRecord in pairs(players) do
         if playerRecord.chickynoid then
             local record = {}
-            record.position = playerRecord.chickynoid.simulation.state.pos
+            record.position = playerRecord.chickynoid.simulation.characterData:GetPosition() --get current visual position
             snapshot.players[playerRecord.userId] = record
         end
     end

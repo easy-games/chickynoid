@@ -128,7 +128,6 @@ end
 function CharacterData.new()
     local self = setmetatable({
         serialized = {
-
             pos = Vector3.zero,
             angle = 0,
             stepUp = 0,
@@ -148,13 +147,37 @@ function CharacterData.new()
         --Be extremely careful about having any kind of persistant nonserialized data!
         --If in doubt, stick it in the serialized!
         isResimulating = false,
+        targetPosition = Vector3.zero,
+        
     }, CharacterData)
 
     return self
 end
 
-function CharacterData:SetPosition(pos)
-    self.serialized.pos = pos
+--This smoothing is performed on the server only.
+--On client, use GetPosition
+function CharacterData:SmoothPosition(deltaTime, smoothScale)
+    if (smoothScale == 1 or smoothScale == 0)  then
+        self.serialized.pos = self.targetPosition
+    else
+        self.serialized.pos = mathUtils:SmoothLerp(self.serialized.pos, self.targetPosition, smoothScale, deltaTime)
+    end
+end
+
+function CharacterData:ClearSmoothing()
+    self.serialized.pos = self.targetPosition
+end
+
+--Sets the target position
+function CharacterData:SetTargetPosition(pos, teleport)
+    self.targetPosition = pos
+    if (teleport) then
+        self:ClearSmoothing()
+    end
+end
+ 
+function CharacterData:GetPosition()
+    return self.serialized.pos
 end
 
 function CharacterData:SetFlatSpeed(num)
@@ -163,6 +186,10 @@ end
 
 function CharacterData:SetAngle(angle)
     self.serialized.angle = angle
+end
+
+function CharacterData:GetAngle()
+    return self.serialized.angle
 end
 
 function CharacterData:SetStepUp(amount)

@@ -58,7 +58,7 @@ ChickynoidServer.config = {
     maxPlayers = 255,
     fpsMode = Enums.FpsMode.Hybrid,
 	serverHz = 20,
-	antiWarp = true,
+	antiWarp = false,
 }
 
 --API
@@ -176,7 +176,7 @@ function ChickynoidServer:AddConnection(userId, player)
     playerRecord.firstSnapshot = false
     
     playerRecord.allowedToSpawn = true
-    playerRecord.respawnDelay = 0
+    playerRecord.respawnDelay = 2
     playerRecord.respawnTime = tick() + playerRecord.respawnDelay
 
     playerRecord.OnBeforePlayerSpawn = FastSignal.new()
@@ -281,9 +281,9 @@ function ChickynoidServer:AddConnection(userId, player)
 
         if #list > 0 then
             local spawn = list[math.random(1, #list)]
-            self.chickynoid:SetPosition(Vector3.new(spawn.Position.x, spawn.Position.y + 5, spawn.Position.z))
+            self.chickynoid:SetPosition(Vector3.new(spawn.Position.x, spawn.Position.y + 5, spawn.Position.z), true)
         else
-            self.chickynoid:SetPosition(Vector3.new(0, 10, 0))
+            self.chickynoid:SetPosition(Vector3.new(0, 10, 0), true)
         end
 
         self.OnBeforePlayerSpawn:Fire()
@@ -367,8 +367,6 @@ function ChickynoidServer:PlayerDisconnected(userId)
 end
 
 function ChickynoidServer:DebugSlots()
-    
-
     --print a count
     local free = 0
     local used = 0
@@ -486,9 +484,10 @@ function ChickynoidServer:Think(deltaTime)
 
     for _, playerRecord in pairs(self.playerRecords) do
         if playerRecord.chickynoid then
-            playerRecord.chickynoid:PostThink(self)
+            playerRecord.chickynoid:PostThink(self, deltaTime)
         end
     end
+    
     WeaponsModule:Think(self, deltaTime)
 
     local modules = ServerMods:GetMods("servermods")
@@ -520,6 +519,7 @@ function ChickynoidServer:Think(deltaTime)
         end
 
         debug.profilebegin("movement")
+        --set antilag up
         Antilag:WritePlayerPositions(self.serverSimulationTime)
 						
 		

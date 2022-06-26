@@ -37,17 +37,16 @@ function ServerChickynoid.new(playerRecord)
         lastConfirmedCommand = nil,
         elapsedTime = 0,
 		playerElapsedTime = 0,
-		 
-		
+		 		
 		processedTimeSinceLastSnapshot = 0,
 		
         errorState = Enums.NetworkProblemState.None,
 
         speedCheatThreshhold = 150  , --milliseconds
-       
-		bufferedCommandTime = 0, --ms  ~1 frame - THis does not appear to work
-		maxCommandsPerThink = 15,  --things have gone wrong if this is hit!
-		
+       		
+		maxCommandsPerSecond = 400,  --things have gone wrong if this is hit, but it's good server protection against possible uncapped fps
+		smoothFactor = 0.9999, --Smaller is smoother
+
 		serverFrames = 0,
 		
         hitBoxCreated = FastSignal.new(),
@@ -105,8 +104,9 @@ end
 --[=[
     Sets the position of the character and replicates it to clients.
 ]=]
-function ServerChickynoid:SetPosition(position: Vector3)
+function ServerChickynoid:SetPosition(position: Vector3, teleport)
     self.simulation.state.pos = position
+    self.simulation.characterData:SetTargetPosition(position, teleport)
 end
 
 --[=[
@@ -152,15 +152,11 @@ function ServerChickynoid:Think(_server, _serverSimulationTime, deltaTime)
         return a.serial < b.serial
 	end)
 	
-	
-	local timeToProcessTo = self.elapsedTime - (self.bufferedCommandTime/1000)
+    local maxCommandsPerFrame = math.ceil(self.maxCommandsPerSecond * deltaTime)
+    
 	local processCounter = 0
 	for _, command in pairs(self.unprocessedCommands) do
-		if command.fakeCommand == false and command.elapsedTime > timeToProcessTo then
-			--Can't process this yet, its our buffer
-			continue
-		end
-		
+ 	
 		processCounter += 1
 		
 		--print("server", command.l, command.serverTime)
@@ -181,8 +177,8 @@ function ServerChickynoid:Think(_server, _serverSimulationTime, deltaTime)
 		end
 		
 		self.processedTimeSinceLastSnapshot += command.deltaTime
-		
-		if (processCounter > self.maxCommandsPerThink) then
+
+		if (processCounter > maxCommandsPerFrame and false) then
 			--dump the remaining commands
 			self.errorState = Enums.NetworkProblemState.TooManyCommands
 			self.unprocessedCommands = {}
@@ -372,8 +368,10 @@ function ServerChickynoid:SpawnChickynoid()
     print("Spawned character and sent event for player:", self.playerRecord.name)
 end
 
-function ServerChickynoid:PostThink(server)
+function ServerChickynoid:PostThink(server, deltaTime)
     self:UpdateServerCollisionBox(server)
+
+    self.simulation.characterData:SmoothPosition(deltaTime, self.smoothFactor)
 end
 
 function ServerChickynoid:UpdateServerCollisionBox(server)

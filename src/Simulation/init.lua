@@ -152,7 +152,7 @@ function Simulation:ProcessCommand(cmd)
     --self:DoPlatformMove(self.lastGround, cmd.deltaTime)
 
     --Write this to the characterData
-    self.characterData:SetPosition(self.state.pos)
+    self.characterData:SetTargetPosition(self.state.pos)
     self.characterData:SetAngle(self.state.angle)
     self.characterData:SetStepUp(self.state.stepUp)
     self.characterData:SetFlatSpeed( MathUtils:FlatVec(self.state.vel).Magnitude)
@@ -170,9 +170,7 @@ end
 
 function Simulation:SetPosition(position, teleport)
     self.state.position = position
-    if (teleport == true) then
-        self.characterData:SetPosition(self.state.pos, true)
-    end
+    self.characterData:SetTargetPosition(self.state.pos, teleport)
 end
 
 function Simulation:CrashLand(vel)

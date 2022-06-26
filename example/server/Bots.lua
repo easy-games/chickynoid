@@ -68,7 +68,7 @@ function module:MakeBots(Server, numBots)
 		
 		--Spawn them in someplace
 		playerRecord.OnBeforePlayerSpawn:Connect(function()
-			playerRecord.chickynoid:SetPosition(Vector3.new(math.random(-350,350), 100 ,math.random(-350,350) ) + Vector3.new(-250, 0,0))
+			playerRecord.chickynoid:SetPosition(Vector3.new(math.random(-350,350), 100 ,math.random(-350,350) ) + Vector3.new(-250, 0,0), true)
 		end)
 		
 		 

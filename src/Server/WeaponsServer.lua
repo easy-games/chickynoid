@@ -297,29 +297,6 @@ function module:QueryShotgun(playerRecord, server, origins, directions, serverTi
     return results
 end
 
-function module:FireRocket(playerRecord, server, _origin, dir)
-    local rocket = {}
-
-    rocket.p = playerRecord.chickynoid.simulation.state.pos
-    rocket.v = Vector3.new(1, 0, 0)
-    rocket.v = dir
-
-    rocket.c = 600
-    rocket.o = server.serverSimulationTime
-    rocket.s = self.rocketSerial
-    self.rocketSerial += 1
-
-    rocket.t = Enums.EventType.RocketSpawn
-
-    server:SendEventToClients(rocket)
-
-    --After its been sent, set a die time
-    rocket.aliveTime = 0
-    rocket.owner = playerRecord
-    rocket.n = -dir
-
-    self.rockets[rocket.s] = rocket
-end
 
 function module:Think(server, deltaTime)
     for _, playerRecord in pairs(server:GetPlayers()) do

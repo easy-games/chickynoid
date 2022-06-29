@@ -10,16 +10,13 @@ Enums.EventType = {
     CollisionData = 6,
     ResetConnection = 7,
 
-    --Just for test
     WeaponDataChanged = 8,
-    RocketSpawn = 9,
+    BulletFire = 9,
     BulletImpact = 10,
 
-    RocketDie = 11,
+    DebugBox = 11,
 
-    DebugBox = 12,
-
-    PlayerDisconnected = 13,
+    PlayerDisconnected = 12,
 }
 
 Enums.NetworkProblemState = {

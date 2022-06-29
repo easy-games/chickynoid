@@ -6,7 +6,8 @@ function module:Setup(server)
     server.OnPlayerSpawn:Connect(function(playerRecord)
                 
         --Give a machine gun
-        playerRecord:AddWeaponByName("Machinegun", true)
+        --playerRecord:AddWeaponByName("Machinegun", true)
+        playerRecord:AddWeaponByName("ProjectileSniper", true)
         
     end)
 

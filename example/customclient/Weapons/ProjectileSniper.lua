@@ -81,14 +81,14 @@ function ProjectileSniper:ClientProcessCommand(command)
 
                 --on the client, do an approximate collision check for our own bullets (not *required* but its here for completeness)
                 bulletRecord.DoCollisionCheck = function(record, old, new)
-                    return self:DoBulletCheck(record, old, new)
+                    return self:DoClientBulletCheck(record, old, new)
                 end
             end
         end
     end
 end
 
-function ProjectileSniper:DoBulletCheck(_bulletRecord, old, new)
+function ProjectileSniper:DoClientBulletCheck(_bulletRecord, old, new)
     local ray = RaycastParams.new()
     ray.FilterType = Enum.RaycastFilterType.Whitelist
     ray.FilterDescendantsInstances = { game.Workspace.GameArea }
@@ -123,6 +123,8 @@ function ProjectileSniper:ClientOnBulletImpact(_client, event)
             effect.CFrame = cframe
         end
     end
+    ClientFastProjectiles:TerminateBullet(event.bulletId)
+
 end
 
 
@@ -311,7 +313,6 @@ function ProjectileSniper:UnpackPacket(event)
         --these two first always
         event.weaponID = bitBuffer.readInt16()
         event.slot = bitBuffer.readByte()
-
         
         event.origin = bitBuffer.readVector3()
         event.vec = bitBuffer.readVector3()

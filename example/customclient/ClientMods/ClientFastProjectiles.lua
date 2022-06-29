@@ -9,6 +9,17 @@ local EffectsModule = require(ReplicatedFirst.Packages.Chickynoid.Client.Effects
 
 function module:Setup(_client) end
 
+function module:TerminateBullet(bulletId)
+
+    local record = self.bullets[bulletId]
+    if (record) then
+        if (record.part) then
+            record.part:Destroy()
+        end 
+        self.bullets[bulletId] = nil       
+    end
+end
+
 function module:FireBullet(origin, vec, speed, maxDistance, drop, bulletId)
 
     if (bulletId == -1) then

@@ -48,6 +48,7 @@ ChickynoidClient.fpsMin = 25 --If you're slower than this, your step will be bro
 
 ChickynoidClient.cappedElapsedTime = 0 --
 ChickynoidClient.timeSinceLastThink = 0
+ChickynoidClient.timeUntilRetryReset = tick() + 15 -- 15 seconds grace on connection
 ChickynoidClient.frameCounter = 0
 ChickynoidClient.frameSimCounter = 0
 ChickynoidClient.frameCounterTime = 0
@@ -247,8 +248,7 @@ function ChickynoidClient:Setup()
 		end
 		
 		self.timeSinceLastThink = 0
-		
-		
+
 		--Death spiral
 		local badConnection = false
 		if self:IsConnectionBad() == true then
@@ -256,16 +256,15 @@ function ChickynoidClient:Setup()
 			badConnection = true
 		end
 
-		if tick() > self.timeOfLastData + 1 then
+		if tick() > self.timeOfLastData + 2 then
 			--print("Bad connection: Long time between messages")
 			badConnection = true
 		end
 
 		--Go into recovery mode
-		if badConnection == true and self.awaitingFullSnapshot == false then
+		if badConnection == true and self.awaitingFullSnapshot == false and tick() > self.timeUntilRetryReset then
 			self:ResetConnection()
 		end
-
     end
 
     local lastDt = nil
@@ -315,7 +314,8 @@ function ChickynoidClient:ResetConnection()
         local event = {}
         event.t = EventType.ResetConnection
         RemoteEvent:FireServer(event)
-        print("Sending event to reset connection")
+		print("Sending event to reset connection")
+		self.timeUntilRetryReset = tick() + 15
     end
 end
 
@@ -827,7 +827,7 @@ end
 function ChickynoidClient:IsConnectionBad()
 
     local pings 
-    if #self.pings > 10 and self.ping > 1000 then
+    if #self.pings > 10 and self.ping > 2000 then
         return true
     end
     return false

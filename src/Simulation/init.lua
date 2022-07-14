@@ -433,11 +433,12 @@ function Simulation:GetStandingPart()
     return nil
 end
 
+
+--Move me to my own file!
 function Simulation:MovetypeWalking(cmd)
 
     --Check ground
     local onGround = nil
-    self.lastGround = nil
     onGround = self:DoGroundCheck(self.state.pos)
 
     --If the player is on too steep a slope, its not ground
@@ -458,11 +459,15 @@ function Simulation:MovetypeWalking(cmd)
 		else
 			onGround = nil
 		end
-			
-    end
- 
+	end
+	
+	 
     --Mark if we were onground at the start of the frame
     local startedOnGround = onGround
+	
+	--Simplify - whatever we are at the start of the frame goes.
+	self.lastGround = onGround
+	
 
     --Did the player have a movement request?
     local wishDir = nil
@@ -543,11 +548,6 @@ function Simulation:MovetypeWalking(cmd)
                     self.state.vel = dir
                     self.state.jump = 0.2
                     self.characterData:PlayAnimation(Enums.Anims.Jump, Enums.AnimChannel.Channel0, true, 0.2)
-                end
-
-                --For platform standing
-                if self.state.jump == 0 then
-                    self.lastGround = onGround
                 end
             end
         end

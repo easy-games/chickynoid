@@ -29,17 +29,10 @@ local corners = {
     Vector3.new(-0.5, -0.5, -0.5),
 }
 
-function module:RawFetchCell(x, y, z)
+function module:RawFetchCell(key)
     --store in x,z,y order
-    local gx = self.grid[x]
-    if gx == nil then
-        return nil
-    end
-    local gz = gx[z]
-    if gz == nil then
-        return nil
-    end
-    return gz[y]
+    
+    return self.grid[key]
 end
 
 function module:FetchCell(x, y, z)
@@ -110,76 +103,53 @@ end
 
 
 function module:Lookup(a,b,c,d,e,f,g,h)
+		
+	local key0 = Vector3.new(a,b,c)
+	local key1 = Vector3.new(d,e,f)
+	local key2 = Vector3.new(g,h,0)
+
+ 	local lookup0 = self.hullCache[key0]
+	if (lookup0 == nil) then
+		return nil
+	end 
 	
- 	local lookup = self.hullCache[a]
-	if (lookup == nil) then
-		return nil
-	end
-	lookup = lookup[b]
-	if (lookup == nil) then
-		return nil
-	end
-	lookup = lookup[c]
-	if (lookup == nil) then
-		return nil
-	end
-	lookup = lookup[d]
-	if (lookup == nil) then
-		return nil
-	end
-	lookup = lookup[e]
-	if (lookup == nil) then
-		return nil
-	end	
-	lookup = lookup[f]
-	if (lookup == nil) then
-		return nil
-	end
-	lookup = lookup[g]
-	if (lookup == nil) then
+	local lookup1 = lookup0[key1]
+	if (lookup1 == nil) then
 		return nil
 	end
 	
-	return lookup[h]
+	return lookup1[key2]
+
 end
 
 function module:Write(a,b,c,d,e,f,g,h, tris)
 	
-	if (self.hullCache[a] == nil) then
-		self.hullCache[a] = {}
+	local key0 = Vector3.new(a,b,c)
+	local key1 = Vector3.new(d,e,f)
+	local key2 = Vector3.new(g,h,0)
+	
+	if (self.hullCache[key0] == nil) then
+		self.hullCache[key0] = {}
 	end
-	if (self.hullCache[a][b] == nil) then
-		self.hullCache[a][b] = {}
-	end
-	if (self.hullCache[a][b][c] == nil) then
-		self.hullCache[a][b][c] = {}
-	end
-	if (self.hullCache[a][b][c][d] == nil) then
-		self.hullCache[a][b][c][d] = {}
-	end
-	if (self.hullCache[a][b][c][d][e] == nil) then
-		self.hullCache[a][b][c][d][e] = {}
-	end
-	if (self.hullCache[a][b][c][d][e][f] == nil) then
-		self.hullCache[a][b][c][d][e][f] = {}
-	end
-	if (self.hullCache[a][b][c][d][e][f][g] == nil) then
-		self.hullCache[a][b][c][d][e][f][g] = {}
+	if (self.hullCache[key0][key1] == nil) then
+		self.hullCache[key0][key1] = {}
 	end
 	
-	self.hullCache[a][b][c][d][e][f][g][h] = tris
+	self.hullCache[key0][key1][key2] = tris
 end
 
 
 function module:FetchCellMarching(x, y, z)
-    local rawCell = self:RawFetchCell(x, y, z)
+	
+	local key = Vector3.new(x,y,z)
+    local rawCell = self:RawFetchCell(key)
     if rawCell then
         return rawCell
     end
 
     debug.profilebegin("FetchCellMarching")
 
-    local cell = self:CreateAndFetchCell(x, y, z)
+    local cell = self:CreateAndFetchCell(key)
 
     local max = self.div - 1
 
@@ -366,23 +336,14 @@ function module:SpawnDebugGridBox(x, y, z, color, grid)
     instance.BottomSurface = Enum.SurfaceType.Smooth
 end
 
-function module:CreateAndFetchCell(x, y, z)
-    local gx = self.grid[x]
-    if gx == nil then
-        gx = {}
-        self.grid[x] = gx
-    end
-    local gz = gx[z]
-    if gz == nil then
-        gz = {}
-        gx[z] = gz
-    end
-    local gy = gz[y]
-    if gy == nil then
-        gy = {}
-        gz[y] = gy
-    end
-    return gy
+function module:CreateAndFetchCell(key)
+	
+	local cell = self.grid[key]
+	if (cell == nil) then
+		cell = {}
+		self.grid[key] = cell
+	end
+    return cell
 end
 
 function module:Setup(gridSize, expansionSize)

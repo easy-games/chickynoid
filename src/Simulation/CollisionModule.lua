@@ -43,67 +43,33 @@ local corners = {
 }
 
 function module:FetchCell(x, y, z)
-    --store in x,z,y order
-    local gx = self.grid[x]
-    if gx == nil then
-        return nil
-    end
-    local gz = gx[z]
-    if gz == nil then
-        return nil
-    end
-    return gz[y]
+	local key = Vector3.new(x,y,z)
+	return self.grid[key]
 end
 
 function module:FetchFatCell(x, y, z)
-    --store in x,z,y order
-    local gx = self.fatGrid[x]
-    if gx == nil then
-        return nil
-    end
-    local gz = gx[z]
-    if gz == nil then
-        return nil
-    end
-    return gz[y]
+	local key = Vector3.new(x,y,z)
+	return self.fatGrid[key]
 end
 
 function module:CreateAndFetchCell(x, y, z)
-    local gx = self.grid[x]
-    if gx == nil then
-        gx = {}
-        self.grid[x] = gx
-    end
-    local gz = gx[z]
-    if gz == nil then
-        gz = {}
-        gx[z] = gz
-    end
-    local gy = gz[y]
-    if gy == nil then
-        gy = {}
-        gz[y] = gy
-    end
-    return gy
+	local key = Vector3.new(x,y,z)
+	local res = self.grid[key]
+	if (res == nil) then
+		res = {}
+		self.grid[key] = res
+	end
+	return res
 end
 
 function module:CreateAndFetchFatCell(x, y, z)
-    local gx = self.fatGrid[x]
-    if gx == nil then
-        gx = {}
-        self.fatGrid[x] = gx
-    end
-    local gz = gx[z]
-    if gz == nil then
-        gz = {}
-        gx[z] = gz
-    end
-    local gy = gz[y]
-    if gy == nil then
-        gy = {}
-        gz[y] = gy
-    end
-    return gy
+	local key = Vector3.new(x,y,z)
+	local res = self.fatGrid[key]
+	if (res == nil) then
+		res = {}
+		self.fatGrid[key] = res
+	end
+	return res
 end
 
 function module:FindAABB(part)
@@ -313,8 +279,9 @@ function module:FetchHullsForBox(min, max)
         maxz = t
 	end
 	
-	local key = (16000+math.floor(minx/self.gridSize)) + ((16000+math.floor(minz/self.gridSize)) * 32000) + ((16000+math.floor(miny/self.gridSize)) * 32000*32000)  
-	local otherKey = (16000+math.floor(maxx/self.gridSize)) + ((16000+math.floor(maxz/self.gridSize)) * 32000) + ((16000+math.floor(maxy/self.gridSize)) * 32000*32000)
+	local key = Vector3.new(math.floor(minx/self.gridSize), math.floor(minz/self.gridSize), math.floor(miny/self.gridSize))
+	local otherKey = Vector3.new(math.floor(maxx/self.gridSize), math.floor(maxy/self.gridSize), math.floor(maxz/self.gridSize))
+
 		
 	local cached = self.cache[key]
 	if (cached) then

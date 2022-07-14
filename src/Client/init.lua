@@ -32,7 +32,7 @@ local ChickynoidClient = {}
 
 ChickynoidClient.localChickynoid = nil
 ChickynoidClient.snapshots = {}
-ChickynoidClient.previouSnapshot = nil -- for delta compression
+ChickynoidClient.previousSnapshot = nil -- for delta compression
 
 ChickynoidClient.estimatedServerTime = 0 --This is the time estimated from the snapshots
 ChickynoidClient.estimatedServerTimeOffset = 0

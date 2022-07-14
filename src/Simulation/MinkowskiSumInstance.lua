@@ -19,6 +19,24 @@ local corners = {
     Vector3.new(-0.5, -0.5, -0.5),
 }
 
+local wedge = {
+	Vector3.new( 0.5,-0.5, -0.5),
+	Vector3.new(-0.5,-0.5, -0.5),
+	Vector3.new( 0.5,-0.5, 0.5),
+	Vector3.new(-0.5,-0.5, 0.5),
+	Vector3.new( 0.5, 0.5, 0.5),
+	Vector3.new(-0.5, 0.5, 0.5),
+}
+
+local cornerWedge = {
+	Vector3.new( 0.5, 0.5,-0.5),
+	Vector3.new( 0.5,-0.5, 0.5),
+	Vector3.new(-0.5,-0.5, 0.5),
+	Vector3.new( 0.5,-0.5,-0.5),
+	Vector3.new(-0.5,-0.5,-0.5),
+}
+
+ 
 local function IsUnique(list, normal, d)
     local EPS = 0.01
 	local normalTol = 0.95
@@ -216,8 +234,20 @@ end
 
 function module:GeneratePointsForInstance(instance, playerSize, cframe)
       
-    local points = {}
-    for _, v in pairs(corners) do
+	local points = {}
+	
+	
+	local srcPoints = corners
+	
+	if (instance:IsA("Part")) then
+		srcPoints = corners
+	elseif (instance:IsA("WedgePart")) then
+		srcPoints = wedge
+	elseif (instance:IsA("CornerWedgePart")) then
+		srcPoints = cornerWedge
+	end
+	
+    for _, v in pairs(srcPoints) do
         local part_corner = cframe * CFrame.new(v * instance.Size)
 
         for _, c in pairs(corners) do

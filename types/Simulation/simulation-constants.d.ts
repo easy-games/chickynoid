@@ -13,4 +13,5 @@ export interface SimulationConstants {
 	pushSpeed: number;
 	stepSize: number;
 	aimlock: number;
+	gravity: number;
 }

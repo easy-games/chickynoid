@@ -5,6 +5,7 @@ local path = game.ReplicatedFirst.Packages.Chickynoid
 local EffectsModule = require(path.Client.Effects)
 local ServerMods = require(path.Server.ServerMods)
 local Enums = require(path.Enums)
+local BitBuffer = require(path.Vendor.BitBuffer)
 
 function MachineGunModule.new()
     local self = setmetatable({
@@ -72,7 +73,31 @@ function MachineGunModule:ClientDequip() end
 
 --Warning! - you might not have this weapon locally
 --This is far more akin to a static method, and is provided so you can render client effects
-function MachineGunModule:ClientOnBulletImpact(_client, _event) end
+function MachineGunModule:ClientOnBulletImpact(_client, event) 
+    
+    --WeaponModule
+    if event.normal then
+        if event.surface == 0 then
+            local effect = EffectsModule:SpawnEffect("ImpactWorld", event.position)
+            local cframe = CFrame.lookAt(event.position, event.position + event.normal)
+            effect.CFrame = cframe
+        end
+        if event.surface == 1 then
+            local effect = EffectsModule:SpawnEffect("ImpactPlayer", event.position)
+            local cframe = CFrame.lookAt(event.position, event.position + event.normal)
+            effect.CFrame = cframe
+        end
+    end
+
+    --we didn't fire it, play the fire effect
+    if event.player.userId ~= game.Players.LocalPlayer.UserId then
+        --Do some local effects
+        local origin = event.origin
+        local vec = (event.position - event.origin).Unit
+        local clone = EffectsModule:SpawnEffect("Tracer", origin + vec * 2)
+        clone.CFrame = CFrame.lookAt(origin, origin + vec)
+    end
+end
 
 function MachineGunModule:ServerSetup()
     self.state.maxAmmo = 30
@@ -123,21 +148,16 @@ function MachineGunModule:ServerProcessCommand(command)
                     command.serverTime,
                     debugText
                 )
+                local surface = 0 --Surface type
+                if otherPlayer then
+                    surface = 1 --(blood!)
+                end
 
                 --Send an event to render this firing
-                --Todo: rewrite this to use packed bytes- this could get very data heavy in a fire fight!
                 local event = {}
-                event.o = origin --Origin
-                event.p = pos --Impact point
-                event.n = normal --Impact normal (no normal means we hit the sky)
                 event.t = Enums.EventType.BulletImpact --Event identifier
-                event.s = self.playerRecord.slot --Which player fired this
-                event.w = self.weaponId --Id of this weapon (Machinegun?)
+                event.b = self:BuildPacketString(origin, pos, normal, surface)
 
-                event.m = 0 --Surface type
-                if otherPlayer then
-                    event.m = 1 --(blood!)
-                end
                 self.playerRecord:SendEventToClients(event)
 
                 --Do the damage
@@ -153,8 +173,55 @@ function MachineGunModule:ServerProcessCommand(command)
     end
 end
 
+function MachineGunModule:BuildPacketString(origin, position, normal, surface)
+    local bitBuffer = BitBuffer()
+    
+    --these two first always
+    bitBuffer.writeInt16(self.weaponId)
+    bitBuffer.writeByte(self.playerRecord.slot)
+    
+    bitBuffer.writeVector3(origin)
+    bitBuffer.writeVector3(position)
+    bitBuffer.writeByte(surface)
+
+    if (normal) then
+        bitBuffer.writeByte(1)
+        bitBuffer.writeVector3(normal)
+    else
+        bitBuffer.writeByte(0)
+    end
+    return bitBuffer.dumpString()
+end
+
+function MachineGunModule:UnpackPacket(event)
+
+    local bitBuffer = BitBuffer(event.b)
+    
+    --these two first always
+    event.weaponID = bitBuffer.readInt16()
+    event.slot = bitBuffer.readByte()
+
+    event.origin = bitBuffer.readVector3()
+    event.position = bitBuffer.readVector3()
+    event.surface = bitBuffer.readByte()
+
+    local hasNormal = bitBuffer.readByte()
+    if (hasNormal > 0) then
+        event.normal = bitBuffer.readVector3()
+    end
+
+    return event
+end
+
+ 
+
 function MachineGunModule:ServerEquip() end
 
 function MachineGunModule:ServerDequip() end
+
+function MachineGunModule:ClientRemoved() end
+
+function MachineGunModule:ServerRemoved() end
+
 
 return MachineGunModule

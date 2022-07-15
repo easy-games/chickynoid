@@ -126,4 +126,20 @@ function MathUtils:ClipVelocity(input, normal, overbounce)
     return Vector3.new(input.x - changex, input.y - changey, input.z - changez)
 end
 
+--Smoothlerp for lua. "Zeno would be proud!"
+--Use it in a feedback loop over multiple frames to converge A towards B, in a deltaTime safe way
+--eg:  cameraPos = SmoothLerp(cameraPos, target, 0.5, deltaTime)
+--Handles numbers and types that implement Lerp like Vector3 and CFrame
+
+function MathUtils:SmoothLerp(variableA, variableB, fraction, deltaTime)
+
+    local f = 1.0 - math.pow(1.0 - fraction, deltaTime)
+
+    if (type(variableA) == "number") then
+        return ((1-f) * variableA) + (variableB * f)
+    end
+
+    return variableA:Lerp(variableB, f)
+end
+
 return MathUtils

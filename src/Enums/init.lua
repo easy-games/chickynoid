@@ -10,14 +10,13 @@ Enums.EventType = {
     CollisionData = 6,
     ResetConnection = 7,
 
-    --Just for test
     WeaponDataChanged = 8,
-    RocketSpawn = 9,
+    BulletFire = 9,
     BulletImpact = 10,
 
-    RocketDie = 11,
+    DebugBox = 11,
 
-    DebugBox = 12,
+    PlayerDisconnected = 12,
 }
 
 Enums.NetworkProblemState = {
@@ -34,12 +33,20 @@ Enums.FpsMode = {
 }
 
 Enums.Anims = {
-    Idle = 0,
-    Walk = 1,
-    Run = 2,
-    Push = 3,
-    Jump = 4,
-    Fall = 5,
+    Stop = 0,
+    Idle = 1,
+    Walk = 2,
+    Run = 3,
+    Push = 4,
+    Jump = 5,
+    Fall = 6,
+}
+
+Enums.AnimChannel = {
+    Channel0 = 0,
+    Channel1 = 1,
+    Channel2 = 2,
+    Channel3 = 3,
 }
 
 Enums.WeaponData = {

@@ -171,7 +171,8 @@ function ClientChickynoid:HandleNewState(stateDelta, lastConfirmed, serverTime)
 
         -- Did we make a misprediction? We can tell if our predicted position isn't the same after reconstructing everything
         local delta = oldPos - self.simulation.state.pos
-        --Add the offset to mispredict so we can blend it off
+		--Add the offset to mispredict so we can blend it off
+		
         self.mispredict += delta
     end
     
@@ -188,7 +189,7 @@ function ClientChickynoid:Heartbeat(command, serverTime: number, deltaTime: numb
     table.insert(self.predictedCommands, command)
 
     -- Step this frame
-     TrajectoryModule:PositionWorld(serverTime, deltaTime)
+    TrajectoryModule:PositionWorld(serverTime, deltaTime)
     CollisionModule:UpdateDynamicParts()
 
     self.debug.processedCommands += 1
@@ -214,6 +215,10 @@ function ClientChickynoid:Heartbeat(command, serverTime: number, deltaTime: numb
 
     --once we've sent it, add localtime
     command.tick = tick()
+
+    --Remove any sort of smoothing accumulating in the characterData
+    self.simulation.characterData:ClearSmoothing()
+
     return command
 end
 

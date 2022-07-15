@@ -32,7 +32,7 @@ local ChickynoidClient = {}
 
 ChickynoidClient.localChickynoid = nil
 ChickynoidClient.snapshots = {}
-ChickynoidClient.previouSnapshot = nil -- for delta compression
+ChickynoidClient.previousSnapshot = nil -- for delta compression
 
 ChickynoidClient.estimatedServerTime = 0 --This is the time estimated from the snapshots
 ChickynoidClient.estimatedServerTimeOffset = 0
@@ -42,12 +42,13 @@ ChickynoidClient.startTime = tick()
 ChickynoidClient.characters = {}
 ChickynoidClient.localFrame = 0
 ChickynoidClient.worldState = nil
-ChickynoidClient.fpsMax = 144 --Think carefully about changing this! Every extra frame clients make, puts load on the server
+ChickynoidClient.fpsMax = 120 --Think carefully about changing this! Every extra frame clients make, puts load on the server
 ChickynoidClient.fpsIsCapped = true --Dynamically sets to true if your fps is fpsMax + 5
 ChickynoidClient.fpsMin = 25 --If you're slower than this, your step will be broken up
 
 ChickynoidClient.cappedElapsedTime = 0 --
 ChickynoidClient.timeSinceLastThink = 0
+ChickynoidClient.timeUntilRetryReset = tick() + 15 -- 15 seconds grace on connection
 ChickynoidClient.frameCounter = 0
 ChickynoidClient.frameSimCounter = 0
 ChickynoidClient.frameCounterTime = 0
@@ -86,6 +87,7 @@ ChickynoidClient.interpolationBuffer = 20
 --Signals
 ChickynoidClient.OnNetworkEvent = FastSignal.new()
 ChickynoidClient.OnCharacterModelCreated = FastSignal.new()
+ChickynoidClient.OnCharacterModelDestroyed = FastSignal.new()
 
 ChickynoidClient.flags = {}
 
@@ -107,8 +109,8 @@ function ChickynoidClient:Setup()
         if self.localChickynoid == nil then
             self.localChickynoid = ClientChickynoid.new(position, event.characterMod)
         end
-        --Force the position
-        self.localChickynoid.simulation.state.pos = position
+        --Force the state
+        self.localChickynoid.simulation:ReadState(event.state)
         self.prevLocalCharacterData = nil
     end
 
@@ -183,7 +185,16 @@ function ChickynoidClient:Setup()
         self.playerSize = event.playerSize
         self.collisionRoot = event.data
         CollisionModule:MakeWorld(self.collisionRoot, self.playerSize)
-    end
+	end
+	
+	eventHandler[EventType.PlayerDisconnected] = function(event)
+		local characterRecord = self.characters[event.userId]
+        if (characterRecord and characterRecord.characterModel) then
+            characterRecord.characterModel:DestroyModel()
+        end
+        --Final Cleanup
+        CharacterModel:PlayerDisconnected(event.userId)
+	end
 
     RemoteEvent.OnClientEvent:Connect(function(event)
         self.timeOfLastData = tick()
@@ -212,44 +223,48 @@ function ChickynoidClient:Setup()
         self.cappedElapsedTime += deltaTime
         self.timeSinceLastThink += deltaTime
         local fraction = 1 / self.fpsMax
-
+		
+		--Do we process a frame?
         if self.cappedElapsedTime < fraction and self.fpsIsCapped == true then
             return --If not enough time for a whole frame has elapsed
         end
-
+		self.cappedElapsedTime = math.fmod(self.cappedElapsedTime, fraction)
+		
+		
+		--Netgraph
         if (self.showFpsGraph == true) then
             FpsGraph:Scroll()
             local fps = 1 / self.timeSinceLastThink
             FpsGraph:AddBar(fps / 2, Color3.new(0.321569, 0.909804, 0.188235), 0)
         end
-        self:ProcessFrame(self.timeSinceLastThink)
+		
+		--Think
+		self:ProcessFrame(self.timeSinceLastThink)
 
-        self.timeSinceLastThink = 0
-
-        self.cappedElapsedTime = math.fmod(self.cappedElapsedTime, fraction)
-
-        --Death spiral
-
-        local badConnection = false
-        if self:IsConnectionBad() == true then
-            --print("Bad connection: Chickynoid Ping")
-            badConnection = true
-        end
-
-        if tick() > self.timeOfLastData + 1 then
-            --print("Bad connection: Long time between messages")
-            badConnection = true
-        end
-
-        --Go into recovery mode
-        if badConnection == true and self.awaitingFullSnapshot == false then
-            self:ResetConnection()
-        end
-
+		--Do Client Mods
         local modules = ClientMods:GetMods("clientmods")
         for _, value in pairs(modules) do
-            value:Step(self, deltaTime)
-        end
+			value:Step(self, self.timeSinceLastThink)
+		end
+		
+		self.timeSinceLastThink = 0
+
+		--Death spiral
+		local badConnection = false
+		if self:IsConnectionBad() == true then
+			--print("Bad connection: Chickynoid Ping")
+			badConnection = true
+		end
+
+		if tick() > self.timeOfLastData + 2 then
+			--print("Bad connection: Long time between messages")
+			badConnection = true
+		end
+
+		--Go into recovery mode
+		if badConnection == true and self.awaitingFullSnapshot == false and tick() > self.timeUntilRetryReset then
+			self:ResetConnection()
+		end
     end
 
     local lastDt = nil
@@ -299,7 +314,8 @@ function ChickynoidClient:ResetConnection()
         local event = {}
         event.t = EventType.ResetConnection
         RemoteEvent:FireServer(event)
-        print("Sending event to reset connection")
+		print("Sending event to reset connection")
+		self.timeUntilRetryReset = tick() + 15
     end
 end
 
@@ -370,6 +386,8 @@ function ChickynoidClient:ProcessFrame(deltaTime)
     local pointInTimeToRender = self.estimatedServerTime - (timeBetweenServerFrames + searchPad)
 
     local subFrameFraction = 0
+
+    local bulkMoveToList = { parts = {}, cframes = {} }
 
     --Step the chickynoid
     if self.localChickynoid then
@@ -444,8 +462,8 @@ function ChickynoidClient:ProcessFrame(deltaTime)
         if self.characterModel == nil and self.localChickynoid ~= nil then
             --Spawn the character in
             print("Creating local model for UserId", game.Players.LocalPlayer.UserId)
-            self.characterModel = CharacterModel.new()
-			self.characterModel:CreateModel(game.Players.LocalPlayer.UserId)
+			self.characterModel = CharacterModel.new(game.Players.LocalPlayer.UserId)
+			self.characterModel:CreateModel()
             self.OnCharacterModelCreated:Fire(self.characterModel)
 			
 			local record = {}
@@ -460,7 +478,7 @@ function ChickynoidClient:ProcessFrame(deltaTime)
 
             self.localChickynoid.mispredict = MathUtils:VelocityFriction(
                 self.localChickynoid.mispredict,
-                0.05,
+                0.1,
                 deltaTime
             )
             self.characterModel.mispredict = self.localChickynoid.mispredict
@@ -473,7 +491,7 @@ function ChickynoidClient:ProcessFrame(deltaTime)
                     or subFrameFraction == 0
                     or self.prevLocalCharacterData == nil
                 then
-					self.characterModel:Think(deltaTime, self.localChickynoid.simulation.characterData.serialized)
+					self.characterModel:Think(deltaTime, self.localChickynoid.simulation.characterData.serialized, bulkMoveToList)
 					localRecord.characterData = self.localChickynoid.simulation.characterData
                 else
                     --Calculate a sub-frame interpolation
@@ -486,7 +504,7 @@ function ChickynoidClient:ProcessFrame(deltaTime)
 					localRecord.characterData = data
                 end
             else
-				self.characterModel:Think(deltaTime, self.localChickynoid.simulation.characterData.serialized)
+				self.characterModel:Think(deltaTime, self.localChickynoid.simulation.characterData.serialized, bulkMoveToList)
 				localRecord.characterData = self.localChickynoid.simulation.characterData
             end
 			
@@ -508,8 +526,10 @@ function ChickynoidClient:ProcessFrame(deltaTime)
             -- Bind the camera
             if (self.flags.HANDLE_CAMERA ~= false) then
                 local camera = game.Workspace.CurrentCamera
-                camera.CameraSubject = self.characterModel.model
-                camera.CameraType = Enum.CameraType.Custom
+                if camera.CameraSubject ~= self.characterModel.model then
+                    camera.CameraSubject = self.characterModel.model
+                    camera.CameraType = Enum.CameraType.Custom
+                end
             end
 
             --Bind the local character, which activates all the thumbsticks etc
@@ -552,9 +572,9 @@ function ChickynoidClient:ProcessFrame(deltaTime)
             if character == nil then
                 local record = {}
                 record.userId = userId
-                record.characterModel = CharacterModel.new()
-                record.characterModel:CreateModel(userId)
-                self.OnCharacterModelCreated:Fire(record.characterModel);
+				record.characterModel = CharacterModel.new(userId)
+                record.characterModel:CreateModel()
+                self.OnCharacterModelCreated:Fire(record.characterModel)
 
                 character = record
                 self.characters[userId] = record
@@ -565,7 +585,7 @@ function ChickynoidClient:ProcessFrame(deltaTime)
             character.characterData = dataRecord
 			
             --Update it
-            character.characterModel:Think(deltaTime, dataRecord)
+            character.characterModel:Think(deltaTime, dataRecord, bulkMoveToList)
         end
 
         --Remove any characters who were not in this snapshot
@@ -576,12 +596,19 @@ function ChickynoidClient:ProcessFrame(deltaTime)
 			end
 			
             if value.frame ~= self.localFrame then
+                self.OnCharacterModelDestroyed:Fire(value.characterModel)
                 value.characterModel:DestroyModel()
                 value.characterModel = nil
 
                 self.characters[key] = nil
             end
         end
+    end
+
+    --bulkMoveTo
+    if (bulkMoveToList) then
+        game.Workspace:BulkMoveTo(bulkMoveToList.parts, bulkMoveToList.cframes, Enum.BulkMoveMode.FireCFrameChanged)
+
     end
 
     --render in the rockets
@@ -592,9 +619,7 @@ function ChickynoidClient:ProcessFrame(deltaTime)
 	
 	if (self.debugMarkPlayers ~= nil) then
 		self:DrawBoxOnAllPlayers(self.debugMarkPlayers)
-
         self.debugMarkPlayers = nil
-		
 	end
 end
 
@@ -616,6 +641,15 @@ function ChickynoidClient:SetupTime(serverActualTime)
     end
 end
 
+function ChickynoidClient:GetPlayerDataBySlotId(slotId)
+	local slotString = tostring(slotId)
+	if (self.worldState == nil) then
+		return nil
+	end
+	--worldState.players is indexed by a *STRING* not a int
+	return self.worldState.players[slotString]
+end
+
 function ChickynoidClient:DeserializeSnapshot(event, previousSnapshot)
     local bitBuffer = BitBuffer(event.b)
     local count = bitBuffer.readByte()
@@ -626,9 +660,9 @@ function ChickynoidClient:DeserializeSnapshot(event, previousSnapshot)
         local record = CharacterData.new()
 
         --CharacterData.CopyFrom(self.previous)
-        local slotByte = bitBuffer.readByte()
+        local slotId = bitBuffer.readByte()
 
-        local user = self.worldState.players[slotByte]
+		local user = self:GetPlayerDataBySlotId(slotId)
         if user then
             if previousSnapshot ~= nil then
                 local previousRecord = previousSnapshot.charData[user.userId]
@@ -641,7 +675,7 @@ function ChickynoidClient:DeserializeSnapshot(event, previousSnapshot)
             event.charData[user.userId] = record.serialized
         else
             --So things line up
-            warn("UserId for slot", slotByte, "not found!")
+			warn("UserId for slot", slotId, "not found!")
             record:DeserializeFromBitBuffer(bitBuffer)
         end
     end
@@ -767,7 +801,7 @@ function ChickynoidClient:AddPingToNetgraph(resimulate, serverHealthFps, network
     if serverHealthFps < 60 then
         NetGraph:AddPoint(serverHealthFps, Color3.new(1, 0, 0), 2)
     else
-        NetGraph:AddPoint(serverHealthFps, Color3.new(0.5, 0.0, 0.0), 2)
+        NetGraph:AddPoint(serverHealthFps, Color3.new(0, 1, 0), 2)
     end
 
     --Blue bar
@@ -778,10 +812,14 @@ function ChickynoidClient:AddPingToNetgraph(resimulate, serverHealthFps, network
     if networkProblem == Enums.NetworkProblemState.TooFarAhead then
         NetGraph:AddBar(100, Color3.new(1, 1, 0), 0)
     end
-    --Orange bar
+    --Red bar
     if networkProblem == Enums.NetworkProblemState.TooManyCommands then
-        NetGraph:AddBar(100, Color3.new(1, 0.5, 0), 0)
-    end
+        NetGraph:AddBar(100, Color3.new(1, 0, 0), 0)
+	end
+	--teal bar
+	if networkProblem == Enums.NetworkProblemState.CommandUnderrun then
+		NetGraph:AddBar(100, Color3.new(0, 1, 1), 0)
+	end
 
     NetGraph:SetFpsText("Effective Ping: " .. math.floor(total) .. "ms")
 end
@@ -789,7 +827,7 @@ end
 function ChickynoidClient:IsConnectionBad()
 
     local pings 
-    if #self.pings > 10 and self.ping > 1000 then
+    if #self.pings > 10 and self.ping > 2000 then
         return true
     end
     return false

@@ -7,6 +7,7 @@ interface Simulation {
 	state: SimulationState;
 	constants: SimulationConstants;
 	userId: number;
+	lastGround: unknown | undefined;
 
 	RegisterMoveState(
 		name: string,
@@ -19,8 +20,13 @@ interface Simulation {
 		lastThink: unknown | undefined,
 	): void;
 
-	GetMoveState(): string;
+	GetMoveState(): {
+		name: string;
+	};
 	SetMoveState(moveState: string): void;
+
+	SetPosition(position: Vector3, teleport: boolean): void;
+	SetAngle(angle: number, teleport: boolean): void;
 
 	ProjectVelocity(
 		startPos: Vector3,

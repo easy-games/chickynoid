@@ -36,20 +36,27 @@ function ServerChickynoid.new(playerRecord)
         commandSerial = 0,
         lastConfirmedCommand = nil,
         elapsedTime = 0,
-        playerElapsedTime = 0,
-
+		playerElapsedTime = 0,
+		 		
+		processedTimeSinceLastSnapshot = 0,
+		
         errorState = Enums.NetworkProblemState.None,
 
-        speedCheatThreshhold = 150 * 0.001, --milliseconds
-        antiwarpThreshhold = 150 * 0.001, --milliseconds  (was 60)
+        speedCheatThreshhold = 150  , --milliseconds
+       		
+		maxCommandsPerSecond = 400,  --things have gone wrong if this is hit, but it's good server protection against possible uncapped fps
+		smoothFactor = 0.9999, --Smaller is smoother
 
-        bufferedCommandTime = 20 * 0.001, --ms
-        serverFrames = 0,
-
+		serverFrames = 0,
+		
         hitBoxCreated = FastSignal.new(),
 
         debug = {
-            processedCommands = 0,
+			processedCommands = 0,
+			fakeCommandsThisSecond = 0,
+			antiwarpPerSecond = 0,
+			timeOfNextSecond = 0,
+			ping = 0
         },
     }, ServerChickynoid)
         -- TODO: The simulation shouldn't create a debug model like this.
@@ -91,14 +98,15 @@ function ServerChickynoid:Destroy()
 end
 
 function ServerChickynoid:HandleEvent(server, event)
-    self:HandleClientEvent(server, event)
+    self:HandleClientEvent(server, event, false)
 end
 
 --[=[
     Sets the position of the character and replicates it to clients.
 ]=]
-function ServerChickynoid:SetPosition(position: Vector3)
+function ServerChickynoid:SetPosition(position: Vector3, teleport)
     self.simulation.state.pos = position
+    self.simulation.characterData:SetTargetPosition(position, teleport)
 end
 
 --[=[
@@ -108,21 +116,22 @@ function ServerChickynoid:GetPosition()
     return self.simulation.state.pos
 end
 
-function ServerChickynoid:GenerateFakeCommand(deltaTime)
-    local command = {}
-    command.deltaTime = deltaTime
-    command.x = 0
-    command.y = 0
-    command.z = 0
-    command.f = 0
+function ServerChickynoid:GenerateFakeCommand(server, deltaTime)
+	
+	if (self.lastProcessedCommand == nil) then
+		return
+	end
 
-    command.serial = self.commandSerial
-    self.commandSerial += 1
-
-    self.playerElapsedTime += command.deltaTime
-    command.serverTime = self.elapsedTime --this is wrong
-    command.totalTime = self.elapsedTime
-    table.insert(self.unprocessedCommands, command)
+	local command = DeltaTable:DeepCopy(self.lastProcessedCommand)
+	command.deltaTime = deltaTime
+	
+	local event = {}
+	event.t = EventType.Command
+	event.command = command
+	self:HandleClientEvent(server, event, true)
+	
+	
+	self.debug.fakeCommandsThisSecond += 1
 end
 
 --[=[
@@ -133,65 +142,51 @@ function ServerChickynoid:Think(_server, _serverSimulationTime, deltaTime)
     --  Anticheat methods
     --  We keep X ms of commands unprocessed, so that if players stop sending upstream, we have some commands to keep going with
     --  We only allow the player to get +150ms ahead of the servers estimated sim time (Speed cheat), if they're over this, we discard commands
-    --  We only allow the player to get -150ms behind the servers estimated sim time (Lag cheat), if they're under this, we generate fake commands to catch them up
-    --  We only allow 15 commands per server tick (ratio of 5:1) if the user somehow has more than 15 commands that are legitimately needing processing, we discard them all
+    --  The server will generate a fake command if you underrun (do not have any commands during time between snapshots)
+    --  todo: We only allow 15 commands per server tick (ratio of 5:1) if the user somehow has more than 15 commands that are legitimately needing processing, we discard them all
 
-    self.elapsedTime += deltaTime
-
-    --Once a player has connected, monitor their total elapsed time
-    --If it falls behind, catch them up!
-    if self.playerElapsedTime > 0 and self.playerRecord.dummy == false then
-        if self.playerElapsedTime < self.elapsedTime - self.antiwarpThreshhold then
-            self.errorState = Enums.NetworkProblemState.TooFarAhead
-            --Generate some commands
-            local timeToCover = (self.elapsedTime - self.antiwarpThreshhold) - self.playerElapsedTime
-
-            while timeToCover > 0 do
-                timeToCover -= 1 / 60
-                self:GenerateFakeCommand(1 / 60)
-            end
-        end
-    end
-
+	self.elapsedTime += deltaTime
+ 
     --Sort commands by their serial
     table.sort(self.unprocessedCommands, function(a, b)
         return a.serial < b.serial
-    end)
+	end)
+	
+    local maxCommandsPerFrame = math.ceil(self.maxCommandsPerSecond * deltaTime)
+    
+	local processCounter = 0
+	for _, command in pairs(self.unprocessedCommands) do
+ 	
+		processCounter += 1
+		
+		--print("server", command.l, command.serverTime)
+		TrajectoryModule:PositionWorld(command.serverTime, command.deltaTime)
+		self.debug.processedCommands += 1
 
-    local maxCommandsPerFrame = 15
+		--Step simulation!
+		self.simulation:ProcessCommand(command)
 
-    for _, command in pairs(self.unprocessedCommands) do
-        if command.totalTime > self.elapsedTime - self.bufferedCommandTime then
-            --Can't process this yet, its our buffer
-            continue
-        end
+		--Fire weapons!
+		self.playerRecord:ProcessWeaponCommand(command)
 
-        maxCommandsPerFrame -= 1
-        if maxCommandsPerFrame < 0 then
-            --print("Player send too many commands at once:", self.playerRecord.name)
-            self.errorState = Enums.NetworkProblemState.TooManyCommands
-            self.playerElapsedTime = self.elapsedTime
-            self.unprocessedCommands = {}
-            break --Discard all buffered commands
-        end
+		command.processed = true
 
-        --print("server", command.l, command.serverTime)
-        TrajectoryModule:PositionWorld(command.serverTime, command.deltaTime)
-        self.debug.processedCommands += 1
+		if command.l and tonumber(command.l) ~= nil then
+			self.lastConfirmedCommand = command.l
+			self.lastProcessedCommand = command
+		end
+		
+		self.processedTimeSinceLastSnapshot += command.deltaTime
 
-        --Step simulation!
-        self.simulation:ProcessCommand(command)
-
-        --Fire weapons!
-        self.playerRecord:ProcessWeaponCommand(command)
-
-        command.processed = true
-
-        if command.l and tonumber(command.l) ~= nil then
-            self.lastConfirmedCommand = command.l
-        end
-    end
-
+		if (processCounter > maxCommandsPerFrame and false) then
+			--dump the remaining commands
+			self.errorState = Enums.NetworkProblemState.TooManyCommands
+			self.unprocessedCommands = {}
+			break
+		end
+	end
+ 
+	
     local newList = {}
     for _, command in pairs(self.unprocessedCommands) do
         if command.processed ~= true then
@@ -199,7 +194,21 @@ function ServerChickynoid:Think(_server, _serverSimulationTime, deltaTime)
         end
     end
 
-    self.unprocessedCommands = newList
+	self.unprocessedCommands = newList
+	
+	
+	--debug stuff, too many commands a second stuff
+	if (tick() > self.debug.timeOfNextSecond) then
+	
+		
+		self.debug.timeOfNextSecond = tick() + 1
+		self.debug.antiwarpPerSecond = self.debug.fakeCommandsThisSecond
+		self.debug.fakeCommandsThisSecond = 0
+		
+		if (self.debug.antiwarpPerSecond  > 0) then
+			print("Lag: ",self.debug.antiwarpPerSecond )
+		end
+	end
 end
 
 --[=[
@@ -208,11 +217,15 @@ end
 	@param event table -- The event sent by the client.
 	@private
 ]=]
-function ServerChickynoid:HandleClientEvent(server, event)
-    if event.t == EventType.Command then
-        local command = event.command
+function ServerChickynoid:HandleClientEvent(server, event, fakeCommand)
+	
+	if event.t == EventType.Command then
+		
+	    local command = event.command
 
-        if command and typeof(command) == "table" then
+		if command and typeof(command) == "table" then
+		
+			
             --Sanitize
             --todo: clean this into a function per type
             if command.x == nil or typeof(command.x) ~= "number" or command.x ~= command.x then
@@ -250,53 +263,80 @@ function ServerChickynoid:HandleClientEvent(server, event)
                 command.fa = nil
             end
 
-            command.serial = self.commandSerial
-            self.commandSerial += 1
 
             --sanitize
+			if (fakeCommand == false) then
+	            if server.config.fpsMode == Enums.FpsMode.Uncapped then
+	                --Todo: really slow players need to be penalized harder.
+	                if command.deltaTime > 0.5 then
+	                    command.deltaTime = 0.5
+	                end
 
-            if server.config.fpsMode == Enums.FpsMode.Uncapped then
-                --Todo: really slow players need to be penalized harder.
-                if command.deltaTime > 0.5 then
-                    command.deltaTime = 0.5
-                end
+	                --500fps cap
+	                if command.deltaTime < 1 / 500 then
+	                    command.deltaTime = 1 / 500
+	                    --print("Player over 500fps:", self.playerRecord.name)
+	                end
+	            elseif server.config.fpsMode == Enums.FpsMode.Hybrid then
+	                --Players under 30fps are simualted at 30fps
+	                if command.deltaTime > 1 / 30 then
+	                    command.deltaTime = 1 / 30
+	                end
 
-                --500fps cap
-                if command.deltaTime < 1 / 500 then
-                    command.deltaTime = 1 / 500
-                    --print("Player over 500fps:", self.playerRecord.name)
-                end
-            elseif server.config.fpsMode == Enums.FpsMode.Hybrid then
-                --Players under 30fps are simualted at 30fps
-                if command.deltaTime > 1 / 30 then
-                    command.deltaTime = 1 / 30
-                end
-
-                --500fps cap
-                if command.deltaTime < 1 / 500 then
-                    command.deltaTime = 1 / 500
-                    --print("Player over 500fps:", self.playerRecord.name)
-                end
-            elseif server.config.fpsMode == Enums.FpsMode.Fixed60 then
-                command.deltaTime = 1 / 60
-            else
-                warn("Unhandled FPS mode")
-            end
+	                --500fps cap
+	                if command.deltaTime < 1 / 500 then
+	                    command.deltaTime = 1 / 500
+	                    --print("Player over 500fps:", self.playerRecord.name)
+	                end
+	            elseif server.config.fpsMode == Enums.FpsMode.Fixed60 then
+	                command.deltaTime = 1 / 60
+	            else
+	                warn("Unhandled FPS mode")
+				end
+			end
 
             if command.deltaTime then
                 --On the first command, init
                 if self.playerElapsedTime == 0 then
-                    self.playerElapsedTime = self.elapsedTime
-                end
-
-                if self.playerElapsedTime > self.elapsedTime + self.speedCheatThreshhold then
-                    --print("Player too far ahead", self.playerRecord.name)
+					self.playerElapsedTime = self.elapsedTime
+				end
+				local delta = self.playerElapsedTime - self.elapsedTime
+				
+				--see if they've fallen too far behind
+				if (delta < -(self.speedCheatThreshhold / 1000)) then
+					self.playerElapsedTime = self.elapsedTime
+					self.errorState = Enums.NetworkProblemState.TooFarBehind
+				end
+								
+				--test if this is wthin speed cheat range?
+				--print("delta", self.playerElapsedTime - self.elapsedTime)
+                if self.playerElapsedTime > self.elapsedTime + (self.speedCheatThreshhold / 1000) then
+					--print("Player too far ahead", self.playerRecord.name)
+					--Skipping this command
                     self.errorState = Enums.NetworkProblemState.TooFarAhead
-                else
-                    self.playerElapsedTime += command.deltaTime
-                    command.totalTime = self.elapsedTime
-                    table.insert(self.unprocessedCommands, command)
-                end
+				else
+					
+					
+					--write it!
+					self.playerElapsedTime += command.deltaTime
+			
+					command.elapsedTime = self.elapsedTime --Players real time when this was written.
+					
+					command.playerElapsedTime = self.playerElapsedTime
+					command.fakeCommand = fakeCommand
+					command.serial = self.commandSerial
+					self.commandSerial += 1
+					
+					--This is the only place where commands get written
+					table.insert(self.unprocessedCommands, command)
+					
+				end
+				
+				--Debug ping
+				if (command.serverTime ~= nil and fakeCommand == false and self.playerRecord.dummy == false) then
+					self.debug.ping = math.floor((server.serverSimulationTime - command.serverTime) * 1000)
+					self.debug.ping -= ( (1 / server.config.serverHz) * 1000)
+				end
             end
         end
     end
@@ -316,20 +356,22 @@ end
     @private
 ]=]
 function ServerChickynoid:SpawnChickynoid()
-    self.simulation.state.vel = Vector3.zero
-
+    
+    --If you need to change anything about the chickynoid initial state like pos or rotation, use OnBeforePlayerSpawn
     if self.playerRecord.dummy == false then
         local event = {}
         event.t = EventType.ChickynoidAdded
-        event.position = self.simulation.state.pos
+        event.state = self.simulation:WriteState()
         event.characterMod = self.playerRecord.characterMod
         self.playerRecord:SendEventToClient(event)
     end
     print("Spawned character and sent event for player:", self.playerRecord.name)
 end
 
-function ServerChickynoid:PostThink(server)
+function ServerChickynoid:PostThink(server, deltaTime)
     self:UpdateServerCollisionBox(server)
+
+    self.simulation.characterData:SmoothPosition(deltaTime, self.smoothFactor)
 end
 
 function ServerChickynoid:UpdateServerCollisionBox(server)

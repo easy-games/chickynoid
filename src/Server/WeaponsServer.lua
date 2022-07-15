@@ -17,11 +17,33 @@ local requiredMethods = {
     "ServerThink",
     "ClientProcessCommand",
     "ServerProcessCommand",
-    "ServerSetup",
     "ClientSetup",
+    "ServerSetup",
+    "ClientEquip",
     "ServerEquip",
+    "ClientDequip",
     "ServerDequip",
+    "ClientRemoved",
+    "ServerRemoved",
 }
+
+--Server Lifecycle:
+--  ServerSetup
+--    ServerEquip
+--      ServerProcessCommand (x many?)
+--      ServerThink
+--    ServerDequip 
+--  ServerRemoved
+
+--Client Lifecycle:
+--  ClientSetup
+--    ClientEquip
+--      ClientProcessCommand (x many?)
+--      ClientThink
+--    ClientDequip
+--  ClientRemoved
+
+--Note, ProcesCommand, Think and Dequip all only get called if this is item is equipped
 
 function module:Setup(server)
 
@@ -30,12 +52,18 @@ function module:Setup(server)
     for name, module in pairs(weapons) do
        
         local customWeapon = module
-
+		
+		local doError = false
         for _, values in pairs(requiredMethods) do
             if customWeapon[values] == nil then
-                error("WeaponModule " .. name.Name .. " missing " .. values .. " implementation.")
+				warn("WeaponModule " .. name .. " missing " .. values .. " implementation.")
+				doError = true
             end
-        end
+		end
+		
+		if (doError) then
+			error("Aborting module")
+		end
         table.insert(self.customWeapons, customWeapon)
         --set the id
         customWeapon.weaponId = #self.customWeapons
@@ -91,15 +119,22 @@ function module:OnPlayerConnected(server, playerRecord)
 
 	-- selene: allow(shadowing)
     function playerRecord:RemoveWeaponRecord(weaponRecord)
+
+        if (self.currentWeapon == weaponRecord) then
+            self:DequipWeapon()
+        end
+        
+        weaponRecord:ServerRemoved()
+
         local event = {}
         event.t = Enums.EventType.WeaponDataChanged
         event.s = Enums.WeaponData.WeaponRemove
         event.serial = weaponRecord.serial
         self:SendEventToClient(event)
-
+        
         self.weapons[weaponRecord.serial] = nil
     end
-
+ 
 	-- selene: allow(shadowing)
     function playerRecord:ClearWeapons()
         for _, weaponRecord in pairs(self.weapons) do
@@ -161,39 +196,43 @@ function module:OnPlayerConnected(server, playerRecord)
     -- Happens after the command for this frame
 	-- selene: allow(shadowing)
     function playerRecord:WeaponThink(deltaTime)
-        for _, weaponRecord in pairs(self.weapons) do
-            weaponRecord:ServerThink(deltaTime)
+        if self.currentWeapon ~= nil then
+            self.currentWeapon:ServerThink(deltaTime)
 
             --Check if we need updates
-            local deltaTable, numChanges = DeltaTable:MakeDeltaTable(weaponRecord.previousState, weaponRecord.state)
+            local deltaTable, numChanges = DeltaTable:MakeDeltaTable(self.currentWeapon.previousState, self.currentWeapon.state)
 
             if numChanges > 0 then
                 --Send the client the change to the state
                 local event = {}
                 event.t = Enums.EventType.WeaponDataChanged
                 event.s = Enums.WeaponData.WeaponState
-                event.serial = weaponRecord.serial
+                event.serial = self.currentWeapon.serial
                 event.deltaTable = deltaTable
                 playerRecord:SendEventToClient(event)
 
                 --Record what they saw
-                weaponRecord.previousState = DeltaTable:DeepCopy(weaponRecord.state)
+                self.currentWeapon.previousState = DeltaTable:DeepCopy(self.currentWeapon.state)
             end
         end
     end
 end
 
-function module:QueryBullet(playerRecord, server, origin, dir, serverTime, debugText)
+function module:QueryBullet(playerRecord, server, origin, dir, serverTime, debugText, raycastParams, range)
     Antilag:PushPlayerPositionsToTime(playerRecord, serverTime, debugText)
 
-    local rayCastResult = game.Workspace:Raycast(origin, dir * 1000)
+    if range == nil then
+        range = 1000
+    end
+
+    local rayCastResult = game.Workspace:Raycast(origin, dir * range, raycastParams)
 
     local pos = nil
     local normal = nil
     local otherPlayerRecord = nil
     local hitInstance = nil
     if rayCastResult == nil then
-        pos = origin * 1000
+        pos = origin + dir * range
     else
         pos = rayCastResult.Position
         normal = rayCastResult.Normal
@@ -211,29 +250,53 @@ function module:QueryBullet(playerRecord, server, origin, dir, serverTime, debug
     return pos, normal, otherPlayerRecord, hitInstance
 end
 
-function module:FireRocket(playerRecord, server, _origin, dir)
-    local rocket = {}
+function module:QueryShotgun(playerRecord, server, origins, directions, serverTime, debugText, raycastParams, range)
 
-    rocket.p = playerRecord.chickynoid.simulation.state.pos
-    rocket.v = Vector3.new(1, 0, 0)
-    rocket.v = dir
+    Antilag:PushPlayerPositionsToTime(playerRecord, serverTime, debugText)
 
-    rocket.c = 600
-    rocket.o = server.serverSimulationTime
-    rocket.s = self.rocketSerial
-    self.rocketSerial += 1
+    if range == nil then
+        range = 1000
+    end
+    
+    local results = {}
+    
+    for counter = 1, #origins do 
+        local origin = origins[counter]
+        local dir = directions[counter]
+        if (dir == nil) then 
+            continue
+        end
+    
+        local rayCastResult = game.Workspace:Raycast(origin, dir * range, raycastParams)
 
-    rocket.t = Enums.EventType.RocketSpawn
+        if rayCastResult == nil then
+            local record = {}
+            record.pos =  origin + dir * range
+            record.origin = origin
+            record.dir = dir
+            table.insert(results, record)
+        else
+            local record = {}
+            record.pos = rayCastResult.Position
+            record.normal = rayCastResult.Normal
+            record.hitInstance = rayCastResult.Instance
+            record.origin = origin
+            record.dir = dir
 
-    server:SendEventToClients(rocket)
+            --See if its a player
+            local userId = rayCastResult.Instance:GetAttribute("player")
+            if userId then
+                record.otherPlayerRecord = server:GetPlayerByUserId(userId)
+            end
+            table.insert(results, record)
+        end
+    end
 
-    --After its been sent, set a die time
-    rocket.aliveTime = 0
-    rocket.owner = playerRecord
-    rocket.n = -dir
+    Antilag:Pop() --Don't forget!
 
-    self.rockets[rocket.s] = rocket
+    return results
 end
+
 
 function module:Think(server, deltaTime)
     for _, playerRecord in pairs(server:GetPlayers()) do

@@ -7,24 +7,39 @@ local Enums = require(path.Enums)
 local FastSignal = require(path.Vendor.FastSignal)
 local DeltaTable = require(path.Vendor.DeltaTable)
 local ClientMods = require(path.Client.ClientMods)
+local BitBuffer = require(path.Vendor.BitBuffer)
 
 module.rockets = {}
 module.weapons = {}
 module.customWeapons = {}
 module.currentWeapon = nil
 module.OnBulletImpact = FastSignal.new()
+module.OnBulletFire = FastSignal.new()
 
 function module:HandleEvent(client, event)
-    if event.t == Enums.EventType.BulletImpact then
-        local player = client.worldState.players[event.s]
+	if event.t == Enums.EventType.BulletImpact then
+		
+        --partially decode this packet so we can route it..
+        local bitBuffer = BitBuffer(event.b)
 
+        --these two first!
+        event.weaponId = bitBuffer:readInt16()
+        event.slot = bitBuffer:readByte()
+
+        event.weaponModule = self:GetWeaponModuleByWeaponId(event.weaponId)
+        if (event.weaponModule == nil) then
+            return
+        end
+        if (event.weaponModule.UnpackPacket) then
+            event = event.weaponModule:UnpackPacket(event)
+        end
+        
+        --Append player
+		local player = client:GetPlayerDataBySlotId(event.slot)
         if player == nil then
             return
         end
-
         event.player = player
-        event.weaponModule = self:GetWeaponModuleByWeaponId(event.w)
-
         self.OnBulletImpact:Fire(client, event)
 
         if event.weaponModule and event.weaponModule.ClientOnBulletImpact then
@@ -34,26 +49,35 @@ function module:HandleEvent(client, event)
         return
     end
 
-    --Todo: recode these
-    if event.t == Enums.EventType.RocketSpawn then
-        --fired a rocket
-        self.rockets[event.s] = event
-        EffectsModule:SpawnEffect("RocketShoot", event.p)
-        return
-    end
+    if event.t == Enums.EventType.BulletFire then
+		
+        --partially decode this packet so we can route it..
+        local bitBuffer = BitBuffer(event.b)
 
-    if event.t == Enums.EventType.RocketDie then
-        --Kill the rocket
-        local rocket = self.rockets[event.s]
-        if rocket.part then
-            local effect = EffectsModule:SpawnEffect("Impact", rocket.part.Position)
+        --these two first!
+        event.weaponId = bitBuffer:readInt16()
+        event.slot = bitBuffer:readByte()
 
-            local cframe = CFrame.lookAt(rocket.part.Position, rocket.part.Position + event.n)
-            effect.CFrame = cframe
-
-            rocket.part:Destroy()
+        event.weaponModule = self:GetWeaponModuleByWeaponId(event.weaponId)
+        if (event.weaponModule == nil) then
+            return
         end
-        self.rockets[event.s] = nil
+        if (event.weaponModule.UnpackPacket) then
+            event = event.weaponModule:UnpackPacket(event)
+        end
+        
+        --Append player
+		local player = client:GetPlayerDataBySlotId(event.slot)
+        if player == nil then
+            return
+        end
+        event.player = player
+        self.OnBulletFire:Fire(client, event)
+
+        if event.weaponModule and event.weaponModule.ClientOnBulletFire then
+            event.weaponModule:ClientOnBulletFire(client, event)
+        end
+
         return
     end
 
@@ -101,15 +125,9 @@ function module:HandleEvent(client, event)
                     return
                 end
                 print("Removed ", weaponRecord.name)
-
-                --Dequip
-                if self.currentWeapon == weaponRecord then
-                    self.currentWeapon:ClientDequip()
-                    self.currentWeapon = nil
-                end
-                if weaponRecord.ClientRemoved then
-                    weaponRecord:ClientRemoved()
-                end
+              
+                weaponRecord:ClientRemoved()
+              
                 self.weapons[weaponRecord.serial] = nil
             end
         end
@@ -178,36 +196,6 @@ function module:Think(_predictedServerTime, deltaTime)
         self.currentWeapon:ClientThink(deltaTime)
     end
 
-    --Temporary code!
-    for _, rocket in pairs(self.rockets) do
-        --just render the rocket from the moment we find out about it as time 0.
-        if rocket.localTime == nil then
-            rocket.localTime = rocket.o
-        end
-        rocket.localTime += deltaTime
-
-        local timePassed = rocket.localTime - rocket.o
-
-        if timePassed < 0 then
-            --We dont know about this rocket yet, it hasn't technically spawned in the world yet (clients render with a smoothing delay!)
-            continue
-        end
-
-        if rocket.part == nil then
-            local part = Instance.new("Part")
-            part.Parent = game.Workspace
-            part.Anchored = true
-            part.Size = Vector3.new(0.3, 0.3, 0.3)
-            part.Shape = Enum.PartType.Ball
-            part.Material = Enum.Material.Neon
-            part.Color = Color3.new(1, 1, 0.5)
-
-            rocket.part = part
-        end
-
-        rocket.pos = rocket.p + (rocket.v * rocket.c * timePassed)
-        rocket.part.Position = rocket.pos
-    end
 end
 
 function module:GetWeaponModuleByWeaponId(weaponId)
@@ -218,7 +206,7 @@ function module:Setup(_client)
 
     local mods = ClientMods:GetMods("weapons")
     for name,module in pairs(mods) do
-       
+        
         local customWeapon = module.new()
         table.insert(self.customWeapons, customWeapon)
         --set the id

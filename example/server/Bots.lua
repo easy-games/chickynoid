@@ -1,9 +1,32 @@
 local Enums = require(game.ReplicatedFirst.Packages.Chickynoid.Enums)
 local module = {}
-
+module.nextValidBotUserId  = 26000
 
 --debug harness
 local debugPlayers = {}
+local invalidUserIds = {
+	[26003]=1,
+	[26020]=1,	
+	[26021]=1,
+	[26038]=1,
+	[26075]=1,
+	[26068]=1,
+	[26056]=1,
+	[26084]=1,
+	[26025]=1,
+	[26066]=1,
+	[26049]=1,
+	[26045]=1,
+	[26083]=1,
+	[26058]=1,
+	[26047]=1,
+	[26055]=1,
+	[26032]=1,
+	[26105]=1,
+	[26110]=1,
+	[26118]=1,
+}
+
 function module:MakeBots(Server, numBots)
 
 	--Always the same seed
@@ -15,9 +38,24 @@ function module:MakeBots(Server, numBots)
 	
 	for counter = 1, numBots do
 
-		local userId = -10000-counter
+		local userId = module.nextValidBotUserId
+		
+		while (invalidUserIds[userId] ~= nil) do
+			userId += 1
+		end
+		--save it
+		module.nextValidBotUserId = userId+1
+		
+		--Set it to negative
+		userId = -userId
+				
+		
 		local playerRecord = Server:AddConnection(userId, nil)
-
+		
+		if (playerRecord == nil) then
+			continue
+		end
+		
 		playerRecord.name = "RandomBot" .. counter
 		playerRecord.respawnTime = tick() + counter * 0.1
 		
@@ -30,7 +68,7 @@ function module:MakeBots(Server, numBots)
 		
 		--Spawn them in someplace
 		playerRecord.OnBeforePlayerSpawn:Connect(function()
-			playerRecord.chickynoid:SetPosition(Vector3.new(math.random(-350,350), 100 ,math.random(-350,350) ) + Vector3.new(-250, 0,0))
+			playerRecord.chickynoid:SetPosition(Vector3.new(math.random(-350,350), 100 ,math.random(-350,350) ) + Vector3.new(-250, 0,0), true)
 		end)
 		
 		 

@@ -18,6 +18,12 @@ export namespace ChickynoidClient {
 	}
 
 	export let config: ClientConfig;
+
+	export let fpsMax: number;
+	export let fpsMin: number;
+	export let fpsIsCapped: boolean;
+	export let interpolationBuffer: number;
+
 	export let characterModel: CharacterModel | undefined;
 	export let estimatedServerTime: number;
 	export let estimatedServerTimeOffset: number;
@@ -26,6 +32,7 @@ export namespace ChickynoidClient {
 
 	export let OnNetworkEvent: Signal<(event: unknown) => void>;
 	export let OnCharacterModelCreated: Signal<(characterModel: CharacterModel) => void>;
+	export let OnCharacterModelDestroyed: Signal<(characterModel: CharacterModel) => void>;
 
 	export const flags: {
 		HANDLE_CAMERA: boolean;

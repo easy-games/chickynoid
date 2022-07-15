@@ -7,10 +7,11 @@ interface ServerChickynoid {
 	playerRecord: PlayerRecord;
 	hitBox: Part;
 	simulation: Simulation;
+	bufferedCommandTime: number;
 
 	hitBoxCreated: Signal<(hitBox: Part) => void>;
 
-	SetPosition(position: Vector3): void;
+	SetPosition(position: Vector3, teleport: boolean): void;
 	GetPosition(): Vector3;
 
 	HandleEvent(server: typeof ChickynoidServer, event: unknown): void;

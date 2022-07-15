@@ -4,6 +4,7 @@
 ]=]
 
 local RunService = game:GetService("RunService")
+local IsClient = RunService:IsClient()
 
 local Simulation = {}
 Simulation.__index = Simulation
@@ -151,12 +152,25 @@ function Simulation:ProcessCommand(cmd)
     --self:DoPlatformMove(self.lastGround, cmd.deltaTime)
 
     --Write this to the characterData
-    self.characterData:SetPosition(self.state.pos)
+    self.characterData:SetTargetPosition(self.state.pos)
     self.characterData:SetAngle(self.state.angle)
     self.characterData:SetStepUp(self.state.stepUp)
     self.characterData:SetFlatSpeed( MathUtils:FlatVec(self.state.vel).Magnitude)
 
     debug.profileend()
+end
+
+function Simulation:SetAngle(angle, teleport)
+    self.state.angle = angle
+    if (teleport == true) then
+        self.state.targetAngle = angle
+        self.characterData:SetAngle(self.state.angle, true)
+    end
+end
+
+function Simulation:SetPosition(position, teleport)
+    self.state.position = position
+    self.characterData:SetTargetPosition(self.state.pos, teleport)
 end
 
 function Simulation:CrashLand(vel)
@@ -277,7 +291,7 @@ function Simulation:ProjectVelocity(startPos, startVel, deltaTime)
 
         if moveVel:Dot(startVel) < 0 then
             --we projected back in the opposite direction from where we started. No.
-            moveVel = Vector3.new(0, 0, 0)
+			moveVel = Vector3.new(0, 0, 0)
             break
         end
 
@@ -324,6 +338,42 @@ function Simulation:ProjectVelocity(startPos, startVel, deltaTime)
     return movePos, moveVel, hitSomething
 end
 
+function Simulation:CheckGroundSlopes(startPos)
+	
+	local movePos = startPos
+	local moveDir = Vector3.new(0,-1,0)
+	
+	--We only operate on a scaled down version of velocity
+	local result = CollisionModule:Sweep(movePos, movePos + moveDir)
+
+	--Update our position
+	if result.fraction > 0 then
+		movePos = result.endPos
+	end
+	--See if we swept the whole way?
+	if result.fraction == 1 then
+		return false
+	end
+	
+	if result.allSolid == true then
+		return true --stuck
+	end
+	
+	moveDir = MathUtils:ClipVelocity(moveDir, result.normal, 1.0)
+	if (moveDir.Magnitude < 0.001) then
+		return true --stuck
+	end
+	
+	--Try and move it
+	local result = CollisionModule:Sweep(movePos, movePos + moveDir)
+	if (result.fraction == 0) then
+		return true --stuck
+	end
+	
+	--Not stuck
+	return false	
+end
+
 
 --This gets deltacompressed by the client/server chickynoids automatically
 function Simulation:WriteState()
@@ -364,7 +414,7 @@ function Simulation:DoPlatformMove(lastGround, deltaTime)
 end
 
 function Simulation:DoPushingTimer(cmd)
-    if RunService:IsClient() then
+    if IsClient == true then
         return
     end
 
@@ -383,20 +433,41 @@ function Simulation:GetStandingPart()
     return nil
 end
 
+
+--Move me to my own file!
 function Simulation:MovetypeWalking(cmd)
 
     --Check ground
     local onGround = nil
-    self.lastGround = nil
     onGround = self:DoGroundCheck(self.state.pos)
 
     --If the player is on too steep a slope, its not ground
-    if onGround ~= nil and onGround.normal.Y < self.constants.maxGroundSlope then
-        onGround = nil
-    end
- 
+	if (onGround ~= nil and onGround.normal.Y < self.constants.maxGroundSlope) then
+		
+		--See if we can move downwards?
+		if (self.state.vel.y < 0.1) then
+			local stuck = self:CheckGroundSlopes(self.state.pos)
+			
+			if (stuck == false) then
+				--we moved, that means the player is on a slope and can free fall
+				onGround = nil
+			else
+				--we didn't move, it means the ground we're on is sloped, but we can't fall any further
+				--treat it like flat ground
+				onGround.normal = Vector3.new(0,1,0)
+			end
+		else
+			onGround = nil
+		end
+	end
+	
+	 
     --Mark if we were onground at the start of the frame
     local startedOnGround = onGround
+	
+	--Simplify - whatever we are at the start of the frame goes.
+	self.lastGround = onGround
+	
 
     --Did the player have a movement request?
     local wishDir = nil
@@ -426,9 +497,9 @@ function Simulation:MovetypeWalking(cmd)
 
             --Good time to trigger our walk anim
             if self.state.pushing > 0 then
-                self.characterData:PlayAnimation(Enums.Anims.Push, false)
+                self.characterData:PlayAnimation(Enums.Anims.Push, Enums.AnimChannel.Channel0, false)
             else
-                self.characterData:PlayAnimation(Enums.Anims.Walk, false)
+                self.characterData:PlayAnimation(Enums.Anims.Walk, Enums.AnimChannel.Channel0, false)
             end
         else
             --Moving through the air under player control
@@ -440,7 +511,7 @@ function Simulation:MovetypeWalking(cmd)
             flatVel = MathUtils:VelocityFriction(flatVel, self.constants.brakeFriction, cmd.deltaTime)
 
             --Enter idle
-            self.characterData:PlayAnimation(Enums.Anims.Idle, false)
+            self.characterData:PlayAnimation(Enums.Anims.Idle, Enums.AnimChannel.Channel0, false)
         -- else
             --moving through the air with no input
         end
@@ -463,7 +534,7 @@ function Simulation:MovetypeWalking(cmd)
             self.state.vel = Vector3.new(self.state.vel.x, self.constants.jumpPunch, self.state.vel.z)
             self.state.jump = 0.2 --jumping has a cooldown (think jumping up a staircase)
             self.state.jumpThrust = self.constants.jumpThrustPower
-            self.characterData:PlayAnimation(Enums.Anims.Jump, true, 0.2)
+            self.characterData:PlayAnimation(Enums.Anims.Jump, Enums.AnimChannel.Channel0, true, 0.2)
         end
 
         --Check jumpPads
@@ -476,12 +547,7 @@ function Simulation:MovetypeWalking(cmd)
                     local dir = instance.CFrame:VectorToWorldSpace(vec3)
                     self.state.vel = dir
                     self.state.jump = 0.2
-                    self.characterData:PlayAnimation(Enums.Anims.Jump, true, 0.2)
-                end
-
-                --For platform standing
-                if self.state.jump == 0 then
-                    self.lastGround = onGround
+                    self.characterData:PlayAnimation(Enums.Anims.Jump, Enums.AnimChannel.Channel0, true, 0.2)
                 end
             end
         end
@@ -516,7 +582,7 @@ function Simulation:MovetypeWalking(cmd)
 
         --Switch to falling if we've been off the ground for a bit
         if self.state.vel.y <= 0.01 and self.state.inAir > 0.5 then
-            self.characterData:PlayAnimation(Enums.Anims.Fall, false)
+            self.characterData:PlayAnimation(Enums.Anims.Fall, Enums.AnimChannel.Channel0, false)
         end
     else
         self.state.inAir = 0
@@ -587,6 +653,5 @@ function Simulation:MovetypeWalking(cmd)
         end
     end
 end
-
 
 return Simulation

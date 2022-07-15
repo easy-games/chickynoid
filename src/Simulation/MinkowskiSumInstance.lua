@@ -6,6 +6,7 @@ local QuickHull2 = require(Vendor.QuickHull2)
 
 local module = {}
 module.meshCache = {}
+module.timeSpentTracing = 0
 
 local corners = {
     Vector3.new(0.5, 0.5, 0.5),
@@ -18,6 +19,24 @@ local corners = {
     Vector3.new(-0.5, -0.5, -0.5),
 }
 
+local wedge = {
+	Vector3.new( 0.5,-0.5, -0.5),
+	Vector3.new(-0.5,-0.5, -0.5),
+	Vector3.new( 0.5,-0.5, 0.5),
+	Vector3.new(-0.5,-0.5, 0.5),
+	Vector3.new( 0.5, 0.5, 0.5),
+	Vector3.new(-0.5, 0.5, 0.5),
+}
+
+local cornerWedge = {
+	Vector3.new( 0.5, 0.5,-0.5),
+	Vector3.new( 0.5,-0.5, 0.5),
+	Vector3.new(-0.5,-0.5, 0.5),
+	Vector3.new( 0.5,-0.5,-0.5),
+	Vector3.new(-0.5,-0.5,-0.5),
+}
+
+ 
 local function IsUnique(list, normal, d)
     local EPS = 0.01
 	local normalTol = 0.95
@@ -29,6 +48,18 @@ local function IsUnique(list, normal, d)
     end
     return true
 end
+
+local function IsUniquePoint(list, point)
+	local EPS = 0.001
+
+	for _, src in pairs(list) do
+		if (src-point).magnitude < EPS then
+			return false
+		end
+	end
+	return true
+end
+
 
 local function IsUniqueTri(list, normal, d)
 	local EPS = 0.001
@@ -148,20 +179,22 @@ function module:GetPlanesForPoints(points, basePlaneNum)
     local r = QuickHull2:GenerateHull(points)
     local recs = {}
 
-    --Generate unique planes in n+d format
-    for _, tri in pairs(r) do
-        local normal = (tri[1] - tri[2]):Cross(tri[1] - tri[3]).unit
-        local ed = tri[1]:Dot(normal) --expanded distance
-        basePlaneNum += 1
+	--Generate unique planes in n+d format
+	if (r ~= nil) then
+	    for _, tri in pairs(r) do
+	        local normal = (tri[1] - tri[2]):Cross(tri[1] - tri[3]).unit
+	        local ed = tri[1]:Dot(normal) --expanded distance
+	        basePlaneNum += 1
 
-        if IsUnique(recs, normal, ed) then
-            table.insert(recs, {
-                n = normal,
-                ed = ed, --expanded
-                planeNum = basePlaneNum,
-            })
-        end
-    end
+	        if IsUnique(recs, normal, ed) then
+	            table.insert(recs, {
+	                n = normal,
+	                ed = ed, --expanded
+	                planeNum = basePlaneNum,
+	            })
+	        end
+		end
+	end
 
     return recs, basePlaneNum
 end
@@ -173,12 +206,14 @@ function module:GetPlanePointForPoints(points)
 	local recs = {}
 
 	--Generate unique planes in n+d format
-	for _, tri in pairs(r) do
-		local normal = (tri[1] - tri[2]):Cross(tri[1] - tri[3]).unit
-		local ed = tri[1]:Dot(normal) --expanded distance
-		
-		if IsUniqueTri(recs, normal, ed) then
-			table.insert(recs, { tri[1],tri[2], tri[3], normal, ed }) 
+	if (r ~= nil) then
+		for _, tri in pairs(r) do
+			local normal = (tri[1] - tri[2]):Cross(tri[1] - tri[3]).unit
+			local ed = tri[1]:Dot(normal) --expanded distance
+			
+			if IsUniqueTri(recs, normal, ed) then
+				table.insert(recs, { tri[1],tri[2], tri[3], normal, ed }) 
+			end
 		end
 	end
 
@@ -199,8 +234,20 @@ end
 
 function module:GeneratePointsForInstance(instance, playerSize, cframe)
       
-    local points = {}
-    for _, v in pairs(corners) do
+	local points = {}
+	
+	
+	local srcPoints = corners
+	
+	if (instance:IsA("Part")) then
+		srcPoints = corners
+	elseif (instance:IsA("WedgePart")) then
+		srcPoints = wedge
+	elseif (instance:IsA("CornerWedgePart")) then
+		srcPoints = cornerWedge
+	end
+	
+    for _, v in pairs(srcPoints) do
         local part_corner = cframe * CFrame.new(v * instance.Size)
 
         for _, c in pairs(corners) do
@@ -218,6 +265,7 @@ end
 --And return this array of points to build a convex hull out of
 function module:GetRaytraceInstancePoints(instance, cframe)
 	
+	local start = tick()
 	local points = self.meshCache[instance.MeshId]
 	
 	if (points == nil) then
@@ -239,8 +287,7 @@ function module:GetRaytraceInstancePoints(instance, cframe)
 		meshCopy.Size = Vector3.one
 		meshCopy.Parent = game.Workspace
 		meshCopy.CanQuery = true
-		
-		
+				
 		local raycastParam = RaycastParams.new()
 		raycastParam.FilterType = Enum.RaycastFilterType.Whitelist
 		raycastParam.FilterDescendantsInstances = { meshCopy }
@@ -304,7 +351,44 @@ function module:GetRaytraceInstancePoints(instance, cframe)
 		
 		meshCopy:Destroy()
 		
-		self.meshCache[instance.MeshId] = points
+		
+		
+		--Optimize the points down 
+		local hull = QuickHull2:GenerateHull(points)
+
+		if (hull ~= nil) then
+			local recs = {}
+			
+			for _, tri in pairs(hull) do
+				local normal = (tri[1] - tri[2]):Cross(tri[1] - tri[3]).unit
+				local ed = tri[1]:Dot(normal) --expanded distance
+				
+				if IsUnique(recs, normal, ed) then
+					table.insert(recs, {
+						n = normal,
+						ed = ed, --expanded
+						tri = tri
+					})
+				end
+			end
+			local points = {}
+			for key,record in pairs(recs) do
+				
+				if (IsUniquePoint(points, record.tri[1])) then
+					table.insert(points,record.tri[1])
+				end
+				if (IsUniquePoint(points, record.tri[2])) then
+					table.insert(points,record.tri[2])
+				end
+				if (IsUniquePoint(points, record.tri[3])) then
+					table.insert(points,record.tri[3])
+				end
+			end
+			self.meshCache[instance.MeshId] = points
+		else
+			self.meshCache[instance.MeshId] = {}
+		end
+		
 	end
 	
 	
@@ -316,8 +400,6 @@ function module:GetRaytraceInstancePoints(instance, cframe)
 		table.insert(finals, p)	
 	end
 
-	
- 
 	if (false and game["Run Service"]:IsClient()) then
 		for key,point in pairs(finals) do
 
@@ -333,7 +415,8 @@ function module:GetRaytraceInstancePoints(instance, cframe)
 		self:VisualizePlanesForPoints(finals, game.Workspace)
 	end
  
-
+	self.timeSpentTracing += tick() - start
+	
     return finals
 end
 
@@ -355,7 +438,6 @@ function module:GetPlanesForInstanceMeshPart(instance, playerSize, cframe, baseP
 	--Generate unique planes in n+d format
 	if (r == nil) then 
 		return nil, basePlaneNum
-		
 	end
 	for _, tri in pairs(r) do
 		local normal = (tri[1] - tri[2]):Cross(tri[1] - tri[3]).unit

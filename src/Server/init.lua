@@ -16,11 +16,14 @@ local EventType = Enums.EventType
 local ServerChickynoid = require(script.ServerChickynoid)
 local CharacterData = require(path.Simulation.CharacterData)
 local BitBuffer = require(path.Vendor.BitBuffer)
+local DeltaTable = require(path.Vendor.DeltaTable)
 local WeaponsModule = require(script.WeaponsServer)
 local CollisionModule = require(path.Simulation.CollisionModule)
 local Antilag = require(path.Server.Antilag)
 local FastSignal = require(path.Vendor.FastSignal)
 local ServerMods = require(script.ServerMods)
+
+
 local RemoteEvent = Instance.new("RemoteEvent")
 RemoteEvent.Name = "ChickynoidReplication"
 RemoteEvent.Parent = ReplicatedStorage
@@ -29,6 +32,7 @@ local ChickynoidServer = {}
 
 ChickynoidServer.playerRecords = {}
 ChickynoidServer.serverStepTimer = 0
+ChickynoidServer.serverLastSnapshotFrame = -1 --Frame we last sent snapshots on
 ChickynoidServer.serverTotalFrames = 0
 ChickynoidServer.serverSimulationTime = 0
 ChickynoidServer.framesPerSecondCounter = 0 --Purely for stats
@@ -53,7 +57,8 @@ ChickynoidServer.playerSize = Vector3.new(2, 5, 2)
 ChickynoidServer.config = {
     maxPlayers = 255,
     fpsMode = Enums.FpsMode.Hybrid,
-    serverHz = 20,
+	serverHz = 20,
+	antiWarp = false,
 }
 
 --API
@@ -63,8 +68,9 @@ ChickynoidServer.OnBeforePlayerSpawn = FastSignal.new()
 ChickynoidServer.OnPlayerConnected = FastSignal.new()
 
 ChickynoidServer.flags = {}
-ChickynoidServer.flags.DEBUG_ANTILAG = true
-
+ChickynoidServer.flags.DEBUG_ANTILAG = false
+ChickynoidServer.flags.DEBUG_BOT_BANDWIDTH = true
+ 
 --[=[
 	Creates connections so that Chickynoid can run on the server.
 ]=]
@@ -122,19 +128,23 @@ end
 
 function ChickynoidServer:PlayerConnected(player)
     local playerRecord = self:AddConnection(player.UserId, player)
-
-    --Spawn the gui
-    for _, child in pairs(game.StarterGui:GetChildren()) do
-        local clone = child:Clone() :: ScreenGui
-        if clone:IsA("ScreenGui") then
-            clone.ResetOnSpawn = false
-        end
-        clone.Parent = playerRecord.player.PlayerGui
-    end
+	
+	if (playerRecord) then
+	    --Spawn the gui
+	    for _, child in pairs(game.StarterGui:GetChildren()) do
+	        local clone = child:Clone() :: ScreenGui
+	        if clone:IsA("ScreenGui") then
+	            clone.ResetOnSpawn = false
+	        end
+	        clone.Parent = playerRecord.player.PlayerGui
+		end
+	end
 
 end
 
 function ChickynoidServer:AssignSlot(playerRecord)
+	
+	--Only place this is assigned
     for j = 1, self.config.maxPlayers do
         if self.slots[j] == nil then
             self.slots[j] = playerRecord
@@ -157,22 +167,33 @@ function ChickynoidServer:AddConnection(userId, player)
     self.playerRecords[userId] = playerRecord
 
     playerRecord.userId = userId
-
-    playerRecord.previousCharacterData = {}
+	
+	playerRecord.slot = 0 -- starts 0, 0 is an invalid slot.
+	
+    playerRecord.previousCharacterData = nil
     playerRecord.chickynoid = nil
     playerRecord.frame = 0
     playerRecord.firstSnapshot = false
     
-
     playerRecord.allowedToSpawn = true
-    playerRecord.respawnDelay = 3
+    playerRecord.respawnDelay = 2
     playerRecord.respawnTime = tick() + playerRecord.respawnDelay
 
     playerRecord.OnBeforePlayerSpawn = FastSignal.new()
 
     playerRecord.characterMod = "HumanoidChickynoid"
+	playerRecord.lastSeenFrames = {} --frame we last saw a given player on, for delta compression
+		
+	local assignedSlot = self:AssignSlot(playerRecord)
+    self:DebugSlots()
+    if (assignedSlot == false) then
+		if (player ~= nil) then
+			player:Kick("Server full, no free chickynoid slots")
+		end
+		self.playerRecords[userId] = nil
+		return nil
+	end
 
-    self:AssignSlot(playerRecord)
 
     playerRecord.player = player
     if playerRecord.player ~= nil then
@@ -260,9 +281,9 @@ function ChickynoidServer:AddConnection(userId, player)
 
         if #list > 0 then
             local spawn = list[math.random(1, #list)]
-            self.chickynoid:SetPosition(Vector3.new(spawn.Position.x, spawn.Position.y + 5, spawn.Position.z))
+            self.chickynoid:SetPosition(Vector3.new(spawn.Position.x, spawn.Position.y + 5, spawn.Position.z), true)
         else
-            self.chickynoid:SetPosition(Vector3.new(0, 10, 0))
+            self.chickynoid:SetPosition(Vector3.new(0, 10, 0), true)
         end
 
         self.OnBeforePlayerSpawn:Fire()
@@ -275,6 +296,7 @@ function ChickynoidServer:AddConnection(userId, player)
     end
     
     self.OnPlayerConnected:Fire(self, playerRecord)
+    
     --Connect!
     WeaponsModule:OnPlayerConnected(self, playerRecord)
 
@@ -306,7 +328,7 @@ function ChickynoidServer:SendWorldstate(playerRecord)
         info.name = data.name
         info.userId = data.userId
 
-        event.worldState.players[data.slot] = info
+        event.worldState.players[tostring(data.slot)] = info
     end
 
     event.worldState.serverHz = self.config.serverHz
@@ -321,22 +343,42 @@ function ChickynoidServer:PlayerDisconnected(userId)
     if playerRecord then
         print("Player disconnected")
 
-        playerRecord:Despawn()
-
+		playerRecord:Despawn()
+		
+		--nil this out
+		playerRecord.previousCharacterData = nil
+		self.slots[playerRecord.slot] = nil
+		playerRecord.slot = nil
+		
         self.playerRecords[userId] = nil
 
-        --Clear this out
-        for _, record in pairs(self.playerRecords) do
-            record.previousCharacterData[userId] = nil
-        end
-
-        self.slots[playerRecord.slot] = nil
+        self:DebugSlots()
     end
 
     --Tell everyone
     for _, data in pairs(self.playerRecords) do
-        self:SendWorldstate(data)
+		local event = {}
+		event.t = Enums.EventType.PlayerDisconnected
+		event.userId = userId
+		data:SendEventToClient(event)
+		
+		self:SendWorldstate(data)
     end
+end
+
+function ChickynoidServer:DebugSlots()
+    --print a count
+    local free = 0
+    local used = 0
+    for j = 1, self.config.maxPlayers do
+        if self.slots[j] == nil then
+            free += 1
+            
+        else
+            used += 1
+        end
+    end
+    print("Players:", used, " (Free:", free, ")")
 end
 
 function ChickynoidServer:GetPlayerByUserId(userId)
@@ -348,22 +390,36 @@ function ChickynoidServer:GetPlayers()
 end
 
 function ChickynoidServer:RobloxHeartbeat(deltaTime)
-    if self.accumulatedTime > 0.5 then
-        self.accumulatedTime = 0
-    end
 
-    self.accumulatedTime += deltaTime
-    local frac = 1 / 60
-    while self.accumulatedTime > 0 do
-        self.accumulatedTime -= frac
-        self:Think(frac)
-    end
+    if (false) then
+	    self.accumulatedTime += deltaTime
+	    local frac = 1 / 60
+	    local maxSteps = 0
+	    while self.accumulatedTime > 0 do
+	        self.accumulatedTime -= frac
+	        self:Think(frac)
+	        
+	        maxSteps+=1
+	        if (maxSteps > 2) then
+	            self.accumulatedTime = 0
+	            break
+	        end
+	    end
 
-    --Discard accumulated time if its a tiny fraction
-    local errorSize = 0.001 --1ms
-    if self.accumulatedTime > -errorSize then
-        self.accumulatedTime = 0
-    end
+	      --Discard accumulated time if its a tiny fraction
+	    local errorSize = 0.001 --1ms
+	    if self.accumulatedTime > -errorSize then
+	        self.accumulatedTime = 0
+	    end
+	else
+    
+	    --Much simpler - assumes server runs at 60.
+	    self.accumulatedTime = 0
+	    local frac = 1 / 60
+		self:Think(deltaTime)
+	end
+
+  
 end
 
 function ChickynoidServer:RobloxPhysicsStep(deltaTime)
@@ -385,6 +441,9 @@ function ChickynoidServer:GetDoNotReplicate()
 end
 
 function ChickynoidServer:Think(deltaTime)
+
+    debug.profilebegin("ChickynoidServer")
+
     self.framesPerSecondCounter += 1
     self.framesPerSecondTimer += deltaTime
     if self.framesPerSecondTimer > 1 then
@@ -425,9 +484,10 @@ function ChickynoidServer:Think(deltaTime)
 
     for _, playerRecord in pairs(self.playerRecords) do
         if playerRecord.chickynoid then
-            playerRecord.chickynoid:PostThink(self)
+            playerRecord.chickynoid:PostThink(self, deltaTime)
         end
     end
+    
     WeaponsModule:Think(self, deltaTime)
 
     local modules = ServerMods:GetMods("servermods")
@@ -436,26 +496,71 @@ function ChickynoidServer:Think(deltaTime)
 			mod:Step(self, deltaTime)
 		end
     end
+	
+	local visiblityCallbacks = {}
+	for key,mod in pairs(modules) do
+		if (mod.CanPlayerSee ~= nil) then
+			table.insert(visiblityCallbacks, mod)
+		end
+	end
 
+	
     -- 2nd stage: Replicate character state to the player
     self.serverStepTimer += deltaTime
     self.serverTotalFrames += 1
 
     local fraction = (1 / self.config.serverHz)
+
+    
     if self.serverStepTimer > fraction then
+        debug.profilebegin("CreateSnapshots")
         while self.serverStepTimer > fraction do -- -_-'
             self.serverStepTimer -= fraction
         end
 
+        debug.profilebegin("movement")
+        --set antilag up
         Antilag:WritePlayerPositions(self.serverSimulationTime)
-
+						
+		
         for userId, playerRecord in pairs(self.playerRecords) do
-            if playerRecord.dummy == true then
-                continue
-            end
+			
+			--Bots dont generate snapshots, unless we're testing for performance
+			if (self.flags.DEBUG_BOT_BANDWIDTH ~= true) then
+				if playerRecord.dummy == true then
+					continue
+				end
+			end
+			
+			
+			if playerRecord.chickynoid ~= nil then
+				
+				--see if we need to antiwarp people
 
-            --Send results of server move
-            if playerRecord.chickynoid ~= nil then
+				if (self.config.antiWarp == true) then
+					local timeElapsed = playerRecord.chickynoid.processedTimeSinceLastSnapshot
+					
+					local possibleStep = playerRecord.chickynoid.elapsedTime - playerRecord.chickynoid.playerElapsedTime
+										
+					if (timeElapsed == 0 and playerRecord.chickynoid.lastProcessedCommand ~= nil) then
+						--This player didn't move this snapshot
+						playerRecord.chickynoid.errorState = Enums.NetworkProblemState.CommandUnderrun
+						
+						local timeToPatchOver = 1 / self.config.serverHz
+						playerRecord.chickynoid:GenerateFakeCommand(self, timeToPatchOver)
+						
+						--print("Adding fake command ", timeToPatchOver)
+						 
+						--Move them.
+						playerRecord.chickynoid:Think(self, self.serverSimulationTime, 0)
+					end
+					--print("e:" , timeElapsed * 1000)
+				end
+				
+								
+				playerRecord.chickynoid.processedTimeSinceLastSnapshot = 0
+					
+            	--Send results of server move
                 local event = {}
                 event.t = EventType.State
                 event.lastConfirmed = playerRecord.chickynoid.lastConfirmedCommand
@@ -468,71 +573,172 @@ function ChickynoidServer:Think(deltaTime)
 
                 playerRecord:SendEventToClient(event)
                 playerRecord.chickynoid.errorState = Enums.NetworkProblemState.None
+			end
+			
+			
+        end
+		debug.profileend()
+		
+		
+		debug.profilebegin("Write deltas")
+		
+		
+		local fullSnapshotPool = {}
+		
+		--precalculate all the character datas
+		for userId, playerRecord in pairs(self.playerRecords) do
+			
+			--Make sure the first write is always a full packet
+			if (playerRecord.chickynoid == nil) then
+				continue
+			end
+				
+			--write the delta - note that previousRecord wont exist on the first frame but thats nil, and acceptable
+			local bitBuffer = BitBuffer()
+			local previousRecord = playerRecord.previousCharacterData
+			playerRecord.chickynoid.simulation.characterData:SerializeToBitBuffer(previousRecord, bitBuffer)
+			playerRecord.chickynoid.currentCharacterDataDeltaString = bitBuffer.dumpString()
+						
+			--make a copy for compression against
+			local previousRecord = CharacterData.new()
+			previousRecord:CopySerialized(playerRecord.chickynoid.simulation.characterData.serialized)
+			playerRecord.previousCharacterData = previousRecord
+		end
+		debug.profileend()
+		
+		debug.profilebegin("Write")
+        for userId, playerRecord in pairs(self.playerRecords) do
+			
+			--Bots dont generate snapshots, unless we're testing for performance
+			if (self.flags.DEBUG_BOT_BANDWIDTH ~= true) then
+				if playerRecord.dummy == true then
+					continue
+				end
             end
-
-            --Send snapshot
-            local snapshot = {}
-            snapshot.t = EventType.Snapshot
 
             local count = 0
+            local currentlyVisible = {}
+		 
             for otherUserId, otherPlayerRecord in pairs(self.playerRecords) do
-                if otherUserId ~= userId and otherPlayerRecord.chickynoid ~= nil then
-                    count += 1
-                end
-            end
+                if otherUserId ~= userId and otherPlayerRecord.chickynoid ~= nil and otherPlayerRecord.slot ~= 0 then
 
-            local bitBuffer = BitBuffer()
-            bitBuffer.writeByte(count)
-
-            for otherUserId, otherPlayerRecord in pairs(self.playerRecords) do
-                if otherUserId ~= userId then
-                    if otherPlayerRecord.chickynoid == nil then
-                        continue
+                    local canSee = true
+                    for key,callback in pairs(visiblityCallbacks) do
+                        canSee = callback:CanPlayerSee(playerRecord, otherPlayerRecord)
+                        if (canSee == false) then
+                            break
+                        end
                     end
-
-                    --Todo: delta compress , bitwise compress, etc etc
-                    bitBuffer.writeByte(otherPlayerRecord.slot)
-
-                    if playerRecord.firstSnapshot == false then
-                        --Make sure the first write is always a full packet
-                        otherPlayerRecord.chickynoid.simulation.characterData:SerializeToBitBuffer(nil, bitBuffer)
-                    else
-                        local previousRecord = playerRecord.previousCharacterData[otherUserId]
-                        otherPlayerRecord.chickynoid.simulation.characterData:SerializeToBitBuffer(
-                            previousRecord,
-                            bitBuffer
-                        )
+                    if (canSee) then
+                        count += 1
+                        currentlyVisible[otherUserId] = true
                     end
-
-                    --Make a copy for delta compression against
-                    local previousRecord = CharacterData.new()
-                    previousRecord:CopySerialized(otherPlayerRecord.chickynoid.simulation.characterData.serialized)
-                    playerRecord.previousCharacterData[otherUserId] = previousRecord
                 end
-            end
-
-            snapshot.full = false
-            if playerRecord.firstSnapshot == false then
-                snapshot.full = true
-                playerRecord.firstSnapshot = true
-            end
-
-            snapshot.b = bitBuffer.dumpString()
+			end
+ 			
+			--Start building the final string
+			local list = {}
+			table.insert(list, string.char(count))
+				
+		 	local fullSnapshot = false
+			
+			--have not sent first snapshot??
+			if (playerRecord.firstSnapshot == false) then
+				
+				--send a whole one!
+				fullSnapshot = true
+	            for otherUserId, otherPlayerRecord in pairs(self.playerRecords) do
+	                if otherUserId ~= userId then
+	                    
+	                    if (currentlyVisible[otherUserId] ~= true) then
+	                    	continue
+	                    end
+						
+						local record = fullSnapshotPool[otherUserId]
+						if (record == nil) then
+							--Write the full thing - this happens rarely so no point caching it (?)
+							local bitBuffer = BitBuffer()
+							otherPlayerRecord.chickynoid.simulation.characterData:SerializeToBitBuffer(nil, bitBuffer)
+							record = bitBuffer.dumpString()
+							fullSnapshotPool[otherUserId] = record
+						end
+						
+						table.insert(list, string.char(otherPlayerRecord.slot))
+						table.insert(list, record)
+						--print("sending full for ", otherPlayerRecord.userId)
+						
+						--mark when we saw them last
+						playerRecord.lastSeenFrames[otherPlayerRecord.userId] = self.serverTotalFrames
+					end
+				end
+			else
+				--send a delta one
+				fullSnapshot = false
+				for otherUserId, otherPlayerRecord in pairs(self.playerRecords) do
+					if otherUserId ~= userId then
+						
+						if (currentlyVisible[otherUserId] ~= true) then
+							continue
+						end
+						
+						if (playerRecord.lastSeenFrames[otherPlayerRecord.userId] == self.serverLastSnapshotFrame) then
+							--if we saw them last frame, we can just send the delta
+							table.insert(list, string.char(otherPlayerRecord.slot))
+							table.insert(list, otherPlayerRecord.chickynoid.currentCharacterDataDeltaString)
+						else
+							--send full snapshot
+							local record = fullSnapshotPool[otherUserId]
+							if (record == nil) then
+								--Write the full thing - this happens rarely so no point caching it (?)
+								local bitBuffer = BitBuffer()
+								otherPlayerRecord.chickynoid.simulation.characterData:SerializeToBitBuffer(nil, bitBuffer)
+								record = bitBuffer.dumpString()
+								fullSnapshotPool[otherUserId] = record
+							end
+							--print("sending full for ", otherPlayerRecord.userId, playerRecord.lastSeenFrames[otherPlayerRecord.userId],self.serverLastSnapshotFrame )
+							table.insert(list, string.char(otherPlayerRecord.slot))
+							table.insert(list, record)
+						end
+						
+						--mark when we saw them last
+						playerRecord.lastSeenFrames[otherPlayerRecord.userId] = self.serverTotalFrames
+					end
+				end
+			end
+		
+			local resultString = table.concat(list, "")
+									
+			--mark that we've sent a snapshot
+			playerRecord.firstSnapshot = true
+						
+			--Send snapshot
+			local snapshot = {}
+			snapshot.t = EventType.Snapshot
+			snapshot.full = fullSnapshot
+            snapshot.b = resultString
             snapshot.f = self.serverTotalFrames
-            snapshot.serverTime = self.serverSimulationTime
-            playerRecord:SendEventToClient(snapshot)
+			snapshot.serverTime = self.serverSimulationTime
+	 			
+			if playerRecord.dummy == false then
+				playerRecord:SendEventToClient(snapshot)
+			end
         end
+		debug.profileend()
+		
+		self.serverLastSnapshotFrame = self.serverTotalFrames
     end
+
+    debug.profileend()
 end
 
 function ChickynoidServer:RecreateCollisions(rootFolder)
-
     self.collisionRootFolder = rootFolder
-    CollisionModule:MakeWorld(self.collisionRootFolder, self.playerSize)
 
     for _, playerRecord in pairs(self.playerRecords) do
         playerRecord:SendCollisionData()
     end
+
+    CollisionModule:MakeWorld(self.collisionRootFolder, self.playerSize) 
 end
 
 return ChickynoidServer

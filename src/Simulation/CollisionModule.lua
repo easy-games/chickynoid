@@ -1,7 +1,7 @@
 local RunService = game:GetService("RunService")
 local CollectionService = game:GetService("CollectionService")
 
-local path = script.Parent.Parent;
+local path = script.Parent.Parent
 
 local MinkowskiSumInstance = require(script.Parent.MinkowskiSumInstance)
 local TerrainModule = require(script.Parent.TerrainCollision)
@@ -13,9 +13,16 @@ module.dynamicRecords = {}
 
 local SKIN_THICKNESS = 0.05 --closest you can get to a wall
 module.planeNum = 0
-module.gridSize = 8
+module.gridSize = 4
+module.fatGridSize = 16
+module.fatPartSize = 32
+module.profile = false
+
 module.grid = {}
-module.processQueue = {}
+module.fatGrid = {}
+module.cache = {}
+module.cacheCount = 0
+module.maxCacheCount = 10000
 
 module.loadProgress = 0
 module.OnLoadProgressChanged = FastSignal.new()
@@ -36,35 +43,33 @@ local corners = {
 }
 
 function module:FetchCell(x, y, z)
-    --store in x,z,y order
-    local gx = self.grid[x]
-    if gx == nil then
-        return nil
-    end
-    local gz = gx[z]
-    if gz == nil then
-        return nil
-    end
-    return gz[y]
+	local key = Vector3.new(x,y,z)
+	return self.grid[key]
+end
+
+function module:FetchFatCell(x, y, z)
+	local key = Vector3.new(x,y,z)
+	return self.fatGrid[key]
 end
 
 function module:CreateAndFetchCell(x, y, z)
-    local gx = self.grid[x]
-    if gx == nil then
-        gx = {}
-        self.grid[x] = gx
-    end
-    local gz = gx[z]
-    if gz == nil then
-        gz = {}
-        gx[z] = gz
-    end
-    local gy = gz[y]
-    if gy == nil then
-        gy = {}
-        gz[y] = gy
-    end
-    return gy
+	local key = Vector3.new(x,y,z)
+	local res = self.grid[key]
+	if (res == nil) then
+		res = {}
+		self.grid[key] = res
+	end
+	return res
+end
+
+function module:CreateAndFetchFatCell(x, y, z)
+	local key = Vector3.new(x,y,z)
+	local res = self.fatGrid[key]
+	if (res == nil) then
+		res = {}
+		self.fatGrid[key] = res
+	end
+	return res
 end
 
 function module:FindAABB(part)
@@ -133,32 +138,45 @@ function module:FindPointsAABB(points)
     return minx, miny, minz, maxx, maxy, maxz
 end
 
-function module:WritePointsToHashMap(hullRecord, points)
-    local minx, miny, minz, maxx, maxy, maxz = self:FindPointsAABB(points)
-
-    for x = math.floor(minx / self.gridSize), math.ceil(maxx / self.gridSize) - 1 do
-        for z = math.floor(minz / self.gridSize), math.ceil(maxz / self.gridSize) - 1 do
-            for y = math.floor(miny / self.gridSize), math.ceil(maxy / self.gridSize) - 1 do
-                local cell = self:CreateAndFetchCell(x, y, z)
-                cell[hullRecord] = hullRecord
-            end
-        end
-    end
-end
-
+ 
 function module:WritePartToHashMap(instance, hullRecord)
     local minx, miny, minz, maxx, maxy, maxz = self:FindAABB(instance)
 
-    for x = math.floor(minx / self.gridSize), math.ceil(maxx / self.gridSize) - 1 do
-        for z = math.floor(minz / self.gridSize), math.ceil(maxz / self.gridSize) - 1 do
-            for y = math.floor(miny / self.gridSize), math.ceil(maxy / self.gridSize) - 1 do
-                local cell = self:CreateAndFetchCell(x, y, z)
-                cell[instance] = hullRecord
+	if (maxx-minx > self.fatPartSize or maxy-miny > self.fatPartSize or maxz-minz > self.fatPartSize) then
+        
+        --Part is fat
+        for x = math.floor(minx / self.fatGridSize), math.ceil(maxx / self.fatGridSize) - 1 do
+            for z = math.floor(minz / self.fatGridSize), math.ceil(maxz / self.fatGridSize) - 1 do
+                for y = math.floor(miny / self.fatGridSize), math.ceil(maxy / self.fatGridSize) - 1 do
+                    local cell = self:CreateAndFetchFatCell(x, y, z)
+                    cell[instance] = hullRecord
+                end
             end
         end
-    end
+		--print("Fat part", instance.Name)
+		
+		--[[
+		if (game["Run Service"]:IsClient() and instance:GetAttribute("showdebug")) then
+			for x = math.floor(minx / self.fatGridSize), math.ceil(maxx/self.fatGridSize)-1 do
+				for z = math.floor(minz / self.fatGridSize), math.ceil(maxz/self.fatGridSize)-1 do
+					for y = math.floor(miny / self.fatGridSize), math.ceil(maxy/self.fatGridSize)-1 do
 
-    --[[
+						self:SpawnDebugFatGridBox(x,y,z, Color3.new(math.random(),1,1))
+					end
+				end
+			end
+		end
+		]]--
+    else
+        for x = math.floor(minx / self.gridSize), math.ceil(maxx / self.gridSize) - 1 do
+            for z = math.floor(minz / self.gridSize), math.ceil(maxz / self.gridSize) - 1 do
+                for y = math.floor(miny / self.gridSize), math.ceil(maxy / self.gridSize) - 1 do
+                    local cell = self:CreateAndFetchCell(x, y, z)
+                    cell[instance] = hullRecord
+                end
+            end
+        end
+        --[[
 	if (game["Run Service"]:IsClient() and instance:GetAttribute("showdebug")) then
 		for x = math.floor(minx / self.gridSize), math.ceil(maxx/self.gridSize)-1 do
 			for z = math.floor(minz / self.gridSize), math.ceil(maxz/self.gridSize)-1 do
@@ -170,17 +188,39 @@ function module:WritePartToHashMap(instance, hullRecord)
 		end
 	end]]
     --
+    end
 end
 
+ 
+
 function module:RemovePartFromHashMap(instance)
+    if instance:GetAttribute("ChickynoidIgnoreRemoval") then
+        return
+    end
+
     local minx, miny, minz, maxx, maxy, maxz = self:FindAABB(instance)
 
-    for x = math.floor(minx / self.gridSize), math.ceil(maxx / self.gridSize) - 1 do
-        for z = math.floor(minz / self.gridSize), math.ceil(maxz / self.gridSize) - 1 do
-            for y = math.floor(miny / self.gridSize), math.ceil(maxy / self.gridSize) - 1 do
-                local cell = self:FetchCell(x, y, z)
-                if cell then
-                    cell[instance] = nil
+	if (maxx-minx > self.fatPartSize or maxy-miny > self.fatPartSize or maxz-minz > self.fatPartSize) then
+        
+        for x = math.floor(minx / self.fatGridSize), math.ceil(maxx / self.fatGridSize) - 1 do
+            for z = math.floor(minz / self.fatGridSize), math.ceil(maxz / self.fatGridSize) - 1 do
+                for y = math.floor(miny / self.fatGridSize), math.ceil(maxy / self.fatGridSize) - 1 do
+                    local cell = self:FetchFatCell(x, y, z)
+                    if cell then
+                        cell[instance] = nil
+                    end
+                end
+            end
+        end
+
+    else
+        for x = math.floor(minx / self.gridSize), math.ceil(maxx / self.gridSize) - 1 do
+            for z = math.floor(minz / self.gridSize), math.ceil(maxz / self.gridSize) - 1 do
+                for y = math.floor(miny / self.gridSize), math.ceil(maxy / self.gridSize) - 1 do
+                    local cell = self:FetchCell(x, y, z)
+                    if cell then
+                        cell[instance] = nil
+                    end
                 end
             end
         end
@@ -199,6 +239,19 @@ function module:FetchHullsForPoint(point)
             hullRecords[hull] = hull
         end
     end
+
+    local cell = self:FetchFatCell(
+        math.floor(point.x / self.fatGridSize),
+        math.floor(point.y / self.fatGridSize),
+        math.floor(point.z / self.fatGridSize)
+    )
+    local hullRecords = {}
+    if cell then
+        for _, hull in pairs(cell :: table) do
+            hullRecords[hull] = hull
+        end
+    end
+
     return hullRecords
 end
 
@@ -224,7 +277,20 @@ function module:FetchHullsForBox(min, max)
         local t = minz
         minz = maxz
         maxz = t
-    end
+	end
+	
+	local key = Vector3.new(math.floor(minx/self.gridSize), math.floor(minz/self.gridSize), math.floor(miny/self.gridSize))
+	local otherKey = Vector3.new(math.floor(maxx/self.gridSize), math.floor(maxy/self.gridSize), math.floor(maxz/self.gridSize))
+
+		
+	local cached = self.cache[key]
+	if (cached) then
+		local rec = cached[otherKey]
+		if (rec) then
+			return rec
+		end
+	end
+			
 
     local hullRecords = {}
 
@@ -248,7 +314,50 @@ function module:FetchHullsForBox(min, max)
             end
         end
     end
-    return hullRecords
+
+    --Expanded by 1, so objects right on borders will be in the appropriate query
+    for x = math.floor(minx / self.fatGridSize) - 1, math.ceil(maxx / self.fatGridSize) do
+        for z = math.floor(minz / self.fatGridSize) - 1, math.ceil(maxz / self.fatGridSize) do
+            for y = math.floor(miny / self.fatGridSize) - 1, math.ceil(maxy / self.fatGridSize) do
+                local cell = self:FetchFatCell(x, y, z)
+                if cell then
+                    for _, hull in pairs(cell :: table) do
+                        hullRecords[hull] = hull
+                    end
+                end
+            end
+        end
+    end
+	
+	
+	self.cacheCount+=1
+	if (self.cacheCount > self.maxCacheCount) then
+		self.cacheCount = 0
+		self.cache = {}
+	end
+	
+	--Store it
+	local cached = self.cache[key]
+	if (cached == nil) then
+		cached = {}
+		self.cache[key] = cached
+	end
+	cached[otherKey] = hullRecords
+	
+	
+	--Inflate missing hulls
+	for key,record in pairs(hullRecords) do
+       
+    	if (record.hull == nil) then
+			record.hull = self:GenerateConvexHullAccurate(record.instance, module.expansionSize, self:GenerateSnappedCFrame(record.instance))
+            if (record.hull == nil) then
+                hullRecords[key] = nil
+            end
+		end
+	end
+	
+		
+	return hullRecords
 end
 
 function module:GenerateConvexHullAccurate(part, expansionSize, cframe)
@@ -293,6 +402,11 @@ function module:ProcessCollisionOnInstance(instance, playerSize)
             return
         end
 
+        if module.hullRecords[instance] ~= nil then
+            return
+        end
+		
+		--[[
         if CollectionService:HasTag(instance, "Dynamic") then
             local record = {}
             record.instance = instance
@@ -316,11 +430,11 @@ function module:ProcessCollisionOnInstance(instance, playerSize)
             table.insert(module.dynamicRecords, record)
 
             return
-        end
+        end]]--
 
         local record = {}
         record.instance = instance
-        record.hull = self:GenerateConvexHullAccurate(instance, playerSize, self:GenerateSnappedCFrame(instance))
+        --record.hull = self:GenerateConvexHullAccurate(instance, playerSize, self:GenerateSnappedCFrame(instance))
         self:WritePartToHashMap(record.instance, record)
 
         module.hullRecords[instance] = record
@@ -338,6 +452,19 @@ function module:SpawnDebugGridBox(x, y, z, color)
     instance.Anchored = true
     instance.TopSurface = Enum.SurfaceType.Smooth
     instance.BottomSurface = Enum.SurfaceType.Smooth
+end
+
+function module:SpawnDebugFatGridBox(x, y, z, color)
+	local instance = Instance.new("Part")
+	instance.Size = Vector3.new(self.fatGridSize, self.fatGridSize, self.fatGridSize)
+	instance.Position = (Vector3.new(x, y, z) * self.fatGridSize)
+		+ (Vector3.new(self.fatGridSize, self.fatGridSize, self.fatGridSize) * 0.5)
+	instance.Transparency = 0.75
+	instance.Color = color
+	instance.Parent = game.Workspace
+	instance.Anchored = true
+	instance.TopSurface = Enum.SurfaceType.Smooth
+	instance.BottomSurface = Enum.SurfaceType.Smooth
 end
 
 function module:SimpleRayTest(a, b, hull)
@@ -490,7 +617,7 @@ function module:CheckBrushNoStuck(data, hullRecord)
 
     local nearestStart = -math.huge
     local nearestEnd = -math.huge
-
+	
     for _, p in pairs(hullRecord.hull) do
         local startDistance = data.startPos:Dot(p.n) - p.ed
         local endDistance = data.endPos:Dot(p.n) - p.ed
@@ -600,22 +727,38 @@ function module:Sweep(startPos, endPos)
     if (startPos - endPos).magnitude > 1000 then
         return data
     end
-
-    debug.profilebegin("Sweep")
-    --calc bounds of sweep
-    local hullRecords = self:FetchHullsForBox(startPos, endPos)
-
-    for _, hullRecord in pairs(hullRecords) do
-        data.checks += 1
-        self:CheckBrushNoStuck(data, hullRecord)
-        if data.allSolid == true then
-            data.fraction = 0
-            break
-        end
-        if data.fraction < SKIN_THICKNESS then
-            break
-        end
+    if (self.profile == true) then
+        debug.profilebegin("Sweep")
     end
+	--calc bounds of sweep
+	if (self.profile == true) then
+		debug.profilebegin("Fetch")
+	end
+    local hullRecords = self:FetchHullsForBox(startPos, endPos)
+	if (self.profile==true) then
+		debug.profileend()
+	end
+	
+	if (self.profile == true) then
+		debug.profilebegin("Collide")
+	end
+    for _, hullRecord in pairs(hullRecords) do
+		data.checks += 1
+		
+		if (hullRecord.hull ~= nil) then
+	        self:CheckBrushNoStuck(data, hullRecord)
+	        if data.allSolid == true then
+	            data.fraction = 0
+	            break
+	        end
+	        if data.fraction < SKIN_THICKNESS then
+	            break
+			end
+		end
+	end
+	if (self.profile == true) then
+		debug.profileend()
+	end
 
     --Collide with dynamic objects
     if data.fraction >= SKIN_THICKNESS or data.allSolid == false then
@@ -638,7 +781,9 @@ function module:Sweep(startPos, endPos)
         data.endPos = startPos + (vec * data.fraction)
     end
 
-    debug.profileend()
+    if (self.profile == true) then
+        debug.profileend()
+    end
     return data
 end
 
@@ -682,8 +827,12 @@ function module:UpdateDynamicParts()
 end
 
 function module:MakeWorld(folder, playerSize)
+	
+	debug.setmemorycategory("ChickynoidCollision")
+	
     self.expansionSize = playerSize
 	self.hulls = {}
+	self:ClearCache()
 	
 	if (self.processing == true) then
 		return
@@ -691,22 +840,34 @@ function module:MakeWorld(folder, playerSize)
 	self.processing = true
     TerrainModule:Setup(self.gridSize, playerSize)
 	
-	 
+	local startTime = tick()
+	local meshTime = 0
+
 	coroutine.wrap(function()
-		
 		local list = folder:GetDescendants()
 		local total = #folder:GetDescendants()
 		
-		local done = 0 
+		local lastTime = tick()
 		for counter = 1, total do		
 			local instance = list[counter]
+						
 			if (instance:IsA("BasePart") and instance.CanCollide == true) then
+						
+				local begin = tick()
 				self:ProcessCollisionOnInstance(instance, playerSize)
+				local timeTaken = tick()- begin
+				if (instance:IsA("MeshPart")) then
+					meshTime += timeTaken
+				end				
 			end
-			done+=1
-			if (done > 500) then
-				task.wait()
-				done = 0
+		
+            local maxTime = 0.2
+ 
+            if (tick() - lastTime > maxTime) then
+                lastTime = tick()
+      
+				wait()	
+		
                 local progress = counter/total;
                 module.loadProgress = progress;
                 module.OnLoadProgressChanged:Fire(progress)
@@ -717,83 +878,39 @@ function module:MakeWorld(folder, playerSize)
         module.OnLoadProgressChanged:Fire(1)
 		print("Collision processing: 100%")
 		self.processing = false
+		
+		if (game["Run Service"]:IsServer()) then
+			print("Server Time Taken: ", math.floor(tick() - startTime), "seconds")
+			
+		else
+			print("Client Time Taken: ", math.floor(tick() - startTime), "seconds")
+		end
+		print("Mesh time: ", meshTime, "seconds")
+		print("Tracing time:", MinkowskiSumInstance.timeSpentTracing, "seconds")
+		self:ClearCache()
+ 
 	end)()
 	
 	
-	if (game["Run Service"]:IsServer()) then
-		folder.DescendantAdded:Connect(function(instance)
-			self:ProcessCollisionOnInstance(instance, playerSize)
-		end)
-	else
-		folder.DescendantAdded:Connect(function(instance)
-			--On the client, put it in a queue if the part is far away
-			
-			if (instance:IsA("BasePart") == false) then
-				return	
-			end
-			
-			if (game.Workspace.CurrentCamera) then
-				local pos = game.Workspace.CurrentCamera.CFrame.Position
-				
-								
-				local mag = (pos - instance.Position).magnitude
-				if (mag < 100) then
-					--Do it instantly
-					self:ProcessCollisionOnInstance(instance, playerSize)
-					return
-				end
-			end
-			--else add it to a queue
-			self.processQueue[instance] = instance
-		end)
-	end
-
+	 
+    folder.DescendantAdded:Connect(function(instance)
+        self:ClearCache()
+        self:ProcessCollisionOnInstance(instance, playerSize)
+    end)
+    
     folder.DescendantRemoving:Connect(function(instance)
         local record = module.hullRecords[instance]
 
-        if record then
+		if record then
+			self:ClearCache()
             self:RemovePartFromHashMap(instance)
         end
     end)
-    --[[
-	if (game["Run Service"]:IsClient()) then
-		for x,row in pairs(self.grid) do
-			print("X is ",x)
-			for z,col in pairs(row) do
-				for y,depth in pairs(col) do
-					
-					self:SpawnDebugGridBox(x,y,z, Color3.new(0.5,math.random(),0.5))
-				end
-			end
-		end
-	end
-	]]
-	--
-	
-	game["Run Service"].Heartbeat:Connect(function()
-		
-		local counter = 0
-		local perFrame = 10
-		for key,value in pairs(self.processQueue) do
-			counter+=1
-		end
-		
-		for key,value in pairs(self.processQueue) do
-			
-			self:ProcessCollisionOnInstance(value, playerSize)
-			self.processQueue[value] = nil
-			perFrame-=1
-			if (perFrame == 0) then
-				break
-			end
-		end
-		if (counter > 0) then
-			--print( counter)
-		end
-		
-	end)
 end
 
-
+function module:ClearCache()
+	self.cache = {}
+	self.cacheCount = 0	
+end
 
 return module

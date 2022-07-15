@@ -3,12 +3,12 @@ name = "easy-games/chickynoid"
 description = "A server-authoritative networking character controller for Roblox"
 license = "MIT"
 authors = ["MrChickenRocket"]
-version = "0.1.2"
+version = "0.1.3"
 
 registry = "https://github.com/UpliftGames/wally-index"
 realm = "shared"
 
-exclude = ["**"]
-include = ["wally.toml", "build.project.json", "src/**"]
+exclude = ["types", "example", "docs"]
+# include = ["wally.toml", "build.project.json", "src"]
 
 [dependencies]

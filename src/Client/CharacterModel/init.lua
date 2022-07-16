@@ -16,12 +16,12 @@ local path = script.Parent.Parent
 local Enums = require(path.Enums)
 local FastSignal = require(path.Vendor.FastSignal)
 CharacterModel.template = nil
+CharacterModel.characterModelCallbacks = {}
  
 
 function CharacterModel:ModuleSetup()
 	self.template = path.Assets:FindFirstChild("R15Rig")
 	self.modelPool = {}
- 
 end
 
 
@@ -57,7 +57,17 @@ function CharacterModel:CreateModel()
 				
 		if (self.modelPool[self.userId] == nil) then
 			
-			local srcModel = self.template:Clone() 
+			local srcModel = self.template:Clone()
+
+			-- Download custom character
+			local usedCustomCharacter = false
+			for _, characterModelCallback in ipairs(self.characterModelCallbacks) do
+				local result = characterModelCallback(self.userId);
+				if (result) then
+					srcModel = result:Clone();
+					usedCustomCharacter = true
+				end
+			end
 		 	srcModel.Parent = game.Lighting --needs to happen so loadAppearance works
  
 			local userId = ""
@@ -70,8 +80,10 @@ function CharacterModel:CreateModel()
 					userId = string.sub(userId, 2, string.len(userId)) --drop the -
 				end
 				
-                local description = game.Players:GetHumanoidDescriptionFromUserId(userId)
-				srcModel.Humanoid:ApplyDescription(description)
+				if (not usedCustomCharacter) then
+					local description = game.Players:GetHumanoidDescriptionFromUserId(userId)
+					srcModel.Humanoid:ApplyDescription(description)
+				end
 
 				--print("Loaded character appearance ", userId)
 				
@@ -99,6 +111,13 @@ function CharacterModel:CreateModel()
 
 		--Load on the animations			
 		self.animator = self.model:FindFirstChild("Animator", true)
+		if (not self.animator) then
+			local humanoid = self.model:FindFirstChild("Humanoid")
+			if (humanoid) then
+				self.animator = self.template:FindFirstChild("Animator", true):Clone()
+				self.animator.Parent = humanoid
+			end
+		end
 		self.tracks = {}
 
 		for _, value in pairs(self.animator:GetChildren()) do
@@ -234,6 +253,10 @@ function CharacterModel:Think(_deltaTime, dataRecord, bulkMoveToList)
     else
 		self.model:PivotTo(newCF)
 	end
+end
+
+function CharacterModel:SetCharacterModel(callback)
+	table.insert(self.characterModelCallbacks, callback)
 end
 
 

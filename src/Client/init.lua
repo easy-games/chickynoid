@@ -89,6 +89,9 @@ ChickynoidClient.OnNetworkEvent = FastSignal.new()
 ChickynoidClient.OnCharacterModelCreated = FastSignal.new()
 ChickynoidClient.OnCharacterModelDestroyed = FastSignal.new()
 
+--Callbacks
+ChickynoidClient.characterModelCallbacks = {}
+
 ChickynoidClient.flags = {}
 
  
@@ -463,6 +466,9 @@ function ChickynoidClient:ProcessFrame(deltaTime)
             --Spawn the character in
             print("Creating local model for UserId", game.Players.LocalPlayer.UserId)
 			self.characterModel = CharacterModel.new(game.Players.LocalPlayer.UserId)
+            for _, characterModelCallback in ipairs(self.characterModelCallbacks) do
+                self.characterModel:SetCharacterModel(characterModelCallback)
+            end
 			self.characterModel:CreateModel()
             self.OnCharacterModelCreated:Fire(self.characterModel)
 			
@@ -573,6 +579,7 @@ function ChickynoidClient:ProcessFrame(deltaTime)
                 local record = {}
                 record.userId = userId
 				record.characterModel = CharacterModel.new(userId)
+
                 record.characterModel:CreateModel()
                 self.OnCharacterModelCreated:Fire(record.characterModel)
 
@@ -639,6 +646,11 @@ function ChickynoidClient:SetupTime(serverActualTime)
     if math.abs(delta * 1000) > 50 then --50ms out? try again
         self.estimatedServerTimeOffset = newDelta
     end
+end
+
+-- Register a callback that will determine a character model
+function ChickynoidClient:SetCharacterModel(callback)
+    table.insert(self.characterModelCallbacks, callback)
 end
 
 function ChickynoidClient:GetPlayerDataBySlotId(slotId)

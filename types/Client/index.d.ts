@@ -53,6 +53,13 @@ export namespace ChickynoidClient {
 	export function GetClientChickynoid(this: typeof ChickynoidClient): ClientChickynoid;
 
 	export function DebugMarkAllPlayers(this: typeof ChickynoidClient, text: string): void;
+
+	/** Set a callback for custom models. */
+	export function SetCharacterModel(
+		this: typeof ChickynoidClient,
+		callback: (userId: number) => Model | undefined,
+	): void;
 }
 export * from "./CharacterMod";
 export { ClientMods } from "./ClientMods";
+

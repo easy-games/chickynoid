@@ -173,7 +173,8 @@ function ChickynoidServer:AddConnection(userId, player)
     playerRecord.previousCharacterData = nil
     playerRecord.chickynoid = nil
     playerRecord.frame = 0
-    playerRecord.firstSnapshot = false
+	playerRecord.firstSnapshot = false
+	playerRecord.pendingWorldState = true
     
     playerRecord.allowedToSpawn = true
     playerRecord.respawnDelay = 2
@@ -261,7 +262,8 @@ function ChickynoidServer:AddConnection(userId, player)
     end
 
     function playerRecord:SetCharacterMod(characterModName)
-        self.characterMod = characterModName
+		self.characterMod = characterModName
+		ChickynoidServer:SetWorldStateDirty()
     end
 
     -- selene: allow(shadowing)
@@ -302,9 +304,7 @@ function ChickynoidServer:AddConnection(userId, player)
 
     --Tell everyone
     --TODO: Replace with a dirty flag?
-    for _, record in pairs(self.playerRecords) do
-        self:SendWorldstate(record)
-    end
+	self:SetWorldStateDirty()
 	
 	playerRecord:SendCollisionData()
     playerRecord:ResetConnection()
@@ -316,7 +316,13 @@ function ChickynoidServer:SendEventToClients(event)
     RemoteEvent:FireAllClients(event)
 end
 
-function ChickynoidServer:SendWorldstate(playerRecord)
+function ChickynoidServer:SetWorldStateDirty()
+	for _, data in pairs(self.playerRecords) do
+		data.pendingWorldState = true
+	end
+end
+
+function ChickynoidServer:SendWorldState(playerRecord)
     local event = {}
     event.t = Enums.EventType.WorldState
     event.worldState = {}
@@ -326,15 +332,17 @@ function ChickynoidServer:SendWorldstate(playerRecord)
     for _, data in pairs(self.playerRecords) do
         local info = {}
         info.name = data.name
-        info.userId = data.userId
-
+		info.userId = data.userId
+		info.characterMod = data.characterMod
         event.worldState.players[tostring(data.slot)] = info
     end
 
     event.worldState.serverHz = self.config.serverHz
     event.worldState.fpsMode = self.config.fpsMode
 
-    playerRecord:SendEventToClient(event)
+	playerRecord:SendEventToClient(event)
+	
+	playerRecord.pendingWorldState = false
 end
 
 function ChickynoidServer:PlayerDisconnected(userId)
@@ -361,9 +369,8 @@ function ChickynoidServer:PlayerDisconnected(userId)
 		event.t = Enums.EventType.PlayerDisconnected
 		event.userId = userId
 		data:SendEventToClient(event)
-		
-		self:SendWorldstate(data)
-    end
+	end
+	self:SetWorldStateDirty()
 end
 
 function ChickynoidServer:DebugSlots()
@@ -453,9 +460,14 @@ function ChickynoidServer:Think(deltaTime)
     end
 
     self.serverSimulationTime = tick() - self.startTime
-
-    --self.worldRoot = game.Workspace
-
+	
+	--send worldstate
+	for _, playerRecord in pairs(self.playerRecords) do
+		if (playerRecord.pendingWorldState == true) then
+			self:SendWorldState(playerRecord)
+		end	
+	end
+		
     --Spawn players
     for _, playerRecord in pairs(self.playerRecords) do
         if playerRecord.chickynoid == nil and playerRecord.allowedToSpawn == true then

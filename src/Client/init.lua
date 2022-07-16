@@ -464,8 +464,9 @@ function ChickynoidClient:ProcessFrame(deltaTime)
 
         if self.characterModel == nil and self.localChickynoid ~= nil then
             --Spawn the character in
-            print("Creating local model for UserId", game.Players.LocalPlayer.UserId)
-			self.characterModel = CharacterModel.new(game.Players.LocalPlayer.UserId)
+			print("Creating local model for UserId", game.Players.LocalPlayer.UserId)
+			local mod = self:GetPlayerDataByUserId(game.Players.LocalPlayer.UserId)
+			self.characterModel = CharacterModel.new( game.Players.LocalPlayer.UserId, mod.characterMod)
             for _, characterModelCallback in ipairs(self.characterModelCallbacks) do
                 self.characterModel:SetCharacterModel(characterModelCallback)
             end
@@ -577,8 +578,9 @@ function ChickynoidClient:ProcessFrame(deltaTime)
             --Add the character
             if character == nil then
                 local record = {}
-                record.userId = userId
-				record.characterModel = CharacterModel.new(userId)
+				record.userId = userId
+				local mod = self:GetPlayerDataByUserId(userId)
+				record.characterModel = CharacterModel.new(userId, mod.characterMod)
 
                 record.characterModel:CreateModel()
                 self.OnCharacterModelCreated:Fire(record.characterModel)
@@ -661,6 +663,21 @@ function ChickynoidClient:GetPlayerDataBySlotId(slotId)
 	--worldState.players is indexed by a *STRING* not a int
 	return self.worldState.players[slotString]
 end
+
+function ChickynoidClient:GetPlayerDataByUserId(userId)
+
+	if (self.worldState == nil) then
+		return nil
+	end
+	for key,value in pairs(self.worldState.players) do
+		if (value.userId == userId) then
+			return value
+		end
+	end
+
+	return nil
+end
+
 
 function ChickynoidClient:DeserializeSnapshot(event, previousSnapshot)
     local bitBuffer = BitBuffer(event.b)

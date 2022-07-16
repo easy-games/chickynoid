@@ -21,5 +21,11 @@ function module:Setup(simulation)
     
 end
 
+function module:GetCharacterModel(userId)
+	--return game.ReplicatedFirst.Packages.Chickynoid.Assets.BigHeadRig
+	return nil
+end 
+
+
 return module
 

@@ -1,4 +1,5 @@
 local module = {}
+local Enums = require(script.Parent.Enums)
 
 module.mods = {}
 
@@ -17,9 +18,12 @@ function module:RegisterMod(context: string, mod: ModuleScript)
     
     if (self.mods[context] == nil) then
         self.mods[context] = {}
+        for _, v in ipairs(Enums) do
+            self.mods[context][v] = {}
+        end
     end
 
-    self.mods[context][mod.Name] = contents
+    self.mods[context][contents.PRIORITY or Enum.Priority.Normal][mod.Name] = contents
 end
 
 --[=[
@@ -38,7 +42,11 @@ function module:RegisterMods(context: string, container: Instance)
 end
 
 function module:GetMod(context, name)
-    return self.mods[context][name]
+    for priority, savedName in ipairs(self.mods[context]) do
+        if name === savedName then
+            return self.mods[context][priority][name]
+        end
+    end
 end
 
 function module:GetMods(context)

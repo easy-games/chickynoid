@@ -245,10 +245,13 @@ function ChickynoidClient:Setup()
 		self:ProcessFrame(self.timeSinceLastThink)
 
 		--Do Client Mods
-        local modules = ClientMods:GetMods("clientmods")
-        for _, value in pairs(modules) do
-			value:Step(self, self.timeSinceLastThink)
-		end
+        local priorities = ClientMods:GetMods("clientmods")
+        for priority = 0, #(Enums.Priority) - 1 do
+            local modules = priorities[priority]
+            for key,mod in pairs(modules) do
+                mod:Step(self, self.timeSinceLastThink)
+            end
+        end
 		
 		self.timeSinceLastThink = 0
 
@@ -288,10 +291,13 @@ function ChickynoidClient:Setup()
     end)
 
     --Load the mods
-    local mods = ClientMods:GetMods("clientmods")
-    for _, mod in pairs(mods) do
-        mod:Setup(self)
-		print("Loaded", _)
+    local priorities = ClientMods:GetMods("clientmods")
+    for priority = 0, #(Enums.Priority) - 1 do
+        local modules = priorities[priority]
+        for key,mod in pairs(modules) do
+            mod:Setup(self)
+		    print("Loaded", _)
+        end
     end
 
     --WeaponModule
@@ -871,11 +877,13 @@ function ChickynoidClient:GenerateCommand(serverTime, deltaTime)
     command.y = 0
     command.z = 0
  
-    local modules = ClientMods:GetMods("clientmods")
-
-    for key,mod in pairs(modules) do
-        if (mod.GenerateCommand) then
-            command = mod:GenerateCommand(command, serverTime, deltaTime)
+    local priorities = ClientMods:GetMods("clientmods");
+    for priority = 0, #(Enums.Priority) - 1 do
+        local modules = priorities[priority]
+        for key,mod in pairs(modules) do
+            if (mod.GenerateCommand) then
+                command = mod:GenerateCommand(command, serverTime, deltaTime)
+            end
         end
     end
 

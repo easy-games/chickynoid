@@ -91,7 +91,7 @@ function module:HandleEvent(client, event)
                 return
             end
             
-            local sourceModule = ClientMods:GetMod("weapons",event.name)
+            local sourceModule = ClientMods:GetMod("weapons", event.name)
             local weaponRecord = sourceModule.new()
             weaponRecord.serial = event.serial
             weaponRecord.name = event.name
@@ -204,14 +204,15 @@ end
 
 function module:Setup(_client)
 
-    local mods = ClientMods:GetMods("weapons")
-    for name,module in pairs(mods) do
-        
-        local customWeapon = module.new()
-        table.insert(self.customWeapons, customWeapon)
-        --set the id
-        customWeapon.weaponId = #self.customWeapons
-    
+    local priorities = ClientMods:GetMods("weapons")
+    for priority = 0, #(Enums.Priority) - 1 do
+        local modules = priorities[priority]
+        for name,module in pairs(modules) do
+            local customWeapon = module.new()
+            table.insert(self.customWeapons, customWeapon)
+            --set the id
+            customWeapon.weaponId = #self.customWeapons
+        end
     end
 end
 

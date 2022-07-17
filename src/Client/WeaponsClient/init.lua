@@ -205,10 +205,9 @@ end
 function module:Setup(_client)
 
     local priorities = ClientMods:GetMods("weapons")
-    for priority = 0, #(Enums.Priority) - 1 do
-        local modules = priorities[priority]
-        for name,module in pairs(modules) do
-            local customWeapon = module.new()
+    for _, modules in pairs(priorities) do
+        for key,mod in pairs(modules) do
+            local customWeapon = mod.new()
             table.insert(self.customWeapons, customWeapon)
             --set the id
             customWeapon.weaponId = #self.customWeapons

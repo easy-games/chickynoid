@@ -1,5 +1,5 @@
 local module = {}
-local Enums = require(script.Parent.Enums)
+local Enums = require(script.Parent.Parent.Enums)
 
 module.mods = {}
 
@@ -15,15 +15,22 @@ function module:RegisterMod(context: string, mod: ModuleScript)
     end
 
     local contents = require(mod)
+    if (contents == nil) then
+        warn("Attempted to load", mod:GetFullName(), "as a mod, but it's contents is empty.")
+        return
+    end
     
     if (self.mods[context] == nil) then
         self.mods[context] = {}
-        for _, v in ipairs(Enums) do
-            self.mods[context][v] = {}
-        end
     end
 
-    self.mods[context][contents.PRIORITY or Enum.Priority.Normal][mod.Name] = contents
+    local modPriority = contents.PRIORITY or Enums.Priority.Normal
+    if (self.mods[context][modPriority] == nil) then
+        self.mods[context][modPriority] = {}
+    end
+
+    self.mods[context][modPriority][mod.Name] = contents
+    print("[ClientMods]: Registered", mod.Name, "with priority", modPriority)
 end
 
 --[=[
@@ -42,18 +49,27 @@ function module:RegisterMods(context: string, container: Instance)
 end
 
 function module:GetMod(context, name)
-    for priority, savedName in ipairs(self.mods[context]) do
-        if name == savedName then
-            return self.mods[context][priority][name]
+    print("searching for", name, "in ", self.mods[context])
+    for priority, modMap in pairs(self.mods[context]) do
+        local content = modMap[name]
+        if content then
+            return content
         end
     end
 end
 
 function module:GetMods(context)
-
     if (self.mods[context] == nil) then
         self.mods[context] = {}
     end
+    
+    local returnMap = self.mods[context]
+    for priority = 0, 5 do
+        if self.mods[context][priority] == nil then
+            self.mods[context][priority] = {}
+        end
+    end
+
     return self.mods[context]
 end
 

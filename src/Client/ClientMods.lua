@@ -43,7 +43,7 @@ end
 
 function module:GetMod(context, name)
     for priority, savedName in ipairs(self.mods[context]) do
-        if name === savedName then
+        if name == savedName then
             return self.mods[context][priority][name]
         end
     end

@@ -14,12 +14,29 @@ function module:RegisterMod(context: string, mod: ModuleScript)
     end
 
     local contents = require(mod)
-    
+
+    if (contents == nil) then
+        warn("Attempted to load", mod:GetFullName(), "as a mod, but it's contents is empty.")
+        return
+    end
+
     if (self.mods[context] == nil) then
         self.mods[context] = {}
     end
-
-    self.mods[context][mod.Name] = contents
+    
+    --Mark the name and priorty
+    if (contents.GetPriority ~= nil) then
+        contents.priority = contents:GetPriority()
+    else
+        contents.priority = 0
+    end
+    contents.name = mod.Name
+    
+    table.insert(self.mods[context], contents)
+    
+    table.sort(self.mods[context], function(a,b)
+        return a.priority > b.priority
+    end)
 end
 
 --[=[
@@ -38,7 +55,16 @@ function module:RegisterMods(context: string, container: Instance)
 end
 
 function module:GetMod(context, name)
-    return self.mods[context][name]
+
+    local list = self.mods[context]
+
+    for key,contents in pairs(list) do
+        if (contents.name == name) then
+            return contents
+        end        
+    end
+    
+    return nil
 end
 
 function module:GetMods(context)

@@ -56,6 +56,7 @@ function Simulation.new(userId)
     self.constants.jumpThrustPower = 0    --No variable height jumping 
     self.constants.jumpThrustDecay = 0
 	self.constants.gravity = -198
+	self.constants.crashLandBehavior = Enums.Crashland.FULL_BHOP_FORWARD
 
     self.constants.pushSpeed = 16 --set this lower than maxspeed if you want stuff to feel heavy
 	self.constants.stepSize = 2.2
@@ -173,11 +174,49 @@ function Simulation:SetPosition(position, teleport)
     self.characterData:SetTargetPosition(self.state.pos, teleport)
 end
 
-function Simulation:CrashLand(vel)
-    --Current behaviour, cap velocity
-    local returnVel = Vector3.new(vel.x, 0, vel.z)
-    returnVel = MathUtils:CapVelocity(returnVel, self.constants.maxSpeed)
-    return vel
+function Simulation:CrashLand(vel, ground)
+	
+
+	if (self.constants.crashLandBehavior == Enums.Crashland.FULL_BHOP) then
+		return Vector3.new(vel.x, 0, vel.z)
+	end
+	
+	if (self.constants.crashLandBehavior == Enums.Crashland.CAPPED_BHOP) then
+		--cap velocity
+		local returnVel = Vector3.new(vel.x, 0, vel.z)
+		returnVel = MathUtils:CapVelocity(returnVel, self.constants.maxSpeed)
+		return returnVel
+	end
+	
+	if (self.constants.crashLandBehavior == Enums.Crashland.CAPPED_BHOP_FORWARD) then
+		
+		local flat = Vector3.new(ground.normal.x, 0, ground.normal.z).Unit
+		local forward = MathUtils:PlayerAngleToVec(self.state.angle)
+					
+		if (forward:Dot(flat) < 0) then --bhop forward if the slope is the way we're facing
+			
+			local returnVel = Vector3.new(vel.x, 0, vel.z)
+			returnVel = MathUtils:CapVelocity(returnVel, self.constants.maxSpeed)
+			return returnVel
+		end		
+		--else stop
+		return Vector3.new(0,0,0)
+	end
+	
+	if (self.constants.crashLandBehavior == Enums.Crashland.FULL_BHOP_FORWARD) then
+
+		local flat = Vector3.new(ground.normal.x, 0, ground.normal.z).Unit
+		local forward = MathUtils:PlayerAngleToVec(self.state.angle)
+
+		if (forward:Dot(flat) < 0) then --bhop forward if the slope is the way we're facing
+			return vel
+		end		
+		--else stop
+		return Vector3.new(0,0,0)
+	end
+	
+    --stop
+	return Vector3.new(0,0,0)
 end
 
 
@@ -599,7 +638,7 @@ function Simulation:MovetypeWalking(cmd)
 
         if groundCheck ~= nil then
             --Crashland
-            walkNewVel = self:CrashLand(walkNewVel)
+            walkNewVel = self:CrashLand(walkNewVel, groundCheck)
         end
     end
 

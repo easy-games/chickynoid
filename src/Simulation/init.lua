@@ -174,49 +174,59 @@ function Simulation:SetPosition(position, teleport)
     self.characterData:SetTargetPosition(self.state.pos, teleport)
 end
 
-function Simulation:CrashLand(vel, ground)
+function Simulation:CrashLand(vel, cmd, ground)
 	
 
 	if (self.constants.crashLandBehavior == Enums.Crashland.FULL_BHOP) then
+		 
 		return Vector3.new(vel.x, 0, vel.z)
 	end
 	
 	if (self.constants.crashLandBehavior == Enums.Crashland.CAPPED_BHOP) then
-		--cap velocity
-		local returnVel = Vector3.new(vel.x, 0, vel.z)
-		returnVel = MathUtils:CapVelocity(returnVel, self.constants.maxSpeed)
-		return returnVel
-	end
-	
-	if (self.constants.crashLandBehavior == Enums.Crashland.CAPPED_BHOP_FORWARD) then
-		
-		local flat = Vector3.new(ground.normal.x, 0, ground.normal.z).Unit
-		local forward = MathUtils:PlayerAngleToVec(self.state.angle)
-					
-		if (forward:Dot(flat) < 0) then --bhop forward if the slope is the way we're facing
-			
+		--cap velocity if you're contining into a jump
+		 
+		if (cmd.y > 0) then
 			local returnVel = Vector3.new(vel.x, 0, vel.z)
 			returnVel = MathUtils:CapVelocity(returnVel, self.constants.maxSpeed)
 			return returnVel
-		end		
-		--else stop
-		return Vector3.new(0,0,0)
+		end
+	end
+	
+	if (self.constants.crashLandBehavior == Enums.Crashland.CAPPED_BHOP_FORWARD) then
+		--bhop forward if the slope is the way we're facing
+		 
+		if (cmd.y > 0) then
+			local flat = Vector3.new(ground.normal.x, 0, ground.normal.z).Unit
+			local forward = MathUtils:PlayerAngleToVec(self.state.angle)
+						
+			if (forward:Dot(flat) < 0) then 
+				
+				local returnVel = Vector3.new(vel.x, 0, vel.z)
+				returnVel = MathUtils:CapVelocity(returnVel, self.constants.maxSpeed)
+				return returnVel
+			else
+				return Vector3.zero
+			end
+		end
 	end
 	
 	if (self.constants.crashLandBehavior == Enums.Crashland.FULL_BHOP_FORWARD) then
+		--bhop forward if the slope is the way we're facing
+		 
+		if (cmd.y > 0) then
+			local flat = Vector3.new(ground.normal.x, 0, ground.normal.z).Unit
+			local forward = MathUtils:PlayerAngleToVec(self.state.angle)
 
-		local flat = Vector3.new(ground.normal.x, 0, ground.normal.z).Unit
-		local forward = MathUtils:PlayerAngleToVec(self.state.angle)
-
-		if (forward:Dot(flat) < 0) then --bhop forward if the slope is the way we're facing
-			return vel
-		end		
-		--else stop
-		return Vector3.new(0,0,0)
+			if (forward:Dot(flat) < 0) then
+				return vel
+			else
+				return Vector3.zero
+			end
+		end
 	end
 	
-    --stop
-	return Vector3.new(0,0,0)
+    --pass through
+	return vel
 end
 
 
@@ -638,7 +648,7 @@ function Simulation:MovetypeWalking(cmd)
 
         if groundCheck ~= nil then
             --Crashland
-            walkNewVel = self:CrashLand(walkNewVel, groundCheck)
+            walkNewVel = self:CrashLand(walkNewVel, cmd, groundCheck)
         end
     end
 

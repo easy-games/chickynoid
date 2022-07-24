@@ -1,8 +1,11 @@
+import CharacterData from "../Shared/CharacterData";
 import Simulation from "../Simulation";
 
 interface ClientChickynoid {
 	simulation: Simulation;
 	ping: number;
+
+	GetPlayerDataByUserId(userId: number): CharacterData;
 }
 
 interface ClientChickynoidConstructor {

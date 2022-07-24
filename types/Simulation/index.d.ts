@@ -1,3 +1,4 @@
+import CharacterData from "../Shared/CharacterData";
 import { SimulationConstants } from "./simulation-constants";
 import { SimulationState } from "./simulation-state";
 
@@ -8,6 +9,7 @@ interface Simulation {
 	constants: SimulationConstants;
 	userId: number;
 	lastGround: unknown | undefined;
+	characterData: CharacterData;
 
 	RegisterMoveState(
 		name: string,

@@ -9,6 +9,8 @@ interface ServerChickynoid {
 	simulation: Simulation;
 	bufferedCommandTime: number;
 
+	smoothFactor: number;
+
 	hitBoxCreated: Signal<(hitBox: Part) => void>;
 
 	SetPosition(position: Vector3, teleport: boolean): void;

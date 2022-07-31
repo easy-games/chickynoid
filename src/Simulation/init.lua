@@ -217,7 +217,7 @@ function Simulation:CrashLand(vel, cmd, ground)
 			local flat = Vector3.new(ground.normal.x, 0, ground.normal.z).Unit
 			local forward = MathUtils:PlayerAngleToVec(self.state.angle)
 
-			if (forward:Dot(flat) < 0) then
+			if (ground.normal.y > 0.99 or forward:Dot(flat) < 0) then
 				return vel
 			else
 				return Vector3.zero

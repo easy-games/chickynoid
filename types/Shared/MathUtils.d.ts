@@ -13,4 +13,6 @@ export namespace MathUtils {
 	export function PlayerVecToAngle(this: typeof MathUtils, vec: Vector3): number;
 
 	export function LerpAngle(this: typeof MathUtils, a0: number, a1: number, frac: number): number;
+
+	export function SmoothLerp<T>(this: typeof MathUtils, a0: T, a1: T, fraction: number, deltaTime: number): T;
 }

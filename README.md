@@ -41,12 +41,13 @@ It implements "rollback" style networking on the client, so if the server disagr
 
 ## What are the benefits
 
-Players can't move cheat with this. At all*
+Players can't move cheat with this at all.*
 The version of the chickynoid on the server is ground-truth, so its perfect for doing server-side checks for touching triggers and other gameplay uses that humanoid isn't good at.
 The chickynoid player controller code is fairly straightforward, and is more akin to a typical first person shooter player controller so slides along walls and up stairs in a generally pleasing way.
 
 Turn speed, braking, max speed, "step up size" and acceleration are much easier to tune than in default roblox.
- * That's the hope anyway. We'll see what happens...
+
+ *That's the hope anyway. We'll see what happens...
 
 
 ## What are the drawbacks?

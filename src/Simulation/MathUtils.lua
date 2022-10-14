@@ -1,32 +1,43 @@
 local MathUtils = {}
 
-local THETA = math.pi * 2
+local PI = math.pi
+local TAU = 2*PI
+
+-- returns 0 <= angle' < TAU such that rotation(angle') == rotation(angle)
 function MathUtils:AngleAbs(angle)
-    while angle < 0 do
-        angle = angle + THETA
-    end
-    while angle > THETA do
-        angle = angle - THETA
-    end
-    return angle
+    return angle%TAU
+end
+
+-- returns angle' closest to referenceAngle or 0 such that rotation(angle') == rotation(angle)
+function MathUtils:AngleNormalize(angle, referenceAngle)
+    referenceAngle = referenceAngle or 0
+    return (angle - referenceAngle + PI)%TAU - PI + referenceAngle
 end
 
 function MathUtils:AngleShortest(a0, a1)
-    local d1 = self:AngleAbs(a1 - a0)
-    local d2 = -self:AngleAbs(a0 - a1)
-    return math.abs(d1) > math.abs(d2) and d2 or d1
+    return self:AngleNormalize(a1 - a0)
 end
 
 function MathUtils:LerpAngle(a0, a1, frac)
     return a0 + self:AngleShortest(a0, a1) * frac
 end
 
+-- returns angleY, angleX such that PlayerAngleToVec(angleY, angleX) == vec.unit
+-- and such that angleY and angleX are closest to 0
 function MathUtils:PlayerVecToAngle(vec)
-    return math.atan2(-vec.z, vec.x) - math.rad(90)
+    local x, y, z = vec.x, vec.y, vec.z
+    local l = math.sqrt(x*x + z*z)
+    return
+        math.atan2(x, z),
+        math.atan2(y, l)
 end
 
-function MathUtils:PlayerAngleToVec(angle)
-    return Vector3.new(math.sin(angle), 0, math.cos(angle))
+-- returns vec such that PlayerVecToAngle(vec) == angleY, angleX
+function MathUtils:PlayerAngleToVec(angleY, angleX)
+    angleX = angleX or 0
+    local sinX = math.sin(angleX)
+    local cosX = math.cos(angleX)
+    return Vector3.new(math.sin(angleY)*cosX, sinX, math.cos(angleY)*cosX)
 end
 
 --dt variable decay function

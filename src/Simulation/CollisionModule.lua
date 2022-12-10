@@ -1,5 +1,5 @@
 local UPDATE_ON_PROP_CHANGE = {
-	"Size", "Position", "Orientation"
+	"Size", "Position", "Orientation", "CanCollide"
 } --when these properties change within a part. re-calculate its collision
 
 local RunService = game:GetService("RunService")
@@ -410,6 +410,10 @@ end
 
 function module:UpdateCollisionOnInstance(instance)
 	module:RemovePartFromHashMap(instance, module.hullRecords[instance])
+
+	if instance.CanCollide == false then
+		return
+	end
 
 	local record = makeRecord(instance)
 	self:WritePartToHashMap(instance, record)

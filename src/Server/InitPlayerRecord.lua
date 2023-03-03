@@ -39,7 +39,7 @@ function module:Setup(_server)
 		return false
 	end
 	
-	-- create a binding to call this elsewhere i.e. from the client using RbxUtil/Comm (https://sleitnick.github.io/RbxUtil/api/Comm/)
+	-- create a binding to call ToggleMoveset elsewhere i.e. from the client using RbxUtil/Comm (https://sleitnick.github.io/RbxUtil/api/Comm/)
 	--[[
 		local ChickynoidComm = ServerComm.new(game.ReplicatedStorage:WaitForChild("Comms"), "ChickynoidComm")
 		ChickynoidComm:BindFunction("ToggleMoveset", ToggleMoveset)

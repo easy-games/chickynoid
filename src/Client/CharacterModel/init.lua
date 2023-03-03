@@ -153,6 +153,51 @@ function CharacterModel:CreateModel()
 					end
 				end
 			end
+
+			-- fallback default character
+			if (srcModel == nil) then
+				local userId = self.userId
+				local result, err = pcall(function()
+					--Bot id?
+					if (string.sub(userId, 1, 1) == "-") then
+						userId = string.sub(userId, 2, string.len(userId)) --drop the -
+					end
+			
+					userId = tonumber(userId)
+			
+					local player = game.Players:GetPlayerByUserId(userId)
+					local description
+					if StarterPlayer.LoadCharacterAppearance then
+						description = game.Players:GetHumanoidDescriptionFromUserId(player.CharacterAppearanceId)
+					else
+						description = game.ReplicatedStorage:WaitForChild("DefaultDescription")
+					end
+					local dC = description:Clone()
+					srcModel = game:GetService("Players"):CreateHumanoidModelFromDescription(description, Enum.HumanoidRigType.R15)
+					local humanoid = srcModel:WaitForChild("Humanoid")
+					dC.Parent = humanoid
+			
+					srcModel.Parent = game.Lighting
+					srcModel.Name = tostring(userId)
+					humanoid.DisplayName = player.DisplayName
+				end)
+			
+				if (result == false) then
+					warn("Loading " .. userId .. ":" ..err)
+				elseif srcModel then
+			
+					local hip = (srcModel.HumanoidRootPart.Size.y
+							* 0.5) +srcModel.Humanoid.hipHeight
+			
+					local data = { 
+						model =	srcModel, 
+						modelOffset = Vector3.yAxis * (hip - 2.55)
+					}
+			
+					return data
+				end
+			end
+
 		else
 			print("something bad happened...")
 		end

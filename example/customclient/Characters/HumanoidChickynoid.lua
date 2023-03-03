@@ -23,4 +23,6 @@ function ChickynoidStyle:Setup(simulation)
 	self.constants.gravity = -198
 end
 
+
+
 return ChickynoidStyle

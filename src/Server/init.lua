@@ -20,6 +20,7 @@ local DeltaTable = require(path.Vendor.DeltaTable)
 local WeaponsModule = require(script.WeaponsServer)
 local CollisionModule = require(path.Simulation.CollisionModule)
 local Antilag = require(path.Server.Antilag)
+local InitPlayerRecord = require(path.Server.InitPlayerRecord)
 local FastSignal = require(path.Vendor.FastSignal)
 local ServerMods = require(script.ServerMods)
 
@@ -44,7 +45,7 @@ ChickynoidServer.startTime = tick()
 ChickynoidServer.slots = {}
 ChickynoidServer.collisionRootFolder = nil
 
-ChickynoidServer.playerSize = Vector3.new(2, 5, 2)
+ChickynoidServer.playerSize = Vector3.new(3, 5, 3)
 
 --[=[
 	@interface ServerConfig
@@ -117,6 +118,7 @@ function ChickynoidServer:Setup()
     WeaponsModule:Setup(self)
 
     Antilag:Setup(self)
+    InitPlayerRecord:Setup(self)
 
     --Load the mods
     local modules = ServerMods:GetMods("servermods")
@@ -182,7 +184,7 @@ function ChickynoidServer:AddConnection(userId, player)
 
     playerRecord.OnBeforePlayerSpawn = FastSignal.new()
 
-    playerRecord.characterMod = "HumanoidChickynoid"
+    playerRecord.characterMod = "NicerHumanoid"
 	playerRecord.lastSeenFrames = {} --frame we last saw a given player on, for delta compression
 		
 	local assignedSlot = self:AssignSlot(playerRecord)
@@ -263,6 +265,17 @@ function ChickynoidServer:AddConnection(userId, player)
 
     function playerRecord:SetCharacterMod(characterModName)
 		self.characterMod = characterModName
+        if self.chickynoid then
+            if self.chickynoid.simulation then
+                -- find new mod and apply settings
+                local loadedModule = ServerMods:GetMod("characters", self.characterMod)
+                if (loadedModule) then
+                    loadedModule:Setup(self.chickynoid.simulation)
+                    print("setup new stats")
+                end
+            end
+        end
+
 		ChickynoidServer:SetWorldStateDirty()
     end
 

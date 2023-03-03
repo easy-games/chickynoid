@@ -25,10 +25,10 @@ function module:GetCharacterModel(userId, source)
 	local srcModel
 	local result, err = pcall(function()
 
-		-- --Bot id?
-		-- if (string.sub(userId, 1, 1) == "-") then
-		-- 	userId = string.sub(userId, 2, string.len(userId)) --drop the -
-		-- end
+		--Bot id?
+		if (string.sub(userId, 1, 1) == "-") then
+			userId = string.sub(userId, 2, string.len(userId)) --drop the -
+		end
 
 		userId = tonumber(userId)
 

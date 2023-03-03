@@ -57,7 +57,7 @@ ChickynoidClient.stateCounter = 0 --Num states coming in
 ChickynoidClient.accumulatedTime = 0
 
 ChickynoidClient.debugBoxes = {}
-ChickynoidClient.debugMarkPlayers = nil
+ChickynoidClient.debugMarkPlayers = false
 
 --Netgraph settings
 ChickynoidClient.showFpsGraph = false
@@ -92,7 +92,10 @@ ChickynoidClient.OnCharacterModelDestroyed = FastSignal.new()
 --Callbacks
 ChickynoidClient.characterModelCallbacks = {}
 
-ChickynoidClient.flags = {}
+ChickynoidClient.flags = {
+    HANDLE_CAMERA = false,
+    DEBUG_ANTILAG = true
+}
 
  
 ChickynoidClient.weaponsClient = ClientWeaponModule;
@@ -138,7 +141,7 @@ function ChickynoidClient:Setup()
         if self.localChickynoid then
                    
             local resimulate, ping = self.localChickynoid:HandleNewState(event.stateDelta, event.lastConfirmed, event.serverTime)
-          
+
             if (ping) then
                 --Keep a rolling history of pings
                 table.insert(self.pings, ping)
@@ -462,22 +465,46 @@ function ChickynoidClient:ProcessFrame(deltaTime)
             ClientWeaponModule:ProcessCommand(command)
         end
 
-        if self.characterModel == nil and self.localChickynoid ~= nil then
-            --Spawn the character in
-			print("Creating local model for UserId", game.Players.LocalPlayer.UserId)
-			local mod = self:GetPlayerDataByUserId(game.Players.LocalPlayer.UserId)
-			self.characterModel = CharacterModel.new( game.Players.LocalPlayer.UserId, mod.characterMod)
-            for _, characterModelCallback in ipairs(self.characterModelCallbacks) do
-                self.characterModel:SetCharacterModel(characterModelCallback)
+        if self.localChickynoid ~= nil then
+            if self.characterModel == nil then
+                --Spawn the character in
+                print("Creating local model for UserId", game.Players.LocalPlayer.UserId)
+                local mod = self:GetPlayerDataByUserId(game.Players.LocalPlayer.UserId)
+                self.characterModel = CharacterModel.new( game.Players.LocalPlayer.UserId, mod.characterMod)
+                for _, characterModelCallback in ipairs(self.characterModelCallbacks) do
+                    self.characterModel:SetCharacterModel(characterModelCallback)
+                end
+                self.characterModel:CreateModel()
+                self.OnCharacterModelCreated:Fire(self.characterModel)
+
+                local record = {}
+                record.userId = game.Players.LocalPlayer.UserId
+                record.characterModel = self.characterModel
+                record.characterMod = mod.characterMod
+
+                record.localPlayer = true
+                self.characters[record.userId] = record
+
+            elseif self.characters[game.Players.LocalPlayer.UserId] then
+                local record = self.characters[game.Players.LocalPlayer.UserId]
+                local lastMod = record.characterMod
+                local mod = self:GetPlayerDataByUserId(game.Players.LocalPlayer.UserId).characterMod
+                if lastMod ~= mod and record.characterModel ~= nil then -- check to see if the characterMod changed
+                    print("Changed mod from " .. lastMod .. " to " .. mod)
+                    -- set PlayerData's record to new characterMod
+                    record.characterMod = mod
+                    self.characters[game.Players.LocalPlayer.UserId] = record
+
+                    -- load new characterMod's setup
+                    local loadedModule = ClientMods:GetMod("characters", mod)
+                    if loadedModule then
+                        loadedModule:Setup(self.localChickynoid.simulation)
+                    end
+                    
+                    -- create new model
+                    record.characterModel:ChangeCharacterMod(mod)
+                end
             end
-			self.characterModel:CreateModel()
-            self.OnCharacterModelCreated:Fire(self.characterModel)
-			
-			local record = {}
-			record.userId = game.Players.LocalPlayer.UserId
-			record.characterModel = self.characterModel
-			record.localPlayer = true
-			self.characters[record.userId] = record
         end
 
         if self.characterModel ~= nil then
@@ -533,9 +560,12 @@ function ChickynoidClient:ProcessFrame(deltaTime)
             -- Bind the camera
             if (self.flags.HANDLE_CAMERA ~= false) then
                 local camera = game.Workspace.CurrentCamera
-                if camera.CameraSubject ~= self.characterModel.model then
-                    camera.CameraSubject = self.characterModel.model
+                if camera.CameraSubject ~= self.characterModel._camPart then
+                    camera.CameraSubject = self.characterModel._camPart
                     camera.CameraType = Enum.CameraType.Custom
+
+                    -- bind camera function
+                    print("boound")
                 end
             end
 
@@ -555,7 +585,7 @@ function ChickynoidClient:ProcessFrame(deltaTime)
     end
 	
 	local debugData = {}
-	
+
     if prev and last and prev ~= last then
         --So pointInTimeToRender is between prev.t and last.t
         local frac = (pointInTimeToRender - prev.serverTime) / timeBetweenServerFrames
@@ -581,12 +611,26 @@ function ChickynoidClient:ProcessFrame(deltaTime)
 				record.userId = userId
 				local mod = self:GetPlayerDataByUserId(userId)
 				record.characterModel = CharacterModel.new(userId, mod.characterMod)
+                record.characterMod = mod.characterMod
 
                 record.characterModel:CreateModel()
                 self.OnCharacterModelCreated:Fire(record.characterModel)
 
                 character = record
-                self.characters[userId] = record
+                self.characters[userId] = character
+            else
+                local lastMod = character.characterMod
+                local record = self:GetPlayerDataByUserId(userId)
+                local mod = record.characterMod
+                if lastMod ~= mod and character.characterModel ~= nil then -- check to see if the characterMod changed
+                    print("Changed OTHER mod from " .. lastMod .. " to " .. mod)
+                    -- set PlayerData's record to new characterMod
+                    character.characterMod = mod
+                    self.characters[userId] = character
+                    
+                    -- create new model
+                    character.characterModel:ChangeCharacterMod(mod)
+                end
             end
 
             character.frame = self.localFrame
@@ -594,7 +638,11 @@ function ChickynoidClient:ProcessFrame(deltaTime)
             character.characterData = dataRecord
 			
             --Update it
-            character.characterModel:Think(deltaTime, dataRecord, bulkMoveToList)
+            if character.characterModel then
+                character.characterModel:Think(deltaTime, dataRecord, bulkMoveToList)
+            else
+                print("could not get characterModel...")
+            end
         end
 
         --Remove any characters who were not in this snapshot
@@ -605,11 +653,13 @@ function ChickynoidClient:ProcessFrame(deltaTime)
 			end
 			
             if value.frame ~= self.localFrame then
-                self.OnCharacterModelDestroyed:Fire(value.characterModel)
-                value.characterModel:DestroyModel()
-                value.characterModel = nil
+                if value.characterModel then
+                    self.OnCharacterModelDestroyed:Fire(value.characterModel)
+                    value.characterModel:DestroyModel()
+                    value.characterModel = nil
 
-                self.characters[key] = nil
+                    self.characters[key] = nil
+                end
             end
         end
     end
@@ -617,7 +667,6 @@ function ChickynoidClient:ProcessFrame(deltaTime)
     --bulkMoveTo
     if (bulkMoveToList) then
         game.Workspace:BulkMoveTo(bulkMoveToList.parts, bulkMoveToList.cframes, Enum.BulkMoveMode.FireCFrameChanged)
-
     end
 
     --render in the rockets
@@ -667,6 +716,7 @@ end
 function ChickynoidClient:GetPlayerDataByUserId(userId)
 
 	if (self.worldState == nil) then
+        warn("GetPlayerDataByUserId did not find a worldState")
 		return nil
 	end
 	for key,value in pairs(self.worldState.players) do
@@ -770,6 +820,7 @@ function ChickynoidClient:DebugBox(pos, text)
     instance.CanTouch = false
     instance.CanQuery = false
     instance.Position = pos
+    instance.name = game.Players.LocalPlayer.Name
     instance.Parent = game.Workspace
 
     local adornment = Instance.new("SelectionBox")

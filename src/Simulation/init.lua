@@ -60,7 +60,7 @@ function Simulation.new(userId)
 	self.constants.crashLandBehavior = Enums.Crashland.FULL_BHOP_FORWARD
 
     self.constants.pushSpeed = 16 --set this lower than maxspeed if you want stuff to feel heavy
-	self.constants.stepSize = 2.9
+	self.constants.stepSize = 2.2
 	self.constants.gravity = -198
 
     return self

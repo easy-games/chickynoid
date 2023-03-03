@@ -4,11 +4,6 @@
 
     Initialize new player records and connect them with character mod hotswap example
 ]=]
-
-local Packages = game.ReplicatedStorage.Packages
-local ServerComm = require(Packages.Comm).ServerComm
-local ChickynoidComm = ServerComm.new(game.ReplicatedStorage:WaitForChild("Comms"), "ChickynoidComm")
-
 local module = {}
 
 function module:Setup(_server)
@@ -44,7 +39,11 @@ function module:Setup(_server)
 		return false
 	end
 	
-	ChickynoidComm:BindFunction("ToggleMoveset", ToggleMoveset)
+	-- create a binding to call this elsewhere i.e. from the client using RbxUtil/Comm (https://sleitnick.github.io/RbxUtil/api/Comm/)
+	--[[
+		local ChickynoidComm = ServerComm.new(game.ReplicatedStorage:WaitForChild("Comms"), "ChickynoidComm")
+		ChickynoidComm:BindFunction("ToggleMoveset", ToggleMoveset)
+	]]
 end
 
 return module

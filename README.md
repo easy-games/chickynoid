@@ -8,33 +8,46 @@ A demo place of Chickynoid can be found here, or under the `example/` directory:
 
 https://www.roblox.com/games/8289135181/Chickynoid
 
-### ___Massive Work In Progress___
 
-Fair warning, this is not ready for production in it's current form.
-Feel free to have a look at it and see how it does what it does, though!
+## Games
+
+Several games have released with this now, a particularly spicy one is
+##
+Anarchy Arena:
+https://www.roblox.com/games/12024039959/Anarchy-Arena
 
 <!--moonwave-hide-before-this-line-->
 
 ### Thankyous!
 
-Special thanks to https://easy.gg/ who are currently sponsoring Chickynoid's development! 
+Special thanks to https://easy.gg/ who were huge sponsors of Chickynoid's development! 
 
 ## 
 
 ## What is it?
 
 Chickynoid is intended to be a hard replacement for roblox "humanoid" based characters.
-It consists of the chickynoid character controller simulation, a character 'renderer', and a replication framework on the client and server for managing player connections and network replication. 
 
 Because of how invasive it is and how it works, it's never going to be a drag-and-drop replacement for characters in your existing game. If you're not comfortable doing some serious engineering, this project is probably not for you.
 
+## Features
 
+* Full Server-Authoritative Player Movement 
+* Client-side movement prediciton with rollbacks
+* Rayscan and Projectile Weapons with server-side hit detection and lag compensation 
+* Custom collision detection (required for doing rollbacks)
+* A "mod" system similar to knit that makes it easy to add to the system
+* Per-client custom selective replication of other players 
+* Data compression - nearly 2x lower bandwidth usage than stock roblox
+* A server side "bot" system to make it easy to add chickynoid bots and npcs
+
+##
 
 ## What does it do?
 
 Chickynoid heavily borrows from the same principles that games like quake, cod, overwatch, and other first person shooters use to prevent fly hacking, teleporting, and other "typical" character hacks that roblox is typically vulnerable to.
 
-It implements a full character controller, character physics, replication, and world collision using it's own math and systems (Spherecast when pls roblox?), and trusts nothing from the client except input directions and buttons (and to a limited degree dt).
+It implements a full character controller, character physics, replication, and world collision using it's own math and systems (Shapecast when pls roblox?), and trusts nothing from the client except input directions and buttons (and to a limited degree dt).
 
 It implements "rollback" style networking on the client, so if the server disagrees about the results of your input, the client corrects to where it should be based on the remaining unconfirmed input.
 
@@ -42,7 +55,7 @@ It implements "rollback" style networking on the client, so if the server disagr
 ## What are the benefits
 
 Players can't move cheat with this at all.*
-The version of the chickynoid on the server is ground-truth, so its perfect for doing server-side checks for touching triggers and other gameplay uses that humanoid isn't good at.
+The version of the 'chickynoid' on the server is ground-truth, so its perfect for doing server-side checks for touching triggers and other gameplay uses that humanoid isn't good at.
 The chickynoid player controller code is fairly straightforward, and is more akin to a typical first person shooter player controller so slides along walls and up stairs in a generally pleasing way.
 
 Turn speed, braking, max speed, "step up size" and acceleration are much easier to tune than in default roblox.
@@ -52,11 +65,15 @@ Turn speed, braking, max speed, "step up size" and acceleration are much easier 
 
 ## What are the drawbacks?
 
-The collision module is limited to parts right now and totally custom. It's designed for making rapid short-distance traces for player movement in a world made out of parts, and not much else.
+The collision module is limited to parts, terrain and simple meshes, right now and totally custom. Terrain is less precise and meshes are convex hull approximations only. 
 
-This doesn't replace even a significant subset of what humanoids currently do. It's a platforming character and not much else.
+Chickynoid currently doesn't replace even a significant subset of what humanoids currently do. It's a platforming character with a gun and not much else.
 
 Your character is a box, not a nice physically accurate mess like roblox uses.
+
+Your character box is a fixed size.
+
+You cannot interact with physics parts (push/pull/ride)
 
 
 ## How does it do it?
@@ -91,6 +108,6 @@ You can see what is going on inside ServerChickynoid.lua
 
 ## Is this compatible with FPS unlocking?
 
-Yes, although every extra frame you generate makes extra work for the server. It would be reasonable for the server to throttle you if you go over say, 200fps. Right now you'll start deliberately lagging if you go to 500fps, but that's just some test code right now.
+Yes, although every extra frame you generate makes extra work for the server. It would be reasonable for the server to throttle you if you go over say, 200fps. Right now you'll start deliberately lagging if you go past 120fps, but thats configurable.
 
-Also, the physics simulation produces ever so slightly different results at different framerates, so there is some debates about the correct way to go about this.
+Also, the physics simulation produces ever so slightly different results at different framerates (you can jump slightly higher, <0.5 stud).

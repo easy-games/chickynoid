@@ -58,13 +58,6 @@ This doesn't replace even a significant subset of what humanoids currently do. I
 
 Your character is a box, not a nice physically accurate mess like roblox uses.
 
-## Whats *todo*?
-
-- ~~Buffer underrun detection "Antiwarp" (so technically freezing your character is still possible right now)~~
-- ~~Delta time validation (so technically speed cheating is still possible right now)~~
-- ~~More tweaks to character rendering (hip height)~~
-- ~~Handling player death, resetting, teleporting.~~
-
 
 ## How does it do it?
 

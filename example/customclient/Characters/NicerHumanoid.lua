@@ -15,10 +15,14 @@ function module:Setup(simulation)
 	simulation.constants.jumpThrustPower = 300 --If you keep holding jump, how much extra vel per second is there?  (turn this off for no variable height jumps)
 	simulation.constants.jumpThrustDecay = 0.25 --Smaller is faster
 
+	local MoveTypeWalking = require(script.Parent.utils.MoveTypeWalking)
+	MoveTypeWalking:ModifySimulation(simulation)
+
     --Example on adding a flying movement type
     local MoveTypeFlying = require(script.Parent.utils.MoveTypeFlying)
     MoveTypeFlying:ModifySimulation(simulation)
     
+	simulation:SetMoveState("Walking")
 end
 
 function module:GetCharacterModel(userId)

@@ -745,7 +745,7 @@ function module:Sweep(startPos, endPos, playerSize)
 		data.checks += 1
 		
 		if (hullRecord.hull[playerSize] ~= nil) then
-	        self:CheckBrushNoStuck(data, hullRecord)
+	        self:CheckBrushNoStuck(data, hullRecord, playerSize)
 	        if data.allSolid == true then
 	            data.fraction = 0
 	            break
@@ -763,14 +763,15 @@ function module:Sweep(startPos, endPos, playerSize)
     if data.fraction >= SKIN_THICKNESS or data.allSolid == false then
         for _, hullRecord in pairs(self.dynamicRecords) do
             data.checks += 1
-
-            self:CheckBrushNoStuck(data, hullRecord)
-            if data.allSolid == true then
-                data.fraction = 0
-                break
-            end
-            if data.fraction < SKIN_THICKNESS then
-                break
+            if (hullRecord.hull[playerSize] ~= nil) then
+                self:CheckBrushNoStuck(data, hullRecord, playerSize)
+                if data.allSolid == true then
+                    data.fraction = 0
+                    break
+                end
+                if data.fraction < SKIN_THICKNESS then
+                    break
+                end
             end
         end
     end
@@ -786,7 +787,8 @@ function module:Sweep(startPos, endPos, playerSize)
     return data
 end
 
-function module:BoxTest(pos)
+function module:BoxTest(pos, playerSize)
+    playerSize = playerSize or module.expansionSize
     local data = {}
     data.startPos = pos
     data.endPos = pos
@@ -805,7 +807,7 @@ function module:BoxTest(pos)
 
     for _, hullRecord in pairs(hullRecords) do
         data.checks += 1
-        self:CheckBrushPoint(data, hullRecord)
+        self:CheckBrushPoint(data, hullRecord, playerSize)
         if data.allSolid == true then
             data.fraction = 0
             break

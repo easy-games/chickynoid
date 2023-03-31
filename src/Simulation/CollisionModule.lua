@@ -255,7 +255,8 @@ function module:FetchHullsForPoint(point)
     return hullRecords
 end
 
-function module:FetchHullsForBox(min, max)
+function module:FetchHullsForBox(min, max, playerSize)
+    local fetchExpansionSize = playerSize or module.expansionSize
     local minx = min.x
     local miny = min.y
     local minz = min.z
@@ -347,13 +348,10 @@ function module:FetchHullsForBox(min, max)
 	
 	--Inflate missing hulls
 	for key,record in pairs(hullRecords) do
-       
     	if (record.hull == nil) then
-			record.hull = self:GenerateConvexHullAccurate(record.instance, module.expansionSize, self:GenerateSnappedCFrame(record.instance))
-            if (record.hull == nil) then
-                hullRecords[key] = nil
-            end
-		end
+            record.hull = {}
+        end
+		record.hull[fetchExpansionSize] = self:GenerateConvexHullAccurate(record.instance, fetchExpansionSize, self:GenerateSnappedCFrame(record.instance))
 	end
 	
 		
@@ -512,10 +510,10 @@ function module:SimpleRayTest(a, b, hull)
     return tfirst, tlast
 end
 
-function module:CheckBrushPoint(data, hullRecord)
+function module:CheckBrushPoint(data, hullRecord, playerSize)
     local startsOut = false
 
-    for _, p in pairs(hullRecord.hull) do
+    for _, p in pairs(hullRecord.hull[playerSize]) do
         local startDistance = data.startPos:Dot(p.n) - p.ed
 
         if startDistance > 0 then
@@ -534,14 +532,14 @@ function module:CheckBrushPoint(data, hullRecord)
 end
 
 --Checks a brush, but doesn't handle it well if the start point is inside a brush
-function module:CheckBrush(data, hullRecord)
+function module:CheckBrush(data, hullRecord, playerSize)
     local startFraction = -1.0
     local endFraction = 1.0
     local startsOut = false
     local endsOut = false
     local lastPlane = nil
 
-    for _, p in pairs(hullRecord.hull) do
+    for _, p in pairs(hullRecord.hull[playerSize]) do
         local startDistance = data.startPos:Dot(p.n) - p.ed
         local endDistance = data.endPos:Dot(p.n) - p.ed
 
@@ -608,7 +606,7 @@ function module:CheckBrush(data, hullRecord)
 end
 
 --Checks a brush, but is smart enough to ignore the brush entirely if the start point is inside but the ray is "exiting" or "exited"
-function module:CheckBrushNoStuck(data, hullRecord)
+function module:CheckBrushNoStuck(data, hullRecord, playerSize)
     local startFraction = -1.0
     local endFraction = 1.0
     local startsOut = false
@@ -618,7 +616,7 @@ function module:CheckBrushNoStuck(data, hullRecord)
     local nearestStart = -math.huge
     local nearestEnd = -math.huge
 	
-    for _, p in pairs(hullRecord.hull) do
+    for _, p in pairs(hullRecord.hull[playerSize]) do
         local startDistance = data.startPos:Dot(p.n) - p.ed
         local endDistance = data.endPos:Dot(p.n) - p.ed
 
@@ -711,7 +709,8 @@ function module:PlaneLineIntersect(normal, distance, V1, V2)
     return (V1 + u * (V2 - V1))
 end
 
-function module:Sweep(startPos, endPos)
+function module:Sweep(startPos, endPos, playerSize)
+    playerSize = playerSize or module.expansionSize
     local data = {}
     data.startPos = startPos
     data.endPos = endPos
@@ -734,7 +733,7 @@ function module:Sweep(startPos, endPos)
 	if (self.profile == true) then
 		debug.profilebegin("Fetch")
 	end
-    local hullRecords = self:FetchHullsForBox(startPos, endPos)
+    local hullRecords = self:FetchHullsForBox(startPos, endPos, playerSize)
 	if (self.profile==true) then
 		debug.profileend()
 	end
@@ -745,7 +744,7 @@ function module:Sweep(startPos, endPos)
     for _, hullRecord in pairs(hullRecords) do
 		data.checks += 1
 		
-		if (hullRecord.hull ~= nil) then
+		if (hullRecord.hull[playerSize] ~= nil) then
 	        self:CheckBrushNoStuck(data, hullRecord)
 	        if data.allSolid == true then
 	            data.fraction = 0

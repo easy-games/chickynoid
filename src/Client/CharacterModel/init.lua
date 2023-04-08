@@ -56,6 +56,12 @@ function CharacterModel:CreateModel()
 
 	--print("CreateModel ", self.userId)
 	coroutine.wrap(function()
+		local userId = self.userId
+
+		--Bot id?
+		if (string.sub(userId, 1, 1) == "-") then
+			userId = string.sub(userId, 2, string.len(userId)) --drop the -
+		end
 
 		if (self.modelPool[self.userId] == nil) then
 
@@ -86,16 +92,7 @@ function CharacterModel:CreateModel()
 				srcModel = self.template:Clone()
 				srcModel.Parent = game.Lighting --needs to happen so loadAppearance works
 
-				local userId = ""
 				local result, err = pcall(function()
-
-					userId = self.userId
-
-					--Bot id?
-					if (string.sub(userId, 1, 1) == "-") then
-						userId = string.sub(userId, 2, string.len(userId)) --drop the -
-					end
-
 					local description = game.Players:GetHumanoidDescriptionFromUserId(userId)
 					srcModel.Humanoid:ApplyDescription(description)
 
@@ -145,6 +142,9 @@ function CharacterModel:CreateModel()
 		self.model.Parent = game.Workspace
 		self.onModelCreated:Fire(self.model)
 
+		--update cached model's description for next respawn
+		local currentDescription = game.Players:GetHumanoidDescriptionFromUserId(userId)
+		self.modelPool[self.userId].model.Humanoid:ApplyDescription(currentDescription)
 	end)()
 end
 
@@ -167,16 +167,16 @@ function CharacterModel:DestroyModel()
 	end
 
 	self.modelData = nil
-	self.modelPool[self.userId] = nil
 	self.modelReady = false
 end
 
 function CharacterModel:PlayerDisconnected(userId)
-
 	local modelData = self.modelPool[self.userId]
 	if (modelData and modelData.model) then
 		modelData.model:Destroy()
 	end
+
+	self.modelPool[self.userId] = nil
 end
 
 

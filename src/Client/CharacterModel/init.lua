@@ -258,7 +258,7 @@ function CharacterModel:Think(_deltaTime, dataRecord, bulkMoveToList)
     end]]--
 
 	local newCF = CFrame.new(dataRecord.pos + self.modelData.modelOffset + self.mispredict + Vector3.new(0, dataRecord.stepUp, 0))
-		* CFrame.fromEulerAnglesXYZ(0, dataRecord.angle, 0)
+		* CFrame.fromEulerAnglesXYZ(0, dataRecord.angle + math.rad(180), 0)
 
 	if (bulkMoveToList) then
 		table.insert(bulkMoveToList.parts, self.primaryPart)

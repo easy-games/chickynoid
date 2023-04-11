@@ -1,5 +1,5 @@
 local module = {}
-local path = game.ReplicatedStorage.Shared.Chickynoid
+local path = game.ReplicatedFirst.Packages.Chickynoid
 local MathUtils = require(path.Simulation.MathUtils)
 local Enums = require(path.Enums)
 
@@ -231,3 +231,5 @@ function module:ActiveThink(cmd)
         end
     end
 end
+
+return module

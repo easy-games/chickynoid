@@ -351,7 +351,10 @@ function module:FetchHullsForBox(min, max, playerSize)
     	if (record.hull == nil) then
             record.hull = {}
         end
-		record.hull[fetchExpansionSize] = self:GenerateConvexHullAccurate(record.instance, fetchExpansionSize, self:GenerateSnappedCFrame(record.instance))
+        
+        if (record.hull[fetchExpansionSize]) == nil then
+		    record.hull[fetchExpansionSize] = self:GenerateConvexHullAccurate(record.instance, fetchExpansionSize, self:GenerateSnappedCFrame(record.instance))
+        end
 	end
 	
 		

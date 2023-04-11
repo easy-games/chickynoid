@@ -237,7 +237,7 @@ function ServerChickynoid:HandleClientEvent(server, event, fakeCommand)
             if command.y == nil or typeof(command.y) ~= "number" or command.y ~= command.y then
                 return
             end
-            if command.y > 1 then
+            if command.y > 1 or command.y < -1 then
                 return
             end
             if command.z == nil or typeof(command.z) ~= "number" or command.z ~= command.z then

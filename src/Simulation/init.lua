@@ -247,7 +247,7 @@ function Simulation:DoStepUp(pos, vel, deltaTime)
 
     --Trace back down
     local traceDownPos = stepUpNewPos
-    local hitResult = CollisionModule:Sweep(traceDownPos, traceDownPos - Vector3.new(0, self.constants.aggressiveStep, 0))
+    local hitResult = CollisionModule:Sweep(traceDownPos, traceDownPos - stepVec)
 
     stepUpNewPos = hitResult.endPos
 

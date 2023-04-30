@@ -1,3 +1,7 @@
+local UPDATE_ON_PROP_CHANGE = {
+	"Size", "Position", "Orientation", "CanCollide"
+} --when these properties change within a part. re-calculate its collision
+
 local RunService = game:GetService("RunService")
 local CollectionService = game:GetService("CollectionService")
 
@@ -191,14 +195,14 @@ function module:WritePartToHashMap(instance, hullRecord)
     end
 end
 
- 
-
-function module:RemovePartFromHashMap(instance)
+-- size data is the cached previous cframe/size
+-- used to clear a part's previous record in the hashmap after its cframe or size has changed
+function module:RemovePartFromHashMap(instance, sizeData)
     if instance:GetAttribute("ChickynoidIgnoreRemoval") then
         return
     end
 
-    local minx, miny, minz, maxx, maxy, maxz = self:FindAABB(instance)
+    local minx, miny, minz, maxx, maxy, maxz = self:FindAABB(sizeData or instance)
 
 	if (maxx-minx > self.fatPartSize or maxy-miny > self.fatPartSize or maxz-minz > self.fatPartSize) then
         
@@ -396,6 +400,27 @@ function module:GenerateSnappedCFrame(instance)
         )
 end
 
+local function makeRecord(instance)
+	return {
+		instance = instance,
+		Size = instance.Size,
+		CFrame = instance.CFrame
+	}
+end
+
+function module:UpdateCollisionOnInstance(instance)
+	module:RemovePartFromHashMap(instance, module.hullRecords[instance])
+
+	if instance.CanCollide == false then
+		return
+	end
+
+	local record = makeRecord(instance)
+	self:WritePartToHashMap(instance, record)
+
+	module.hullRecords[instance] = record
+end
+
 function module:ProcessCollisionOnInstance(instance, playerSize)
     if instance:IsA("BasePart") then
         if instance.CanCollide == false then
@@ -432,10 +457,9 @@ function module:ProcessCollisionOnInstance(instance, playerSize)
             return
         end]]--
 
-        local record = {}
-        record.instance = instance
+        local record = makeRecord(instance)
         --record.hull = self:GenerateConvexHullAccurate(instance, playerSize, self:GenerateSnappedCFrame(instance))
-        self:WritePartToHashMap(record.instance, record)
+        self:WritePartToHashMap(instance, record)
 
         module.hullRecords[instance] = record
     end
@@ -843,6 +867,15 @@ function module:MakeWorld(folder, playerSize)
 	local startTime = tick()
 	local meshTime = 0
 
+	local function updateOnChange(instance)
+		for _, prop in pairs(UPDATE_ON_PROP_CHANGE) do
+			instance:GetPropertyChangedSignal(prop):Connect(function()
+				self:ClearCache()
+				self:UpdateCollisionOnInstance(instance)
+			end)
+		end
+	end
+
 	coroutine.wrap(function()
 		local list = folder:GetDescendants()
 		local total = #list
@@ -854,7 +887,10 @@ function module:MakeWorld(folder, playerSize)
 			if (instance:IsA("BasePart") and not instance:IsA("Terrain") and instance.CanCollide == true) then		
 				local begin = tick()
 				self:ProcessCollisionOnInstance(instance, playerSize)
-				local timeTaken = tick()- begin
+
+				updateOnChange(instance)
+
+				local timeTaken = tick() - begin
 				if (instance:IsA("MeshPart")) then
 					meshTime += timeTaken
 				end				
@@ -865,7 +901,7 @@ function module:MakeWorld(folder, playerSize)
             if (tick() - lastTime > maxTime) then
                 lastTime = tick()
       
-				wait()	
+				task.wait()	
 		
                 local progress = counter/total;
                 module.loadProgress = progress;
@@ -893,8 +929,14 @@ function module:MakeWorld(folder, playerSize)
 	
 	 
     folder.DescendantAdded:Connect(function(instance)
+		if not instance:IsA("BasePart") then
+			return
+		end
+
         self:ClearCache()
         self:ProcessCollisionOnInstance(instance, playerSize)
+
+		updateOnChange(instance)
     end)
     
     folder.DescendantRemoving:Connect(function(instance)

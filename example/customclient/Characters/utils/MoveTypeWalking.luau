@@ -1,6 +1,7 @@
 local module = {}
 local path = game.ReplicatedFirst.Packages.Chickynoid
 local MathUtils = require(path.Simulation.MathUtils)
+local CollisionModule = require(path.Simulation.CollisionModule)
 local Enums = require(path.Enums)
 
 function module:Setup(simulation)
@@ -12,19 +13,20 @@ function module:ModifySimulation(simulation)
     simulation:SetMoveState("Walking")
 
     simulation.state.up = Vector3.yAxis
+    simulation.state.crouching = false
 end
 
-function module:ActiveThink(cmd)
+function module:ActiveThink(simulation, cmd)
     --Check ground
     local onGround = nil
-    onGround = self:DoGroundCheck(self.state.pos)
+    onGround = self:DoGroundCheck(simulation.state.pos)
 
     --If the player is on too steep a slope, its not ground
 	if (onGround ~= nil and onGround.normal.Y < self.constants.maxGroundSlope) then
 		
 		--See if we can move downwards?
-		if (self.state.vel.y < 0.1) then
-			local stuck = self:CheckGroundSlopes(self.state.pos)
+		if (simulation.state.vel.y < 0.1) then
+			local stuck = self:CheckGroundSlopes(simulation.state.pos)
 			
 			if (stuck == false) then
 				--we moved, that means the player is on a slope and can free fall
@@ -51,18 +53,36 @@ function module:ActiveThink(cmd)
     local wishDir = nil
     if cmd.x ~= 0 or cmd.z ~= 0 then
         wishDir = Vector3.new(cmd.x, 0, cmd.z).Unit
-        self.state.pushDir = Vector2.new(cmd.x, cmd.z)
+        simulation.state.pushDir = Vector2.new(cmd.x, cmd.z)
     else
-        self.state.pushDir = Vector2.new(0, 0)
+        simulation.state.pushDir = Vector2.new(0, 0)
     end
 
     --Create flat velocity to operate our input command on
     --In theory this should be relative to the ground plane instead...
-    local flatVel = MathUtils:FlatVec(self.state.vel)
+    local flatVel = MathUtils:FlatVec(simulation.state.vel)
 
     --Does the player have an input?
     if wishDir ~= nil then
         if onGround then
+            -- check crouching state
+            if cmd.y < 0 then
+                simulation.state.crouching = true
+                simulation.state.playerSize = Vector3.new(2, 2, 2) --could probably change this to a constant
+            elseif simulation.state.crouching then
+
+                local headHit = CollisionModule:Sweep( --// check to see if player isn't currently under something
+                    simulation.state.pos,
+                    simulation.state.pos + Vector3.new(0, 3, 0),
+                    Vector3.new(2, 5, 2) --could probably change this to a constant
+                )
+                if not headHit.hullRecord then --// only stand up once cleared
+                    simulation.state.crouching = false
+                    simulation.state.playerSize = Vector3.new(2, 5, 2) --also could be a constant
+                    simulation.state.pos = simulation.state.pos + Vector3.new(0, 3, 0) --/// pop player back up?
+                end
+            end
+
             --Moving along the ground under player input
 
             flatVel = MathUtils:GroundAccelerate(
@@ -74,7 +94,7 @@ function module:ActiveThink(cmd)
             )
 
             --Good time to trigger our walk anim
-            if self.state.pushing > 0 then
+            if simulation.state.pushing > 0 then
                 self.characterData:PlayAnimation(Enums.Anims.Push, Enums.AnimChannel.Channel0, false)
             else
                 self.characterData:PlayAnimation(Enums.Anims.Walk, Enums.AnimChannel.Channel0, false)
@@ -96,22 +116,22 @@ function module:ActiveThink(cmd)
     end
 
     --Turn out flatvel back into our vel
-    self.state.vel = Vector3.new(flatVel.x, self.state.vel.y, flatVel.z)
+    simulation.state.vel = Vector3.new(flatVel.x, simulation.state.vel.y, flatVel.z)
 
     --Do jumping?
-    if self.state.jump > 0 then
-        self.state.jump -= cmd.deltaTime
-        if self.state.jump < 0 then
-            self.state.jump = 0
+    if simulation.state.jump > 0 then
+        simulation.state.jump -= cmd.deltaTime
+        if simulation.state.jump < 0 then
+            simulation.state.jump = 0
         end
     end
 
     if onGround ~= nil then
         --jump!
-        if cmd.y > 0 and self.state.jump <= 0 then
-            self.state.vel = Vector3.new(self.state.vel.x, self.constants.jumpPunch, self.state.vel.z)
-            self.state.jump = 0.2 --jumping has a cooldown (think jumping up a staircase)
-            self.state.jumpThrust = self.constants.jumpThrustPower
+        if cmd.y > 0 and simulation.state.jump <= 0 then
+            simulation.state.vel = Vector3.new(simulation.state.vel.x, self.constants.jumpPunch, simulation.state.vel.z)
+            simulation.state.jump = 0.2 --jumping has a cooldown (think jumping up a staircase)
+            simulation.state.jumpThrust = self.constants.jumpThrustPower
             self.characterData:PlayAnimation(Enums.Anims.Jump, Enums.AnimChannel.Channel0, true, 0.2)
         end
 
@@ -123,8 +143,8 @@ function module:ActiveThink(cmd)
                 local vec3 = instance:GetAttribute("launch")
                 if vec3 then
                     local dir = instance.CFrame:VectorToWorldSpace(vec3)
-                    self.state.vel = dir
-                    self.state.jump = 0.2
+                    simulation.state.vel = dir
+                    simulation.state.jump = 0.2
                     self.characterData:PlayAnimation(Enums.Anims.Jump, Enums.AnimChannel.Channel0, true, 0.2)
                 end
             end
@@ -133,42 +153,42 @@ function module:ActiveThink(cmd)
 
     --In air?
     if onGround == nil then
-        self.state.inAir += cmd.deltaTime
-        if self.state.inAir > 10 then
-            self.state.inAir = 10 --Capped just to keep the state var reasonable
+        simulation.state.inAir += cmd.deltaTime
+        if simulation.state.inAir > 10 then
+            simulation.state.inAir = 10 --Capped just to keep the state var reasonable
         end
 
         --Jump thrust
         if cmd.y > 0 then
-            if self.state.jumpThrust > 0 then
-                self.state.vel += Vector3.new(0, self.state.jumpThrust * cmd.deltaTime, 0)
-                self.state.jumpThrust = MathUtils:Friction(
-                    self.state.jumpThrust,
+            if simulation.state.jumpThrust > 0 then
+                simulation.state.vel += Vector3.new(0, simulation.state.jumpThrust * cmd.deltaTime, 0)
+                simulation.state.jumpThrust = MathUtils:Friction(
+                    simulation.state.jumpThrust,
                     self.constants.jumpThrustDecay,
                     cmd.deltaTime
                 )
             end
-            if self.state.jumpThrust < 0.001 then
-                self.state.jumpThrust = 0
+            if simulation.state.jumpThrust < 0.001 then
+                simulation.state.jumpThrust = 0
             end
         else
-            self.state.jumpThrust = 0
+            simulation.state.jumpThrust = 0
         end
 
         --gravity
-        self.state.vel += Vector3.new(0, self.constants.gravity * cmd.deltaTime, 0)
+        simulation.state.vel += Vector3.new(0, self.constants.gravity * cmd.deltaTime, 0)
 
         --Switch to falling if we've been off the ground for a bit
-        if self.state.vel.y <= 0.01 and self.state.inAir > 0.5 then
+        if simulation.state.vel.y <= 0.01 and simulation.state.inAir > 0.5 then
             self.characterData:PlayAnimation(Enums.Anims.Fall, Enums.AnimChannel.Channel0, false)
         end
     else
-        self.state.inAir = 0
+        simulation.state.inAir = 0
     end
 
     --Sweep the player through the world, once flat along the ground, and once "step up'd"
     local stepUpResult = nil
-    local walkNewPos, walkNewVel, hitSomething = self:ProjectVelocity(self.state.pos, self.state.vel, cmd.deltaTime)
+    local walkNewPos, walkNewVel, hitSomething = self:ProjectVelocity(simulation.state.pos, simulation.state.vel, cmd.deltaTime)
 
     --Did we crashland
     if onGround == nil and hitSomething == true then
@@ -182,27 +202,27 @@ function module:ActiveThink(cmd)
     end
 
     -- Do we attempt a stepup?                              (not jumping!)
-    if onGround ~= nil and hitSomething == true and self.state.jump == 0 then
-        stepUpResult = self:DoStepUp(self.state.pos, self.state.vel, cmd.deltaTime)
+    if onGround ~= nil and hitSomething == true and simulation.state.jump == 0 then
+        stepUpResult = self:DoStepUp(simulation.state.pos, simulation.state.vel, cmd.deltaTime)
     end
 
     --Choose which one to use, either the original move or the stepup
     if stepUpResult ~= nil then
-        self.state.stepUp += stepUpResult.stepUp
-        self.state.pos = stepUpResult.pos
-        self.state.vel = stepUpResult.vel
+        simulation.state.stepUp += stepUpResult.stepUp
+        simulation.state.pos = stepUpResult.pos
+        simulation.state.vel = stepUpResult.vel
     else
-        self.state.pos = walkNewPos
-        self.state.vel = walkNewVel
+        simulation.state.pos = walkNewPos
+        simulation.state.vel = walkNewVel
     end
 
     --Do stepDown
     if true then
-        if startedOnGround ~= nil and self.state.jump == 0 and self.state.vel.y <= 0 then
-            local stepDownResult = self:DoStepDown(self.state.pos)
+        if startedOnGround ~= nil and simulation.state.jump == 0 and simulation.state.vel.y <= 0 then
+            local stepDownResult = self:DoStepDown(simulation.state.pos)
             if stepDownResult ~= nil then
-                self.state.stepUp += stepDownResult.stepDown
-                self.state.pos = stepDownResult.pos
+                simulation.state.stepUp += stepDownResult.stepDown
+                simulation.state.pos = stepDownResult.pos
             end
         end
     end
@@ -211,21 +231,21 @@ function module:ActiveThink(cmd)
     if (self.constants.aimlock == 1) then
         
         if (cmd.fa) then
-            local vec = cmd.fa - self.state.pos
+            local vec = cmd.fa - simulation.state.pos
 
-			self.state.targetAngle  = MathUtils:PlayerVecToAngle(vec)
-			self.state.angle = MathUtils:LerpAngle(
-				self.state.angle,
-				self.state.targetAngle,
+			simulation.state.targetAngle  = MathUtils:PlayerVecToAngle(vec)
+			simulation.state.angle = MathUtils:LerpAngle(
+				simulation.state.angle,
+				simulation.state.targetAngle,
 				self.constants.turnSpeedFrac * cmd.deltaTime
 			)
         end
     else    
         if wishDir ~= nil then
-            self.state.targetAngle = MathUtils:PlayerVecToAngle(wishDir)
-            self.state.angle = MathUtils:LerpAngle(
-                self.state.angle,
-                self.state.targetAngle,
+            simulation.state.targetAngle = MathUtils:PlayerVecToAngle(wishDir)
+            simulation.state.angle = MathUtils:LerpAngle(
+                simulation.state.angle,
+                simulation.state.targetAngle,
                 self.constants.turnSpeedFrac * cmd.deltaTime
             )
         end

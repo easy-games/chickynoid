@@ -37,7 +37,7 @@ function Simulation.new(userId)
     self.state.jumpThrust = 0
     self.state.pushing = 0 --External flag comes from server (ungh >_<')
     self.state.moveState = 0 --Walking!
-    
+    self.state.playerSize = Vector3.new(3, 5, 3)
 
     self.characterData = CharacterData.new()
 
@@ -240,14 +240,14 @@ function Simulation:DoStepUp(pos, vel, deltaTime)
     local stepVec = Vector3.new(0, self.constants.stepSize, 0)
     --first move upwards as high as we can go
 
-    local headHit = CollisionModule:Sweep(pos, pos + stepVec)
+    local headHit = CollisionModule:Sweep(pos, pos + stepVec, self.state.playerSize)
 
     --Project forwards
     local stepUpNewPos, stepUpNewVel, _stepHitSomething = self:ProjectVelocity(headHit.endPos, flatVel, deltaTime)
 
     --Trace back down
     local traceDownPos = stepUpNewPos
-    local hitResult = CollisionModule:Sweep(traceDownPos, traceDownPos - stepVec)
+    local hitResult = CollisionModule:Sweep(traceDownPos, traceDownPos - stepVec, self.state.playerSize)
 
     stepUpNewPos = hitResult.endPos
 
@@ -276,7 +276,7 @@ end
 --Magic to stick to the ground instead of falling on every stair
 function Simulation:DoStepDown(pos)
     local stepVec = Vector3.new(0, self.constants.stepSize, 0)
-    local hitResult = CollisionModule:Sweep(pos, pos - stepVec)
+    local hitResult = CollisionModule:Sweep(pos, pos - stepVec, self.state.playerSize)
 
     if
         hitResult.startSolid == false
@@ -308,7 +308,7 @@ function Simulation:DecayStepUp(deltaTime)
 end
 
 function Simulation:DoGroundCheck(pos)
-    local results = CollisionModule:Sweep(pos + Vector3.new(0, 0.1, 0), pos + Vector3.new(0, -0.1, 0))
+    local results = CollisionModule:Sweep(pos + Vector3.new(0, 0.1, 0), pos + Vector3.new(0, -0.1, 0), self.state.playerSize)
 
     if results.allSolid == true or results.startSolid == true then
         --We're stuck, pretend we're in the air
@@ -345,7 +345,7 @@ function Simulation:ProjectVelocity(startPos, startVel, deltaTime)
         end
 
         --We only operate on a scaled down version of velocity
-        local result = CollisionModule:Sweep(movePos, movePos + (moveVel * timeLeft))
+        local result = CollisionModule:Sweep(movePos, movePos + (moveVel * timeLeft), self.state.playerSize)
 
         --Update our position
         if result.fraction > 0 then
@@ -393,7 +393,7 @@ function Simulation:CheckGroundSlopes(startPos)
 	local moveDir = Vector3.new(0,-1,0)
 	
 	--We only operate on a scaled down version of velocity
-	local result = CollisionModule:Sweep(movePos, movePos + moveDir)
+	local result = CollisionModule:Sweep(movePos, movePos + moveDir, self.state.playerSize)
 
 	--Update our position
 	if result.fraction > 0 then
@@ -414,7 +414,7 @@ function Simulation:CheckGroundSlopes(startPos)
 	end
 	
 	--Try and move it
-	local result = CollisionModule:Sweep(movePos, movePos + moveDir)
+	local result = CollisionModule:Sweep(movePos, movePos + moveDir, self.state.playerSize)
 	if (result.fraction == 0) then
 		return true --stuck
 	end

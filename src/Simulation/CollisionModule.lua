@@ -849,14 +849,13 @@ function module:MakeWorld(folder, playerSize)
 
 	coroutine.wrap(function()
 		local list = folder:GetDescendants()
-		local total = #folder:GetDescendants()
+		local total = #list
 		
 		local lastTime = tick()
 		for counter = 1, total do		
 			local instance = list[counter]
-						
-			if (instance:IsA("BasePart") and instance.CanCollide == true) then
-						
+
+			if (instance:IsA("BasePart") and not instance:IsA("Terrain") and instance.CanCollide == true) then		
 				local begin = tick()
 				self:ProcessCollisionOnInstance(instance, playerSize)
 				local timeTaken = tick()- begin

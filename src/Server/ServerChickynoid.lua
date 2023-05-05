@@ -231,10 +231,19 @@ function ServerChickynoid:HandleClientEvent(server, event, fakeCommand)
             if command.x == nil or typeof(command.x) ~= "number" or command.x ~= command.x then
                 return
             end
+            if command.x > 1 or command.x < -1 then
+                return
+            end
             if command.y == nil or typeof(command.y) ~= "number" or command.y ~= command.y then
                 return
             end
+            if command.y > 1 or command.y < -1 then
+                return
+            end
             if command.z == nil or typeof(command.z) ~= "number" or command.z ~= command.z then
+                return
+            end
+            if command.z > 1 or command.z < -1 then
                 return
             end
             if

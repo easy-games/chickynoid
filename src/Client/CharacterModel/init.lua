@@ -182,6 +182,15 @@ end
 
 --you shouldnt ever have to call this directly, change the characterData to trigger this
 function CharacterModel:PlayAnimation(enum, force)
+	local tracks = self.tracks
+
+	if enum == 0 then
+		for _, value in pairs(tracks) do
+			value:Stop(0.1)
+		end
+		return
+	end
+
 	local name = "Idle"
 	for key, value in pairs(Enums.Anims) do
 		if value == enum then
@@ -195,8 +204,6 @@ function CharacterModel:PlayAnimation(enum, force)
 		self.startingAnimation = enum
 	else
 		if (self.modelData) then
-
-			local tracks = self.tracks
 			local track = tracks[name]
 			if track then
 				if self.playingTrack ~= track or force == true then

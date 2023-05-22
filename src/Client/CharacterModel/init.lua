@@ -210,6 +210,10 @@ function CharacterModel:PlayAnimation(enum, force)
 					self.playingTrack = track
 					self.playingTrackNum = enum
 				end
+			else
+				for _, value in pairs(tracks) do
+					value:Stop(0.1)
+				end
 			end
 		end
 	end

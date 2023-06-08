@@ -753,4 +753,8 @@ function ChickynoidServer:RecreateCollisions(rootFolder)
     CollisionModule:MakeWorld(self.collisionRootFolder, self.playerSize) 
 end
 
+function ChickynoidServer:GetCollisionRoot()
+	return self.collisionRootFolder
+end
+
 return ChickynoidServer

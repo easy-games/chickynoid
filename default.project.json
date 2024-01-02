@@ -5,28 +5,30 @@
 		"Workspace": {
 			"$className": "Workspace",
 			"$path": "example/workspace"
+		
 		},
 
 		"ReplicatedFirst": {
 			"$className": "ReplicatedFirst",
 			"Examples": {
-				"$path": "example/customclient"
+				"$path": "src/ReplicatedFirst/Examples"
 			},
 			"Packages": {
-				"$className": "Folder",
-				"Chickynoid": {
-					"$path": "src"
-				}
+				"$path": "src/ReplicatedFirst/Packages"
 			}
+
 		},
 
 		"ServerScriptService": {
 			"$className": "ServerScriptService",
-			"$path": "example/server",
 			"Examples": {
-				"$path": "example/customserver"
+				"$path": "src/ServerScriptService/Examples"
+			},
+			"Packages": {
+				"$path": "src/ServerScriptService/Packages"
 			}
 		},
+
 
 		"StarterPlayer": {
 			"$className": "StarterPlayer",

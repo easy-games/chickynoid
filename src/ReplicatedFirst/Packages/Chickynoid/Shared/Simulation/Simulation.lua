@@ -55,6 +55,7 @@ function Simulation.new(userId)
     self.constants.turnSpeedFrac = 8 --seems about right? Very fast.
     self.constants.runFriction = 0.01 --friction applied after max speed
     self.constants.brakeFriction = 0.02 --Lower is brake harder, dont use 0
+    self.constants.airBrakeFriction = 1 --Friction while player is in the air with no input. Lower is better, dont use 0
     self.constants.maxGroundSlope = 0.05 --about 89o
     self.constants.jumpThrustPower = 0    --No variable height jumping 
     self.constants.jumpThrustDecay = 0
@@ -571,8 +572,9 @@ function Simulation:MovetypeWalking(cmd)
 
             --Enter idle
 			self.characterData:PlayAnimation("Idle", Enums.AnimChannel.Channel0, false)
-        -- else
+        else
             --moving through the air with no input
+            flatVel = MathUtils:VelocityFriction(flatVel, self.constants.airBrakeFriction, cmd.deltaTime)
         end
     end
 

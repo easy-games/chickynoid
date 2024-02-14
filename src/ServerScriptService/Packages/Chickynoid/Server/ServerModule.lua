@@ -23,6 +23,8 @@ local WeaponsModule = require(script.Parent.WeaponsServer)
 local CollisionModule = require(path.Shared.Simulation.CollisionModule)
 local Antilag = require(script.Parent.Antilag)
 local FastSignal = require(path.Shared.Vendor.FastSignal)
+local RemotePacketSizeCounter = require(game.ReplicatedStorage.Shared.RemotePacketSizeCounter)
+
 local ServerMods = require(script.Parent.ServerMods)
 local Animations = require(path.Shared.Simulation.Animations)
 
@@ -90,6 +92,7 @@ ServerModule.flags.DEBUG_BOT_BANDWIDTH = false
 ]=]
 function ServerModule:Setup()
     self.worldRoot = self:GetDoNotReplicate()
+    -- self.worldRoot = workspace
 
     Players.PlayerAdded:Connect(function(player)
         self:PlayerConnected(player)
@@ -182,7 +185,7 @@ function ServerModule:AssignSlot(playerRecord)
     return false
 end
 
-function ServerModule:AddConnection(userId, player)
+function ServerModule:AddConnection(userId, player, characterMod)
     if self.playerRecords[userId] ~= nil or self.loadingPlayerRecords[userId] ~= nil then
         warn("Player was already connected.", userId)
         self:PlayerDisconnected(userId)
@@ -210,7 +213,7 @@ function ServerModule:AddConnection(userId, player)
 	playerRecord.OnBeforePlayerSpawn = FastSignal.new()
 	playerRecord.visHistoryList = {}
 
-    playerRecord.characterMod = "HumanoidChickynoid"
+    playerRecord.characterMod = characterMod or "HumanoidChickynoid"
 	 	
 	playerRecord.lastConfirmedSnapshotServerFrame = nil --Stays nil til a player confirms they've seen a whole snapshot, for delta compression purposes
 		
@@ -324,6 +327,8 @@ function ServerModule:AddConnection(userId, player)
         self.chickynoid = chickynoid
         chickynoid.playerRecord = self
 
+		-- This can be really inefficient when you have a ton of parts! Consider
+		-- changing this spawn behavior, maybe CollectionService or something.
         local list = {}
         for _, obj: SpawnLocation in pairs(workspace:GetDescendants()) do
             if obj:IsA("SpawnLocation") and obj.Enabled == true then
@@ -666,7 +671,13 @@ function ServerModule:UpdatePlayerStatesToPlayers()
 			event.serverFrame = self.serverTotalFrames
 			event.playerStateDelta, event.playerStateDeltaFrame = playerRecord.chickynoid:ConstructPlayerStateDelta(self.serverTotalFrames)
 
-			playerRecord:SendUnreliableEventToClient(event)
+			-- // CHECK PACKET SIZE, PROBABLY HUGE FOR A BIG STATE
+			local s = RemotePacketSizeCounter.GetDataByteSize(event.playerStateDelta)
+			if s > 700 then
+				playerRecord:SendEventToClient(event)
+			else
+				playerRecord:SendUnreliableEventToClient(event)
+			end
 			
 			--Clear the error state flag 
 			playerRecord.chickynoid.errorState = Enums.NetworkProblemState.None
@@ -718,7 +729,7 @@ function ServerModule:UpdatePlayerThinks(deltaTime)
 		if playerRecord.chickynoid then
 			playerRecord.chickynoid:Think(self, self.serverSimulationTime, deltaTime)
 
-			if playerRecord.chickynoid.simulation.state.pos.y < -2000 then
+			if playerRecord.chickynoid.simulation.state.position.y < -2000 then
 				playerRecord:Despawn()
 			end
 		end

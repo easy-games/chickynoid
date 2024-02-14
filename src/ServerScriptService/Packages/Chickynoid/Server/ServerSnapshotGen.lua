@@ -220,7 +220,7 @@ function module:DoWork(playerRecords, serverTotalFrames, serverSimulationTime, d
 			for _,snapshot in queue do
 				snapshot.m = #queue
 				
-				local s = RemotePacketSizeCounter.GetDataByteSize(event.playerStateDelta)
+				local s = RemotePacketSizeCounter.GetDataByteSize(snapshot.playerStateDelta)
 				if s > 700 then
 					playerRecord:SendEventToClient(snapshot)
 				else

@@ -8,6 +8,7 @@ local Profiler = require(path.Shared.Vendor.Profiler)
 local CharacterData = require(path.Shared.Simulation.CharacterData)
 
 local DeltaTable = require(path.Shared.Vendor.DeltaTable)
+local RemotePacketSizeCounter = require(path.Shared.Vendor.RemotePacketSizeCounter)
 local Enums = require(path.Shared.Enums)
 local EventType = Enums.EventType
 local absoluteMaxSizeOfBuffer = 4096
@@ -219,7 +220,12 @@ function module:DoWork(playerRecords, serverTotalFrames, serverSimulationTime, d
 			for _,snapshot in queue do
 				snapshot.m = #queue
 				
-				playerRecord:SendUnreliableEventToClient(snapshot)
+				local s = RemotePacketSizeCounter.GetDataByteSize(event.playerStateDelta)
+				if s > 700 then
+					playerRecord:SendEventToClient(snapshot)
+				else
+					playerRecord:SendUnreliableEventToClient(snapshot)
+				end
 			end
 		end
 	end

@@ -23,7 +23,7 @@ local WeaponsModule = require(script.Parent.WeaponsServer)
 local CollisionModule = require(path.Shared.Simulation.CollisionModule)
 local Antilag = require(script.Parent.Antilag)
 local FastSignal = require(path.Shared.Vendor.FastSignal)
-local RemotePacketSizeCounter = require(game.ReplicatedStorage.Shared.RemotePacketSizeCounter)
+local RemotePacketSizeCounter = require(path.Shared.Vendor.RemotePacketSizeCounter)
 
 local ServerMods = require(script.Parent.ServerMods)
 local Animations = require(path.Shared.Simulation.Animations)

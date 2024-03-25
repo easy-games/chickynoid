@@ -204,7 +204,7 @@ function ServerModule:AddConnection(userId, player)
 	playerRecord.pendingWorldState = true
     
     playerRecord.allowedToSpawn = true
-    playerRecord.respawnDelay = 2
+    playerRecord.respawnDelay = Players.RespawnTime
     playerRecord.respawnTime = tick() + playerRecord.respawnDelay
 
 	playerRecord.OnBeforePlayerSpawn = FastSignal.new()
@@ -299,6 +299,7 @@ function ServerModule:AddConnection(userId, player)
             print("Despawned!")
             self.chickynoid:Destroy()
             self.chickynoid = nil
+	    self.respawnDelay = Players.RespawnTime
             self.respawnTime = tick() + self.respawnDelay
 
             local event = { t = EventType.ChickynoidRemoving }

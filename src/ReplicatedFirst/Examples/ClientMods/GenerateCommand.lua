@@ -97,7 +97,7 @@ function module:GenerateCommand(command, serverTime: number, dt: number)
             command.x = moveVector.X
             command.y = moveVector.Y
             command.z = moveVector.Z
-	    command.magnitude = magnitude
+	    command.magnitude = math.min(magnitude, 1) --movevector magnitude exceeds a strength of 1 otherwise
         end
     end
     

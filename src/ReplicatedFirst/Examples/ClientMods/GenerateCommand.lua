@@ -86,15 +86,18 @@ function module:GenerateCommand(command, serverTime: number, dt: number)
     command.x = 0
     command.y = 0
     command.z = 0
+    command.magnitude = 0
 
     GetControlModule()
     if ControlModule ~= nil then
         local moveVector = ControlModule:GetMoveVector() :: Vector3
-        if moveVector.Magnitude > 0 then
+	local magnitude = moveVector.Magnitude
+        if magnitude > 0 then
             moveVector = moveVector.Unit
             command.x = moveVector.X
             command.y = moveVector.Y
             command.z = moveVector.Z
+	    command.magnitude = magnitude
         end
     end
     

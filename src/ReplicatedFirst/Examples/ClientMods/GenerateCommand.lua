@@ -91,13 +91,12 @@ function module:GenerateCommand(command, serverTime: number, dt: number)
     GetControlModule()
     if ControlModule ~= nil then
         local moveVector = ControlModule:GetMoveVector() :: Vector3
-	local magnitude = moveVector.Magnitude
-        if magnitude > 0 then
+	command.magnitude = math.min(moveVector.Magnitude, 1) --movevector magnitude exceeds a strength of 1 otherwise
+        if command.magnitude > 0 then
             moveVector = moveVector.Unit
             command.x = moveVector.X
             command.y = moveVector.Y
             command.z = moveVector.Z
-	    command.magnitude = math.min(magnitude, 1) --movevector magnitude exceeds a strength of 1 otherwise
         end
     end
     

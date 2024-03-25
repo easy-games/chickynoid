@@ -55,7 +55,7 @@ function module.ActiveThink(simulation, cmd)
 
         simulation.state.vel = MathUtils:GroundAccelerate(
             wishDir,
-            simulation.constants.maxSpeed,
+            simulation.constants.maxSpeed * cmd.magnitude,
             simulation.constants.accel,
             simulation.state.vel,
             cmd.deltaTime
